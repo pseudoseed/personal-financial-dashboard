@@ -5,7 +5,13 @@ export async function GET() {
   try {
     const accounts = await prisma.account.findMany({
       include: {
-        plaidItem: true,
+        plaidItem: {
+          select: {
+            institutionId: true,
+            institutionName: true,
+            institutionLogo: true,
+          },
+        },
         balances: {
           orderBy: {
             date: "desc",
@@ -21,7 +27,9 @@ export async function GET() {
       type: account.type,
       subtype: account.subtype,
       mask: account.mask,
-      institution: account.plaidItem.institutionId,
+      institution:
+        account.plaidItem.institutionName || account.plaidItem.institutionId,
+      institutionLogo: account.plaidItem.institutionLogo,
       balance: account.balances[0],
     }));
 

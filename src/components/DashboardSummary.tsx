@@ -1,0 +1,95 @@
+"use client";
+
+interface Account {
+  id: string;
+  type: string;
+  subtype: string | null;
+  balance: {
+    current: number;
+    available: number | null;
+    limit: number | null;
+  };
+}
+
+interface DashboardSummaryProps {
+  accounts: Account[];
+}
+
+export function DashboardSummary({ accounts }: DashboardSummaryProps) {
+  const summary = accounts.reduce(
+    (acc, account) => {
+      const type = account.type.toLowerCase();
+      const balance = account.balance.current;
+
+      if (type === "credit" || type === "loan") {
+        acc.totalLiabilities += Math.abs(balance);
+      } else {
+        acc.totalAssets += balance;
+      }
+
+      if (type === "credit") {
+        acc.totalCredit += account.balance.limit || 0;
+        acc.usedCredit += Math.abs(balance);
+      }
+
+      return acc;
+    },
+    {
+      totalAssets: 0,
+      totalLiabilities: 0,
+      totalCredit: 0,
+      usedCredit: 0,
+    }
+  );
+
+  const netWorth = summary.totalAssets - summary.totalLiabilities;
+  const creditUtilization = summary.totalCredit
+    ? (summary.usedCredit / summary.totalCredit) * 100
+    : 0;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="bg-white p-4 rounded-lg shadow-md">
+        <h3 className="text-sm font-medium text-gray-500">Net Worth</h3>
+        <p
+          className={`text-2xl font-bold ${
+            netWorth >= 0 ? "text-green-600" : "text-red-600"
+          }`}
+        >
+          ${netWorth.toLocaleString()}
+        </p>
+      </div>
+
+      <div className="bg-white p-4 rounded-lg shadow-md">
+        <h3 className="text-sm font-medium text-gray-500">Total Assets</h3>
+        <p className="text-2xl font-bold text-gray-900">
+          ${summary.totalAssets.toLocaleString()}
+        </p>
+      </div>
+
+      <div className="bg-white p-4 rounded-lg shadow-md">
+        <h3 className="text-sm font-medium text-gray-500">Total Liabilities</h3>
+        <p className="text-2xl font-bold text-gray-900">
+          ${summary.totalLiabilities.toLocaleString()}
+        </p>
+      </div>
+
+      <div className="bg-white p-4 rounded-lg shadow-md">
+        <h3 className="text-sm font-medium text-gray-500">
+          Credit Utilization
+        </h3>
+        <p className="text-2xl font-bold text-gray-900">
+          {creditUtilization.toFixed(1)}%
+        </p>
+        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+          <div
+            className={`h-2 rounded-full ${
+              creditUtilization > 30 ? "bg-red-500" : "bg-green-500"
+            }`}
+            style={{ width: `${Math.min(creditUtilization, 100)}%` }}
+          ></div>
+        </div>
+      </div>
+    </div>
+  );
+}

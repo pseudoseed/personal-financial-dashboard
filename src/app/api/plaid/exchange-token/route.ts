@@ -1,6 +1,26 @@
 import { NextResponse } from "next/server";
 import { plaidClient } from "@/lib/plaid";
 import { prisma } from "@/lib/db";
+import { CountryCode } from "plaid";
+import { institutionLogos } from "@/lib/institutionLogos";
+
+function formatLogoUrl(
+  logo: string | null | undefined,
+  institutionId: string
+): string | null {
+  // First try the Plaid-provided logo
+  if (logo) {
+    // Check if it's already a data URL or regular URL
+    if (logo.startsWith("data:") || logo.startsWith("http")) {
+      return logo;
+    }
+    // Otherwise, assume it's a base64 string and format it as a data URL
+    return `data:image/png;base64,${logo}`;
+  }
+
+  // If no Plaid logo, try the fallback logo
+  return institutionLogos[institutionId] || null;
+}
 
 export async function POST(request: Request) {
   try {
@@ -17,17 +37,30 @@ export async function POST(request: Request) {
       access_token,
     });
 
+    const institutionId = itemResponse.data.item.institution_id;
+    if (!institutionId) {
+      throw new Error("Institution ID is missing");
+    }
+
+    // Get institution details
     const institutionResponse = await plaidClient.institutionsGetById({
-      institution_id: itemResponse.data.item.institution_id,
-      country_codes: ["US"],
+      institution_id: institutionId,
+      country_codes: [CountryCode.Us],
+      options: {
+        include_optional_metadata: true,
+      },
     });
 
-    // Save the item in the database
+    const institution = institutionResponse.data.institution;
+
+    // Save the item in the database with institution details
     const plaidItem = await prisma.plaidItem.create({
       data: {
         itemId: item_id,
         accessToken: access_token,
-        institutionId: itemResponse.data.item.institution_id,
+        institutionId,
+        institutionName: institution.name,
+        institutionLogo: formatLogoUrl(institution.logo, institutionId),
       },
     });
 
@@ -62,7 +95,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      institution: institutionResponse.data.institution.name,
+      institution: institution.name,
     });
   } catch (error) {
     console.error("Error exchanging token:", error);

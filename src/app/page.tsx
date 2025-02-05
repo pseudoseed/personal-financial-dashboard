@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { AccountTypeChart } from "@/components/AccountTypeChart";
 import { FinancialGroupChart } from "@/components/FinancialGroupChart";
+import { DashboardSummary } from "@/components/DashboardSummary";
+import { AccountCard } from "@/components/AccountCard";
 
 interface Account {
   id: string;
@@ -14,6 +15,7 @@ interface Account {
   subtype: string | null;
   mask: string | null;
   institution: string;
+  institutionLogo: string | null;
   balance: {
     current: number;
     available: number | null;
@@ -24,6 +26,8 @@ interface Account {
 export default function Home() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRefreshingInstitutions, setIsRefreshingInstitutions] =
+    useState(false);
 
   const { data: accounts, refetch: refetchAccounts } = useQuery<Account[]>({
     queryKey: ["accounts"],
@@ -34,8 +38,34 @@ export default function Home() {
     },
   });
 
-  const totalBalance =
-    accounts?.reduce((sum, account) => sum + account.balance.current, 0) || 0;
+  // Group accounts by institution
+  const accountsByInstitution =
+    accounts?.reduce((acc, account) => {
+      if (!acc[account.institution]) {
+        acc[account.institution] = [];
+      }
+      acc[account.institution].push(account);
+      return acc;
+    }, {} as Record<string, Account[]>) || {};
+
+  const refreshInstitutions = async () => {
+    try {
+      setIsRefreshingInstitutions(true);
+      const response = await fetch("/api/plaid/refresh-institutions", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh institutions");
+      }
+
+      await refetchAccounts();
+    } catch (error) {
+      console.error("Error refreshing institutions:", error);
+    } finally {
+      setIsRefreshingInstitutions(false);
+    }
+  };
 
   const refreshBalances = async () => {
     try {
@@ -98,18 +128,46 @@ export default function Home() {
   }, [linkToken]);
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold">Financial Dashboard</h1>
-            {accounts?.length ? (
-              <p className="text-gray-600 mt-2">
-                Total Balance: ${totalBalance.toLocaleString()}
-              </p>
-            ) : null}
           </div>
           <div className="space-x-4">
+            <button
+              onClick={refreshInstitutions}
+              disabled={isRefreshingInstitutions || !accounts?.length}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 inline-flex items-center"
+            >
+              {isRefreshingInstitutions ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Refreshing Institutions...
+                </>
+              ) : (
+                "Refresh Institutions"
+              )}
+            </button>
             <button
               onClick={refreshBalances}
               disabled={isRefreshing || !accounts?.length}
@@ -154,52 +212,53 @@ export default function Home() {
         </div>
 
         {accounts?.length ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <AccountTypeChart accounts={accounts} />
-            <FinancialGroupChart accounts={accounts} />
-          </div>
-        ) : null}
+          <>
+            <DashboardSummary accounts={accounts} />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {accounts?.map((account) => (
-            <Link
-              href={`/accounts/${account.id}`}
-              key={account.id}
-              className="block transition-transform hover:scale-105"
-            >
-              <div className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">{account.name}</h3>
-                    <p className="text-sm text-gray-600">
-                      {account.type} {account.subtype && `- ${account.subtype}`}
-                    </p>
-                    {account.mask && (
-                      <p className="text-sm text-gray-600">
-                        ****{account.mask}
-                      </p>
-                    )}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <AccountTypeChart accounts={accounts} />
+              <FinancialGroupChart accounts={accounts} />
+            </div>
+
+            <div className="space-y-8">
+              {Object.entries(accountsByInstitution).map(
+                ([institution, institutionAccounts]) => (
+                  <div
+                    key={institution}
+                    className="bg-white p-6 rounded-lg shadow-md"
+                  >
+                    <h2 className="text-xl font-semibold mb-4">
+                      {institution}
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {institutionAccounts
+                        .sort((a, b) => {
+                          // Sort by type: checking > savings > investment > credit > loan
+                          const typeOrder = {
+                            depository: 1,
+                            investment: 2,
+                            credit: 3,
+                            loan: 4,
+                          };
+                          return (
+                            (typeOrder[
+                              a.type.toLowerCase() as keyof typeof typeOrder
+                            ] || 99) -
+                            (typeOrder[
+                              b.type.toLowerCase() as keyof typeof typeOrder
+                            ] || 99)
+                          );
+                        })
+                        .map((account) => (
+                          <AccountCard key={account.id} {...account} />
+                        ))}
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-2xl font-bold">
-                    ${account.balance.current.toFixed(2)}
-                  </p>
-                  {account.balance.available && (
-                    <p className="text-sm text-gray-600">
-                      Available: ${account.balance.available.toFixed(2)}
-                    </p>
-                  )}
-                  {account.balance.limit && (
-                    <p className="text-sm text-gray-600">
-                      Limit: ${account.balance.limit.toFixed(2)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+                )
+              )}
+            </div>
+          </>
+        ) : null}
       </div>
     </main>
   );
