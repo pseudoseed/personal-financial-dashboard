@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model PlaidItem {
+  id            String    @id @default(cuid())
+  itemId        String    @unique // Plaid's item_id
+  accessToken   String
+  institutionId String
+  accounts      Account[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id        String           @id @default(cuid())
+  plaidId   String           @unique // Plaid's account_id
+  name      String
+  type      String
+  subtype   String?
+  mask      String?
+  plaidItem PlaidItem        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId    String
+  balances  AccountBalance[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model AccountBalance {
+  id        String   @id @default(cuid())
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String
+  current   Float
+  available Float?
+  limit     Float?
+  date      DateTime @default(now())
+
+  @@index([date])
+}
