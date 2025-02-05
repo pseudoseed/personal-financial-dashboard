@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { AccountTypeChart } from "@/components/AccountTypeChart";
+import { FinancialGroupChart } from "@/components/FinancialGroupChart";
 
 interface Account {
   id: string;
@@ -31,6 +33,9 @@ export default function Home() {
       return response.json();
     },
   });
+
+  const totalBalance =
+    accounts?.reduce((sum, account) => sum + account.balance.current, 0) || 0;
 
   const refreshBalances = async () => {
     try {
@@ -96,7 +101,14 @@ export default function Home() {
     <main className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Financial Dashboard</h1>
+          <div>
+            <h1 className="text-3xl font-bold">Financial Dashboard</h1>
+            {accounts?.length ? (
+              <p className="text-gray-600 mt-2">
+                Total Balance: ${totalBalance.toLocaleString()}
+              </p>
+            ) : null}
+          </div>
           <div className="space-x-4">
             <button
               onClick={refreshBalances}
@@ -140,6 +152,13 @@ export default function Home() {
             </button>
           </div>
         </div>
+
+        {accounts?.length ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <AccountTypeChart accounts={accounts} />
+            <FinancialGroupChart accounts={accounts} />
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {accounts?.map((account) => (
