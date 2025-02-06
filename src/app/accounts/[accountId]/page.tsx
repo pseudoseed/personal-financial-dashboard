@@ -81,12 +81,15 @@ export default function AccountPage({
     );
   }
 
+  // Reverse the data for the chart to show progression over time
   const chartData = {
-    labels: history.map((item) => format(new Date(item.date), "MMM d, yyyy")),
+    labels: [...history]
+      .reverse()
+      .map((item) => format(new Date(item.date), "MMM d, yyyy")),
     datasets: [
       {
         label: "Current Balance",
-        data: history.map((item) => item.current),
+        data: [...history].reverse().map((item) => item.current),
         borderColor: "rgb(59, 130, 246)",
         backgroundColor: "rgba(59, 130, 246, 0.5)",
         tension: 0.1,
@@ -95,7 +98,7 @@ export default function AccountPage({
         ? [
             {
               label: "Available Balance",
-              data: history.map((item) => item.available),
+              data: [...history].reverse().map((item) => item.available),
               borderColor: "rgb(34, 197, 94)",
               backgroundColor: "rgba(34, 197, 94, 0.5)",
               tension: 0.1,

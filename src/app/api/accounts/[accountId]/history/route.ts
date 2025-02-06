@@ -3,15 +3,18 @@ import { prisma } from "@/lib/db";
 
 export async function GET(
   request: Request,
-  { params }: { params: { accountId: string } }
+  context: { params: { accountId: string } }
 ) {
   try {
+    // Ensure params are properly awaited
+    const { accountId } = await Promise.resolve(context.params);
+
     const balances = await prisma.accountBalance.findMany({
       where: {
-        accountId: params.accountId,
+        accountId,
       },
       orderBy: {
-        date: "asc",
+        date: "desc",
       },
       include: {
         account: {

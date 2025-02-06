@@ -250,7 +250,11 @@ export default function Home() {
                           );
                         })
                         .map((account) => (
-                          <AccountCard key={account.id} {...account} />
+                          <AccountCard
+                            key={account.id}
+                            {...account}
+                            onBalanceUpdate={refetchAccounts}
+                          />
                         ))}
                     </div>
                   </div>
