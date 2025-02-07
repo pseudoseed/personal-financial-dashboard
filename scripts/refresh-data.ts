@@ -357,7 +357,6 @@ async function refreshBalances(): Promise<{
     include: {
       accounts: {
         where: {
-          hidden: false,
         },
       },
     },

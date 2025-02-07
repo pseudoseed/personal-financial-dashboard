@@ -14,7 +14,6 @@ interface CoinbaseAccount {
   };
 }
 
-
 async function getSpotPrice(currency: string): Promise<number> {
   const response = await fetch(
     `https://api.coinbase.com/v2/prices/${currency}-USD/spot`,
@@ -36,12 +35,15 @@ async function getSpotPrice(currency: string): Promise<number> {
 }
 
 async function refreshCoinbaseAccount(accessToken: string, accountId: string) {
-  const response = await fetch("https://api.coinbase.com/v2/accounts?limit=100", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "CB-VERSION": "2024-02-07",
-    },
-  });
+  const response = await fetch(
+    "https://api.coinbase.com/v2/accounts?limit=100",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "CB-VERSION": "2024-02-07",
+      },
+    }
+  );
 
   if (!response.ok) {
     throw new Error(`Coinbase API error: ${response.status}`);
@@ -135,35 +137,90 @@ export async function POST(
     }
 
     // Get updated account balances from Plaid
-    const response = await plaidClient.accountsBalanceGet({
-      access_token: account.plaidItem.accessToken,
-      options: {
-        account_ids: [account.plaidId],
-      },
-    });
+    try {
+      const response = await plaidClient.accountsBalanceGet({
+        access_token: account.plaidItem.accessToken,
+        options: {
+          min_last_updated_datetime: new Date(
+            Date.now() - 24 * 60 * 60 * 1000
+          ).toISOString(),
+        },
+      });
 
-    const plaidAccount = response.data.accounts[0];
-    if (!plaidAccount) {
-      throw new Error("Account not found in Plaid response");
+      const plaidAccount = response.data.accounts.find(
+        (acc) => acc.account_id === account.plaidId
+      );
+      if (!plaidAccount) {
+        throw new Error("Account not found in Plaid response");
+      }
+
+      const newBalance = await prisma.accountBalance.create({
+        data: {
+          accountId: account.id,
+          current: plaidAccount.balances.current || 0,
+          available: plaidAccount.balances.available || null,
+          limit: plaidAccount.balances.limit || null,
+        },
+      });
+
+      const change = newBalance.current - previousBalance;
+
+      return Response.json({
+        success: true,
+        balance: newBalance,
+        previousBalance,
+        change,
+      });
+    } catch (error: any) {
+      // Check for Plaid specific error codes
+      if (error.response?.data) {
+        const plaidError = error.response.data;
+        console.error("Plaid API Error:", {
+          error_code: plaidError.error_code,
+          error_message: plaidError.error_message,
+          display_message: plaidError.display_message,
+        });
+
+        // Handle specific error cases
+        switch (plaidError.error_code) {
+          case "ITEM_LOGIN_REQUIRED":
+            return new Response(
+              JSON.stringify({
+                error: "Please re-authenticate with Capital One",
+                error_code: plaidError.error_code,
+              }),
+              { status: 400 }
+            );
+          case "INVALID_ACCESS_TOKEN":
+            return new Response(
+              JSON.stringify({
+                error: "Access token is no longer valid",
+                error_code: plaidError.error_code,
+              }),
+              { status: 400 }
+            );
+          case "INVALID_CREDENTIALS":
+            return new Response(
+              JSON.stringify({
+                error: "Please update your Capital One credentials",
+                error_code: plaidError.error_code,
+              }),
+              { status: 400 }
+            );
+          case "INSTITUTION_DOWN":
+            return new Response(
+              JSON.stringify({
+                error: "Capital One is temporarily unavailable",
+                error_code: plaidError.error_code,
+              }),
+              { status: 503 }
+            );
+          default:
+            throw error;
+        }
+      }
+      throw error;
     }
-
-    const newBalance = await prisma.accountBalance.create({
-      data: {
-        accountId: account.id,
-        current: plaidAccount.balances.current || 0,
-        available: plaidAccount.balances.available || null,
-        limit: plaidAccount.balances.limit || null,
-      },
-    });
-
-    const change = newBalance.current - previousBalance;
-
-    return Response.json({
-      success: true,
-      balance: newBalance,
-      previousBalance,
-      change,
-    });
   } catch (error) {
     console.error("Error refreshing account balance:", error);
     return new Response(

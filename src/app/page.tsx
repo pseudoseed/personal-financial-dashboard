@@ -517,14 +517,30 @@ export default function Home() {
                               credit: 3,
                               loan: 4,
                             };
-                            return (
+                            const typeComparison =
                               (typeOrder[
                                 a.type.toLowerCase() as keyof typeof typeOrder
                               ] || 99) -
                               (typeOrder[
                                 b.type.toLowerCase() as keyof typeof typeOrder
-                              ] || 99)
-                            );
+                              ] || 99);
+
+                            // If same type, sort by balance (largest to smallest)
+                            if (typeComparison === 0) {
+                              const aBalance = ["credit", "loan"].includes(
+                                a.type.toLowerCase()
+                              )
+                                ? -Math.abs(a.balance.current) // Negative for liabilities
+                                : a.balance.current;
+                              const bBalance = ["credit", "loan"].includes(
+                                b.type.toLowerCase()
+                              )
+                                ? -Math.abs(b.balance.current) // Negative for liabilities
+                                : b.balance.current;
+                              return bBalance - aBalance; // Descending order
+                            }
+
+                            return typeComparison;
                           })
                           .filter((account) => !account.hidden || showHidden)
                           .map((account) => (
