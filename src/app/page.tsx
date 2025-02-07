@@ -7,11 +7,13 @@ import { AccountTypeChart } from "@/components/AccountTypeChart";
 import { FinancialGroupChart } from "@/components/FinancialGroupChart";
 import { DashboardSummary } from "@/components/DashboardSummary";
 import { AccountCard } from "@/components/AccountCard";
+import { ManualAccountForm } from "@/components/ManualAccountForm";
 import {
   EyeIcon,
   EyeSlashIcon,
   LockOpenIcon,
   LockClosedIcon,
+  PlusIcon,
 } from "@heroicons/react/24/solid";
 
 interface Account {
@@ -38,6 +40,7 @@ export default function Home() {
     useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [isMasked, setIsMasked] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
 
   const { data: accounts, refetch } = useQuery<Account[]>({
     queryKey: ["accounts"],
@@ -213,15 +216,40 @@ export default function Home() {
                 <LockOpenIcon className="w-6 h-6" />
               )}
             </button>
-            <button
-              onClick={() => open()}
-              disabled={!ready}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              Connect Account
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowManualForm(true)}
+                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              >
+                <PlusIcon className="w-5 h-5" />
+                Add Manual Account
+              </button>
+              <button
+                onClick={() => open()}
+                disabled={!ready}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                Connect Bank
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Manual Account Form Dialog */}
+        {showManualForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h2 className="text-xl font-semibold mb-4">Add Manual Account</h2>
+              <ManualAccountForm
+                onSuccess={() => {
+                  setShowManualForm(false);
+                  refetch();
+                }}
+                onCancel={() => setShowManualForm(false)}
+              />
+            </div>
+          </div>
+        )}
 
         {accounts?.length ? (
           <>

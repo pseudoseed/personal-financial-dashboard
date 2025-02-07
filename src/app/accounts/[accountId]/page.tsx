@@ -307,6 +307,21 @@ export default function AccountPage({
                 >
                   <PencilIcon className="w-5 h-5" />
                 </button>
+                <button
+                  onClick={() => setIsMasked(!isMasked)}
+                  className="p-2 text-gray-600 hover:text-gray-800"
+                  title={
+                    isMasked
+                      ? "Show sensitive information"
+                      : "Hide sensitive information"
+                  }
+                >
+                  {isMasked ? (
+                    <LockClosedIcon className="w-5 h-5" />
+                  ) : (
+                    <LockOpenIcon className="w-5 h-5" />
+                  )}
+                </button>
               </div>
             )}
           </div>
@@ -321,25 +336,10 @@ export default function AccountPage({
         </div>
 
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
               Balance History
             </h2>
-            <button
-              onClick={() => setIsMasked(!isMasked)}
-              className="text-gray-600 hover:text-gray-800"
-              title={
-                isMasked
-                  ? "Show sensitive information"
-                  : "Hide sensitive information"
-              }
-            >
-              {isMasked ? (
-                <LockClosedIcon className="w-5 h-5" />
-              ) : (
-                <LockOpenIcon className="w-5 h-5" />
-              )}
-            </button>
           </div>
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

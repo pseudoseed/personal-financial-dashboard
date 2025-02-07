@@ -9,7 +9,6 @@
 ### Error Handling
 - [ ] Improve error messages for Plaid connection issues
 - [ ] Add retry mechanism for failed balance updates
-- [ ] Create a dedicated error log viewer in the UI
 - [ ] Add notifications for connection issues that require re-authentication
 
 ### User Experience
@@ -41,7 +40,7 @@
 ## Low Priority
 
 ### Nice-to-Have Features
-- [ ] Add support for manual account addition (for accounts not supported by Plaid)
+- [x] Add support for manual account addition (for accounts not supported by Plaid)
 - [ ] Add budget tracking features
 - [ ] Add support for categorizing large balance changes
 - [ ] Add support for tagging transactions
