@@ -5,6 +5,7 @@
 ### Security & Privacy
 - [x] Add option to mask sensitive balance information in the UI
 - [ ] Add ability to delete historical data older than X days/months
+- [ ] consider using simplefin instead of plaid
 
 ### Error Handling
 - [ ] Improve error messages for Plaid connection issues

@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
-    const { name, type, subtype, balance } = await request.json();
+    const { name, type, subtype, balance, metadata, url } =
+      await request.json();
 
     // Create a manual PlaidItem to associate with this account
     const plaidItem = await prisma.plaidItem.create({
@@ -22,6 +23,8 @@ export async function POST(request: Request) {
         name,
         type,
         subtype: subtype || null,
+        metadata: metadata || null,
+        url: url || null,
         itemId: plaidItem.id,
       },
     });

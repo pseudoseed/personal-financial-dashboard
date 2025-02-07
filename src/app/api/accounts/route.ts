@@ -33,6 +33,8 @@ export async function GET() {
         account.plaidItem.institutionName || account.plaidItem.institutionId,
       institutionLogo: account.plaidItem.institutionLogo,
       balance: account.balances[0],
+      url: account.url,
+      metadata: account.metadata,
     }));
 
     return NextResponse.json(formattedAccounts);

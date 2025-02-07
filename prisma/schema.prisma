@@ -31,6 +31,8 @@ model Account {
   subtype   String?
   mask      String?
   hidden    Boolean          @default(false)
+  metadata  String? // JSON string for additional data like real estate details
+  url       String? // External reference URL
   plaidItem PlaidItem        @relation(fields: [itemId], references: [id], onDelete: Cascade)
   itemId    String
   balances  AccountBalance[]

@@ -8,6 +8,7 @@ import {
   PencilIcon,
   CheckIcon,
   XMarkIcon,
+  ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/solid";
 import { useState, useRef, useEffect } from "react";
 
@@ -21,6 +22,7 @@ interface AccountCardProps {
   hidden: boolean;
   institution: string;
   institutionLogo: string | null;
+  url?: string | null;
   balance: {
     current: number;
     available: number | null;
@@ -42,6 +44,7 @@ export function AccountCard({
   balance,
   institution,
   institutionLogo,
+  url,
   onBalanceUpdate,
   isMasked = false,
   onToggleMask,
@@ -269,9 +272,24 @@ export function AccountCard({
               ) : (
                 <div className="flex items-center gap-2">
                   <div className="min-w-0">
-                    <h3 className="text-lg font-semibold truncate">
-                      {nickname || name}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold truncate">
+                        {nickname || name}
+                      </h3>
+                      {url && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.open(url, "_blank", "noopener,noreferrer");
+                          }}
+                          className="text-blue-500 hover:text-blue-700"
+                          title="Open reference URL"
+                        >
+                          <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                     {nickname && (
                       <p className="text-sm text-gray-500 truncate">{name}</p>
                     )}
@@ -424,6 +442,23 @@ export function AccountCard({
                     />
                   </div>
                 </div>
+
+                {url && (
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Reference URL</span>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.open(url, "_blank", "noopener,noreferrer");
+                      }}
+                      className="text-blue-500 hover:text-blue-700 flex items-center gap-1"
+                    >
+                      <span className="text-sm">Open URL</span>
+                      <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex justify-end space-x-3 pt-4">
                   <button

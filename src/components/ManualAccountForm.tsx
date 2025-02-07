@@ -15,6 +15,18 @@ export function ManualAccountForm({
     type: "depository",
     subtype: "checking",
     balance: "",
+    url: "",
+    metadata: {
+      address: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      purchasePrice: "",
+      purchaseDate: "",
+      propertyType: "single_family",
+      squareFeet: "",
+      yearBuilt: "",
+    },
   });
 
   const accountTypes = [
@@ -22,6 +34,7 @@ export function ManualAccountForm({
     { value: "credit", label: "Credit" },
     { value: "loan", label: "Loan" },
     { value: "investment", label: "Investment" },
+    { value: "asset", label: "Asset" },
     { value: "other", label: "Other" },
   ];
 
@@ -48,12 +61,35 @@ export function ManualAccountForm({
       { value: "ira", label: "IRA" },
       { value: "401k", label: "401(k)" },
     ],
+    asset: [
+      { value: "real_estate", label: "Real Estate" },
+      { value: "vehicle", label: "Vehicle" },
+      { value: "art", label: "Art" },
+      { value: "other", label: "Other" },
+    ],
     other: [{ value: "other", label: "Other" }],
   };
+
+  const propertyTypes = [
+    { value: "single_family", label: "Single Family" },
+    { value: "multi_family", label: "Multi Family" },
+    { value: "condo", label: "Condo" },
+    { value: "townhouse", label: "Townhouse" },
+    { value: "land", label: "Land" },
+    { value: "commercial", label: "Commercial" },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    const payload = {
+      ...formData,
+      metadata:
+        formData.type === "asset" && formData.subtype === "real_estate"
+          ? JSON.stringify(formData.metadata)
+          : null,
+    };
 
     try {
       const response = await fetch("/api/accounts/manual", {
@@ -61,7 +97,7 @@ export function ManualAccountForm({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -76,6 +112,9 @@ export function ManualAccountForm({
       setIsSubmitting(false);
     }
   };
+
+  const isRealEstate =
+    formData.type === "asset" && formData.subtype === "real_estate";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -93,6 +132,24 @@ export function ManualAccountForm({
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           placeholder="e.g., Personal Checking"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">
+          Reference URL
+        </label>
+        <input
+          type="url"
+          value={formData.url}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, url: e.target.value }))
+          }
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          placeholder="e.g., https://www.zillow.com/homedetails/..."
+        />
+        <p className="mt-1 text-sm text-gray-500">
+          Optional: Link to external reference for this account&apos;s value
+        </p>
       </div>
 
       <div>
@@ -142,7 +199,7 @@ export function ManualAccountForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700">
-          Current Balance
+          Current Value
         </label>
         <div className="mt-1 relative rounded-md shadow-sm">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -161,6 +218,196 @@ export function ManualAccountForm({
           />
         </div>
       </div>
+
+      {isRealEstate && (
+        <div className="space-y-4 border-t pt-4 mt-4">
+          <h3 className="font-medium text-gray-900">Property Details</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Street Address
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.metadata.address}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    metadata: { ...prev.metadata, address: e.target.value },
+                  }))
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                City
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.metadata.city}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    metadata: { ...prev.metadata, city: e.target.value },
+                  }))
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                State
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.metadata.state}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    metadata: { ...prev.metadata, state: e.target.value },
+                  }))
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                ZIP Code
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.metadata.zipCode}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    metadata: { ...prev.metadata, zipCode: e.target.value },
+                  }))
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Property Type
+              </label>
+              <select
+                required
+                value={formData.metadata.propertyType}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    metadata: {
+                      ...prev.metadata,
+                      propertyType: e.target.value,
+                    },
+                  }))
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                {propertyTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Square Feet
+              </label>
+              <input
+                type="number"
+                required
+                value={formData.metadata.squareFeet}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    metadata: { ...prev.metadata, squareFeet: e.target.value },
+                  }))
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Year Built
+              </label>
+              <input
+                type="number"
+                required
+                value={formData.metadata.yearBuilt}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    metadata: { ...prev.metadata, yearBuilt: e.target.value },
+                  }))
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Purchase Price
+              </label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">$</span>
+                </div>
+                <input
+                  type="number"
+                  required
+                  step="0.01"
+                  value={formData.metadata.purchasePrice}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      metadata: {
+                        ...prev.metadata,
+                        purchasePrice: e.target.value,
+                      },
+                    }))
+                  }
+                  className="pl-7 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Purchase Date
+              </label>
+              <input
+                type="date"
+                required
+                value={formData.metadata.purchaseDate}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    metadata: {
+                      ...prev.metadata,
+                      purchaseDate: e.target.value,
+                    },
+                  }))
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end space-x-3 pt-4">
         <button
