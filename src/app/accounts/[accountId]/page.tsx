@@ -25,6 +25,7 @@ import {
   EyeSlashIcon,
   LockOpenIcon,
   LockClosedIcon,
+  TrashIcon,
 } from "@heroicons/react/24/solid";
 
 // Register ChartJS components
@@ -133,6 +134,29 @@ export default function AccountPage({
   const formatBalance = (amount: number | null) => {
     if (amount === null) return "-";
     return isMasked ? "••••••" : `$${amount.toFixed(2)}`;
+  };
+
+  const handleDeleteBalance = async (balanceId: string) => {
+    if (!confirm("Are you sure you want to delete this record?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/accounts/${resolvedParams.accountId}/history/${balanceId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete balance record");
+      }
+
+      refetch();
+    } catch (error) {
+      console.error("Error deleting balance record:", error);
+    }
   };
 
   if (isLoading) {
@@ -329,6 +353,9 @@ export default function AccountPage({
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Available Balance
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -342,6 +369,15 @@ export default function AccountPage({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatBalance(item.available)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <button
+                      onClick={() => handleDeleteBalance(item.id)}
+                      className="text-red-600 hover:text-red-800 transition-colors"
+                      title="Delete record"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
