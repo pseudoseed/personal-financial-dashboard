@@ -1,6 +1,9 @@
 # Personal Finance Dashboard
 
 A dashboard to track all your financial accounts in one place using Plaid API. Features include account balance tracking, daily updates, and email notifications.
+![image](https://github.com/user-attachments/assets/d0d8ba2c-d540-444e-a739-7f5797c4dd20)
+
+
 
 ## Prerequisites
 
