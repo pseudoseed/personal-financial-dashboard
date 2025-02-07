@@ -29,6 +29,7 @@ model Account {
   type      String
   subtype   String?
   mask      String?
+  hidden    Boolean          @default(false)
   plaidItem PlaidItem        @relation(fields: [itemId], references: [id], onDelete: Cascade)
   itemId    String
   balances  AccountBalance[]

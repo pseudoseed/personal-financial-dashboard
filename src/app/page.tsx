@@ -7,6 +7,7 @@ import { AccountTypeChart } from "@/components/AccountTypeChart";
 import { FinancialGroupChart } from "@/components/FinancialGroupChart";
 import { DashboardSummary } from "@/components/DashboardSummary";
 import { AccountCard } from "@/components/AccountCard";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
 
 interface Account {
   id: string;
@@ -21,6 +22,7 @@ interface Account {
     available: number | null;
     limit: number | null;
   };
+  hidden: boolean;
 }
 
 export default function Home() {
@@ -28,6 +30,7 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRefreshingInstitutions, setIsRefreshingInstitutions] =
     useState(false);
+  const [showHidden, setShowHidden] = useState(false);
 
   const { data: accounts, refetch: refetchAccounts } = useQuery<Account[]>({
     queryKey: ["accounts"],
@@ -47,6 +50,9 @@ export default function Home() {
       acc[account.institution].push(account);
       return acc;
     }, {} as Record<string, Account[]>) || {};
+
+  const visibleAccounts =
+    accounts?.filter((account) => !account.hidden || showHidden) || [];
 
   const refreshInstitutions = async () => {
     try {
@@ -127,13 +133,19 @@ export default function Home() {
     if (!linkToken) getToken();
   }, [linkToken]);
 
+  if (!accounts) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
   return (
     <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Financial Dashboard</h1>
-          </div>
+          <h1 className="text-3xl font-bold">Financial Dashboard</h1>
           <div className="space-x-4">
             <button
               onClick={refreshInstitutions}
@@ -213,11 +225,31 @@ export default function Home() {
 
         {accounts?.length ? (
           <>
-            <DashboardSummary accounts={accounts} />
+            <DashboardSummary accounts={visibleAccounts} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <AccountTypeChart accounts={accounts} />
-              <FinancialGroupChart accounts={accounts} />
+              <AccountTypeChart accounts={visibleAccounts} />
+              <FinancialGroupChart accounts={visibleAccounts} />
+            </div>
+
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">Accounts</h2>
+              <button
+                onClick={() => setShowHidden(!showHidden)}
+                className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+              >
+                {showHidden ? (
+                  <>
+                    <EyeSlashIcon className="w-5 h-5" />
+                    <span>Hide hidden accounts</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeIcon className="w-5 h-5" />
+                    <span>Show hidden accounts</span>
+                  </>
+                )}
+              </button>
             </div>
 
             <div className="space-y-8">
@@ -249,6 +281,7 @@ export default function Home() {
                             ] || 99)
                           );
                         })
+                        .filter((account) => !account.hidden || showHidden)
                         .map((account) => (
                           <AccountCard
                             key={account.id}

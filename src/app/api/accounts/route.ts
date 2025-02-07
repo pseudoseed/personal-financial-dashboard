@@ -27,6 +27,7 @@ export async function GET() {
       type: account.type,
       subtype: account.subtype,
       mask: account.mask,
+      hidden: account.hidden,
       institution:
         account.plaidItem.institutionName || account.plaidItem.institutionId,
       institutionLogo: account.plaidItem.institutionLogo,

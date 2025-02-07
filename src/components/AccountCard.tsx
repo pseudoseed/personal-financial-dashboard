@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowPathIcon } from "@heroicons/react/24/solid";
+import {
+  ArrowPathIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from "@heroicons/react/24/solid";
 import { useState } from "react";
 
 interface AccountCardProps {
@@ -10,6 +14,7 @@ interface AccountCardProps {
   type: string;
   subtype: string | null;
   mask: string | null;
+  hidden: boolean;
   institution: string;
   institutionLogo: string | null;
   balance: {
@@ -26,6 +31,7 @@ export function AccountCard({
   type,
   subtype,
   mask,
+  hidden,
   balance,
   institution,
   institutionLogo,
@@ -33,6 +39,7 @@ export function AccountCard({
 }: AccountCardProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastChange, setLastChange] = useState<number | null>(null);
+  const [isHidden, setIsHidden] = useState(hidden);
 
   const isNegative = balance.current < 0;
   const isCredit = type.toLowerCase() === "credit";
@@ -68,14 +75,37 @@ export function AccountCard({
     }
   };
 
+  const handleToggleVisibility = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const response = await fetch(`/api/accounts/${id}/toggle-visibility`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to toggle account visibility");
+      }
+
+      const data = await response.json();
+      setIsHidden(data.hidden);
+
+      if (onBalanceUpdate) {
+        onBalanceUpdate();
+      }
+    } catch (error) {
+      console.error("Error toggling account visibility:", error);
+    }
+  };
+
   return (
     <Link
       href={`/accounts/${id}`}
       className="block transition-transform hover:scale-102"
     >
       <div className="relative p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
-        {/* Header with Logo, Name, and Refresh Button */}
-        <div className="flex items-start justify-between mb-2 pr-8">
+        {/* Header with Logo, Name, and Buttons */}
+        <div className="flex items-start justify-between mb-2 pr-16">
           <div className="flex items-center gap-2 min-w-0">
             {institutionLogo && (
               <img
@@ -94,18 +124,31 @@ export function AccountCard({
               )}
             </div>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-            title="Refresh balance"
-          >
-            <ArrowPathIcon
-              className={`w-5 h-5 text-gray-500 ${
-                isRefreshing ? "animate-spin" : ""
-              }`}
-            />
-          </button>
+          <div className="absolute top-4 right-4 flex gap-2">
+            <button
+              onClick={handleToggleVisibility}
+              className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+              title={isHidden ? "Show account" : "Hide account"}
+            >
+              {isHidden ? (
+                <EyeSlashIcon className="w-5 h-5 text-gray-500" />
+              ) : (
+                <EyeIcon className="w-5 h-5 text-gray-500" />
+              )}
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+              title="Refresh balance"
+            >
+              <ArrowPathIcon
+                className={`w-5 h-5 text-gray-500 ${
+                  isRefreshing ? "animate-spin" : ""
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Balance Information */}
