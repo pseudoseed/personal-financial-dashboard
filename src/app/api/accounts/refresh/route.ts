@@ -5,7 +5,13 @@ import { prisma } from "@/lib/db";
 export async function POST() {
   try {
     // Get all Plaid items
-    const plaidItems = await prisma.plaidItem.findMany();
+    const plaidItems = await prisma.plaidItem.findMany({
+      where: {
+        accessToken: {
+          not: "manual",
+        },
+      },
+    });
 
     for (const item of plaidItems) {
       try {

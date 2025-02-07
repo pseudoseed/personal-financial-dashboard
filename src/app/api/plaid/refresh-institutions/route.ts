@@ -31,7 +31,13 @@ function formatLogoUrl(
 
 export async function POST() {
   try {
-    const items = await prisma.plaidItem.findMany();
+    const items = await prisma.plaidItem.findMany({
+      where: {
+        accessToken: {
+          not: "manual",
+        },
+      },
+    });
     const results = [];
 
     for (const item of items) {

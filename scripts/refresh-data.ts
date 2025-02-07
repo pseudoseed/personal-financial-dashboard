@@ -100,7 +100,13 @@ function formatLogoUrl(
 
 async function refreshInstitutions() {
   console.log("Refreshing institutions...");
-  const items = await prisma.plaidItem.findMany();
+  const items = await prisma.plaidItem.findMany({
+    where: {
+      accessToken: {
+        not: "manual",
+      },
+    },
+  });
 
   for (const item of items) {
     try {
@@ -165,8 +171,17 @@ async function refreshBalances(): Promise<{
 }> {
   console.log("Refreshing account balances...");
   const items = await prisma.plaidItem.findMany({
+    where: {
+      accessToken: {
+        not: "manual",
+      },
+    },
     include: {
-      accounts: true,
+      accounts: {
+        where: {
+          hidden: false,
+        },
+      },
     },
   });
 
@@ -227,6 +242,7 @@ async function refreshBalances(): Promise<{
           const currentBalance = account.balances.current || 0;
           const change = currentBalance - previousBalance;
 
+          // Track changes if they are significant
           if (Math.abs(change) > 0.01) {
             institutionChanges.accounts.push({
               name: account.name,
