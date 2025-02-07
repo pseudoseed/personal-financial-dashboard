@@ -13,9 +13,17 @@ interface Account {
 
 interface DashboardSummaryProps {
   accounts: Account[];
+  isMasked?: boolean;
 }
 
-export function DashboardSummary({ accounts }: DashboardSummaryProps) {
+export function DashboardSummary({
+  accounts,
+  isMasked = false,
+}: DashboardSummaryProps) {
+  const formatBalance = (amount: number) => {
+    return isMasked ? "••••••" : `$${amount.toLocaleString()}`;
+  };
+
   const summary = accounts.reduce(
     (acc, account) => {
       const type = account.type.toLowerCase();
@@ -56,40 +64,42 @@ export function DashboardSummary({ accounts }: DashboardSummaryProps) {
             netWorth >= 0 ? "text-green-600" : "text-red-600"
           }`}
         >
-          ${netWorth.toLocaleString()}
+          {formatBalance(netWorth)}
         </p>
       </div>
 
       <div className="bg-white p-4 rounded-lg shadow-md">
         <h3 className="text-sm font-medium text-gray-500">Total Assets</h3>
         <p className="text-2xl font-bold text-gray-900">
-          ${summary.totalAssets.toLocaleString()}
+          {formatBalance(summary.totalAssets)}
         </p>
       </div>
 
       <div className="bg-white p-4 rounded-lg shadow-md">
         <h3 className="text-sm font-medium text-gray-500">Total Liabilities</h3>
         <p className="text-2xl font-bold text-gray-900">
-          ${summary.totalLiabilities.toLocaleString()}
+          {formatBalance(summary.totalLiabilities)}
         </p>
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow-md">
-        <h3 className="text-sm font-medium text-gray-500">
-          Credit Utilization
-        </h3>
-        <p className="text-2xl font-bold text-gray-900">
-          {creditUtilization.toFixed(1)}%
-        </p>
-        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-          <div
-            className={`h-2 rounded-full ${
-              creditUtilization > 30 ? "bg-red-500" : "bg-green-500"
-            }`}
-            style={{ width: `${Math.min(creditUtilization, 100)}%` }}
-          ></div>
+      {!isMasked && (
+        <div className="bg-white p-4 rounded-lg shadow-md">
+          <h3 className="text-sm font-medium text-gray-500">
+            Credit Utilization
+          </h3>
+          <p className="text-2xl font-bold text-gray-900">
+            {creditUtilization.toFixed(1)}%
+          </p>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div
+              className={`h-2 rounded-full ${
+                creditUtilization > 30 ? "bg-red-500" : "bg-green-500"
+              }`}
+              style={{ width: `${Math.min(creditUtilization, 100)}%` }}
+            ></div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

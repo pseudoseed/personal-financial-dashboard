@@ -17,6 +17,7 @@ interface Account {
 
 interface FinancialGroupChartProps {
   accounts: Account[];
+  isMasked?: boolean;
 }
 
 // Define financial groups and their properties
@@ -76,48 +77,38 @@ const financialGroups = {
   },
 };
 
-export function FinancialGroupChart({ accounts }: FinancialGroupChartProps) {
-  // Helper function to determine financial group
-  const getFinancialGroup = (type: string, subtype: string | null) => {
-    const lowerType = type.toLowerCase();
-    const lowerSubtype = subtype?.toLowerCase() || "";
-
-    for (const [group, info] of Object.entries(financialGroups)) {
-      if (
-        info.types.includes(lowerType) ||
-        info.subtypes.includes(lowerSubtype)
-      ) {
-        return group;
-      }
-    }
-    return "Other";
+export function FinancialGroupChart({
+  accounts,
+  isMasked = false,
+}: FinancialGroupChartProps) {
+  const formatBalance = (amount: number) => {
+    return isMasked ? "••••••" : `$${amount.toLocaleString()}`;
   };
 
-  // Calculate data by financial group
-  const groupData = accounts.reduce((acc, account) => {
-    const group = getFinancialGroup(account.type, account.subtype);
-    if (!acc[group]) {
-      acc[group] = 0;
-    }
-    acc[group] += account.balance.current;
-    return acc;
-  }, {} as Record<string, number>);
+  const groupData = accounts.reduce(
+    (acc, account) => {
+      const type = account.type.toLowerCase();
+      const balance = account.balance.current;
 
-  const totalBalance = Object.values(groupData).reduce(
-    (sum, balance) => sum + balance,
-    0
+      if (type === "credit" || type === "loan") {
+        acc.liabilities += Math.abs(balance);
+      } else {
+        acc.assets += balance;
+      }
+
+      return acc;
+    },
+    { assets: 0, liabilities: 0 }
   );
 
+  const totalBalance = groupData.assets + groupData.liabilities;
+
   const chartData = {
-    labels: Object.keys(groupData),
+    labels: ["Assets", "Liabilities"],
     datasets: [
       {
-        data: Object.values(groupData),
-        backgroundColor: Object.keys(groupData).map(
-          (group) =>
-            financialGroups[group as keyof typeof financialGroups]?.color ||
-            "rgba(107, 114, 128, 0.7)"
-        ),
+        data: [groupData.assets, groupData.liabilities],
+        backgroundColor: ["rgba(16, 185, 129, 0.7)", "rgba(239, 68, 68, 0.7)"],
       },
     ],
   };
@@ -135,9 +126,7 @@ export function FinancialGroupChart({ accounts }: FinancialGroupChartProps) {
           label: (context: { raw: number; label: string }) => {
             const value = context.raw;
             const percentage = ((value / totalBalance) * 100).toFixed(1);
-            return `${
-              context.label
-            }: $${value.toLocaleString()} (${percentage}%)`;
+            return `${context.label}: ${formatBalance(value)} (${percentage}%)`;
           },
         },
       },
@@ -145,12 +134,49 @@ export function FinancialGroupChart({ accounts }: FinancialGroupChartProps) {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md h-[400px] flex flex-col">
-      <h2 className="text-lg font-semibold mb-4">Balance by Financial Group</h2>
-      <div className="flex-1 flex items-center justify-center relative w-full">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-[85%] h-[85%]">
-            <Pie options={chartOptions} data={chartData} />
+    <div className="bg-white p-4 rounded-lg shadow-md">
+      <h2 className="text-lg font-semibold mb-4">Financial Groups</h2>
+      <div className="space-y-4">
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-sm font-medium">Assets</span>
+            <span className="text-sm font-medium text-green-600">
+              {formatBalance(groupData.assets)}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="h-2 rounded-full bg-green-500"
+              style={{
+                width: `${Math.min(
+                  (groupData.assets /
+                    Math.max(groupData.assets, groupData.liabilities)) *
+                    100,
+                  100
+                )}%`,
+              }}
+            ></div>
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-sm font-medium">Liabilities</span>
+            <span className="text-sm font-medium text-red-600">
+              {formatBalance(groupData.liabilities)}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="h-2 rounded-full bg-red-500"
+              style={{
+                width: `${Math.min(
+                  (groupData.liabilities /
+                    Math.max(groupData.assets, groupData.liabilities)) *
+                    100,
+                  100
+                )}%`,
+              }}
+            ></div>
           </div>
         </div>
       </div>

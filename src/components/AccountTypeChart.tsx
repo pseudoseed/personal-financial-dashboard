@@ -32,6 +32,7 @@ interface Account {
 
 interface AccountTypeChartProps {
   accounts: Account[];
+  isMasked?: boolean;
 }
 
 const typeColors = {
@@ -43,9 +44,15 @@ const typeColors = {
   other: "rgba(107, 114, 128, 0.7)", // Gray
 };
 
-export function AccountTypeChart({ accounts }: AccountTypeChartProps) {
-  // Calculate data by account type
-  const typeData = accounts.reduce((acc, account) => {
+export function AccountTypeChart({
+  accounts,
+  isMasked = false,
+}: AccountTypeChartProps) {
+  const formatBalance = (amount: number) => {
+    return isMasked ? "••••••" : `$${amount.toLocaleString()}`;
+  };
+
+  const accountTypes = accounts.reduce((acc, account) => {
     const type = account.type.toLowerCase();
     if (!acc[type]) {
       acc[type] = 0;
@@ -54,14 +61,14 @@ export function AccountTypeChart({ accounts }: AccountTypeChartProps) {
     return acc;
   }, {} as Record<string, number>);
 
-  const totalBalance = Object.values(typeData).reduce(
+  const totalBalance = Object.values(accountTypes).reduce(
     (sum, balance) => sum + balance,
     0
   );
 
   const chartData = {
     labels: ["Account Types"],
-    datasets: Object.entries(typeData)
+    datasets: Object.entries(accountTypes)
       .map(([type, balance]) => ({
         label: type.charAt(0).toUpperCase() + type.slice(1),
         data: [balance],
@@ -81,7 +88,7 @@ export function AccountTypeChart({ accounts }: AccountTypeChartProps) {
         stacked: false,
         beginAtZero: true,
         ticks: {
-          callback: (value: number) => `$${value.toLocaleString()}`,
+          callback: (value: number) => formatBalance(value),
         },
       },
     },
@@ -91,9 +98,9 @@ export function AccountTypeChart({ accounts }: AccountTypeChartProps) {
           label: (context: { raw: number; dataset: { label: string } }) => {
             const value = context.raw;
             const percentage = ((value / totalBalance) * 100).toFixed(1);
-            return `${
-              context.dataset.label
-            }: $${value.toLocaleString()} (${percentage}%)`;
+            return `${context.dataset.label}: ${formatBalance(
+              Math.abs(value)
+            )} (${percentage}%)`;
           },
         },
       },

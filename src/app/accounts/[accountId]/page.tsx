@@ -11,11 +11,21 @@ import {
   Title,
   Tooltip,
   Legend,
+  ChartOptions,
+  TooltipItem,
 } from "chart.js";
 import { format } from "date-fns";
 import Link from "next/link";
 import { use, useState, useRef, useEffect } from "react";
-import { PencilIcon, CheckIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import {
+  PencilIcon,
+  CheckIcon,
+  XMarkIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  LockOpenIcon,
+  LockClosedIcon,
+} from "@heroicons/react/24/solid";
 
 // Register ChartJS components
 ChartJS.register(
@@ -50,6 +60,7 @@ export default function AccountPage({
   const resolvedParams = use(params);
   const [isEditing, setIsEditing] = useState(false);
   const [newNickname, setNewNickname] = useState("");
+  const [isMasked, setIsMasked] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -119,6 +130,11 @@ export default function AccountPage({
     }
   };
 
+  const formatBalance = (amount: number | null) => {
+    if (amount === null) return "-";
+    return isMasked ? "••••••" : `$${amount.toFixed(2)}`;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen p-8">
@@ -147,29 +163,39 @@ export default function AccountPage({
     labels: [...history]
       .reverse()
       .map((item) => format(new Date(item.date), "MMM d, yyyy")),
-    datasets: [
-      {
-        label: "Current Balance",
-        data: [...history].reverse().map((item) => item.current),
-        borderColor: "rgb(59, 130, 246)",
-        backgroundColor: "rgba(59, 130, 246, 0.5)",
-        tension: 0.1,
-      },
-      ...(history.some((item) => item.available !== null)
-        ? [
-            {
-              label: "Available Balance",
-              data: [...history].reverse().map((item) => item.available),
-              borderColor: "rgb(34, 197, 94)",
-              backgroundColor: "rgba(34, 197, 94, 0.5)",
-              tension: 0.1,
-            },
-          ]
-        : []),
-    ],
+    datasets: isMasked
+      ? [
+          {
+            label: "Balance History",
+            data: new Array(history.length).fill(0),
+            borderColor: "rgb(156, 163, 175)",
+            backgroundColor: "rgba(156, 163, 175, 0.5)",
+            tension: 0.1,
+          },
+        ]
+      : [
+          {
+            label: "Current Balance",
+            data: [...history].reverse().map((item) => item.current),
+            borderColor: "rgb(59, 130, 246)",
+            backgroundColor: "rgba(59, 130, 246, 0.5)",
+            tension: 0.1,
+          },
+          ...(history.some((item) => item.available !== null)
+            ? [
+                {
+                  label: "Available Balance",
+                  data: [...history].reverse().map((item) => item.available),
+                  borderColor: "rgb(34, 197, 94)",
+                  backgroundColor: "rgba(34, 197, 94, 0.5)",
+                  tension: 0.1,
+                },
+              ]
+            : []),
+        ],
   };
 
-  const chartOptions = {
+  const chartOptions: ChartOptions<"line"> = {
     responsive: true,
     plugins: {
       legend: {
@@ -179,10 +205,26 @@ export default function AccountPage({
         display: true,
         text: "Balance History",
       },
+      tooltip: {
+        callbacks: {
+          label: function (tooltipItem: TooltipItem<"line">) {
+            if (isMasked) return "••••••";
+            const label = tooltipItem.dataset.label || "";
+            const value = tooltipItem.raw as number;
+            return `${label}: $${value.toLocaleString()}`;
+          },
+        },
+      },
     },
     scales: {
       y: {
         beginAtZero: false,
+        ticks: {
+          callback: function (value) {
+            if (isMasked) return "••••••";
+            return `$${value.toLocaleString()}`;
+          },
+        },
       },
     },
   };
@@ -255,6 +297,26 @@ export default function AccountPage({
         </div>
 
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Balance History
+            </h2>
+            <button
+              onClick={() => setIsMasked(!isMasked)}
+              className="text-gray-600 hover:text-gray-800"
+              title={
+                isMasked
+                  ? "Show sensitive information"
+                  : "Hide sensitive information"
+              }
+            >
+              {isMasked ? (
+                <LockClosedIcon className="w-5 h-5" />
+              ) : (
+                <LockOpenIcon className="w-5 h-5" />
+              )}
+            </button>
+          </div>
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -276,10 +338,10 @@ export default function AccountPage({
                     {format(new Date(item.date), "MMM d, yyyy h:mm a")}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${item.current.toFixed(2)}
+                    {formatBalance(item.current)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.available ? `$${item.available.toFixed(2)}` : "-"}
+                    {formatBalance(item.available)}
                   </td>
                 </tr>
               ))}

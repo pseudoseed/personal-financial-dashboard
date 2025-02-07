@@ -27,6 +27,8 @@ interface AccountCardProps {
     limit: number | null;
   };
   onBalanceUpdate?: () => void;
+  isMasked?: boolean;
+  onToggleMask?: () => void;
 }
 
 export function AccountCard({
@@ -41,6 +43,8 @@ export function AccountCard({
   institution,
   institutionLogo,
   onBalanceUpdate,
+  isMasked = false,
+  onToggleMask,
 }: AccountCardProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastChange, setLastChange] = useState<number | null>(null);
@@ -157,6 +161,11 @@ export function AccountCard({
       ? (Math.abs(balance.current) / balance.limit) * 100
       : null;
 
+  const formatBalance = (amount: number | null) => {
+    if (amount === null) return "-";
+    return isMasked ? "••••••" : `$${amount.toFixed(2)}`;
+  };
+
   return (
     <Link
       href={`/accounts/${id}`}
@@ -267,13 +276,9 @@ export function AccountCard({
                   isNegative ? "text-red-600" : "text-gray-900"
                 }`}
               >
-                $
-                {Math.abs(balance.current).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {formatBalance(balance.current)}
               </p>
-              {lastChange !== null && (
+              {lastChange !== null && !isMasked && (
                 <p
                   className={`text-sm ${
                     lastChange >= 0 ? "text-green-600" : "text-red-600"
@@ -293,18 +298,14 @@ export function AccountCard({
             <div className="flex justify-between items-baseline mt-1">
               <span className="text-sm text-gray-600">Available</span>
               <p className="text-sm text-gray-900">
-                $
-                {balance.available.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {formatBalance(balance.available)}
               </p>
             </div>
           )}
         </div>
 
         {/* Credit Card Utilization */}
-        {isCredit && balance.limit && (
+        {isCredit && balance.limit && !isMasked && (
           <div className="mt-4">
             <div className="flex justify-between text-xs text-gray-600 mb-1">
               <span>Credit Used</span>

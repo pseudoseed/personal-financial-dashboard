@@ -3,7 +3,7 @@
 ## High Priority
 
 ### Security & Privacy
-- [ ] Add option to mask sensitive balance information in the UI
+- [x] Add option to mask sensitive balance information in the UI
 - [ ] Add ability to delete historical data older than X days/months
 
 ### Error Handling
