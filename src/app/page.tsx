@@ -398,6 +398,8 @@ export default function Home() {
                   const isRefreshing = institutionId
                     ? refreshingInstitutions[institutionId]
                     : false;
+                  const institutionLogo =
+                    institutionAccounts[0]?.institutionLogo;
 
                   return (
                     <div
@@ -405,7 +407,73 @@ export default function Home() {
                       className="bg-white p-6 rounded-lg shadow-md"
                     >
                       <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-semibold">{institution}</h2>
+                        <div className="flex items-center gap-2">
+                          {institutionLogo && (
+                            <img
+                              src={institutionLogo}
+                              alt={institution}
+                              className="w-6 h-6 object-contain"
+                            />
+                          )}
+                          <h2 className="text-lg font-semibold">
+                            {institution}
+                          </h2>
+                          <div className="flex flex-col ml-2">
+                            {(() => {
+                              const assets = institutionAccounts
+                                .filter(
+                                  (account) =>
+                                    !["credit", "loan"].includes(
+                                      account.type.toLowerCase()
+                                    )
+                                )
+                                .reduce(
+                                  (sum, account) =>
+                                    sum + account.balance.current,
+                                  0
+                                );
+
+                              const liabilities = institutionAccounts
+                                .filter((account) =>
+                                  ["credit", "loan"].includes(
+                                    account.type.toLowerCase()
+                                  )
+                                )
+                                .reduce(
+                                  (sum, account) =>
+                                    sum + Math.abs(account.balance.current),
+                                  0
+                                );
+
+                              return isMasked ? (
+                                <span className="text-lg text-gray-600">
+                                  ••••••
+                                </span>
+                              ) : (
+                                <>
+                                  {assets > 0 && (
+                                    <span className="text-lg text-green-600">
+                                      +$
+                                      {assets.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </span>
+                                  )}
+                                  {liabilities > 0 && (
+                                    <span className="text-lg text-red-600">
+                                      -$
+                                      {liabilities.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2">
                           {institutionId && (
                             <>
