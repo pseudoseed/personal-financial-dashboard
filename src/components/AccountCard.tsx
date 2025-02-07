@@ -210,17 +210,25 @@ export function AccountCard({
     }
   };
 
+  const formatBalance = (amount: number | null) => {
+    if (amount === null) return "-";
+    if (isMasked) return "••••••";
+
+    // Format with thousands separator and 2 decimal places
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
   const isNegative = balance.current < 0;
   const isCredit = type.toLowerCase() === "credit";
   const utilization =
     isCredit && balance.limit
       ? (Math.abs(balance.current) / balance.limit) * 100
       : null;
-
-  const formatBalance = (amount: number | null) => {
-    if (amount === null) return "-";
-    return isMasked ? "••••••" : `$${amount.toFixed(2)}`;
-  };
 
   return (
     <Link
@@ -355,11 +363,8 @@ export function AccountCard({
                     lastChange >= 0 ? "text-green-600" : "text-red-600"
                   }`}
                 >
-                  {lastChange >= 0 ? "+" : ""}$
-                  {lastChange.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {lastChange >= 0 ? "+" : ""}
+                  {formatBalance(lastChange)}
                 </div>
               )}
             </div>
@@ -393,7 +398,7 @@ export function AccountCard({
               />
             </div>
             <p className="text-xs text-gray-600 mt-1">
-              Limit: ${balance.limit.toLocaleString()}
+              Limit: {formatBalance(balance.limit)}
             </p>
           </div>
         )}
