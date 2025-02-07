@@ -1,6 +1,6 @@
 # Personal Finance Dashboard
 
-A dashboard to track all your financial accounts in one place using Plaid API. Features include account balance tracking, daily updates, and email notifications.
+A dashboard to track all your financial accounts in one place using Plaid API and Coinbase integration. Features include bank account balance tracking, cryptocurrency holdings, daily updates, and email notifications.
 ![image](https://github.com/user-attachments/assets/d0d8ba2c-d540-444e-a739-7f5797c4dd20)
 
 
@@ -21,7 +21,18 @@ A dashboard to track all your financial accounts in one place using Plaid API. F
 3. Copy your `client_id` and the appropriate `secret` (sandbox/development/production)
 4. Note: For real bank connections, you'll need Development or Production credentials
 
-### 2. Environment Setup
+### 2. Coinbase Setup
+
+1. Go to [Coinbase Developer Portal](https://www.coinbase.com/settings/api)
+2. Click "New OAuth2 Application"
+3. Fill in the application details:
+   - Name: Personal Finance Dashboard (or your preferred name)
+   - Website URL: http://localhost:3000
+   - Redirect URLs: http://localhost:3000/api/crypto/oauth/callback
+4. Copy your `client_id` and `client_secret`
+5. Note: The redirect URL must match exactly what you set in your `.env` file
+
+### 3. Environment Setup
 
 1. Clone this repository:
    ```bash
@@ -46,6 +57,11 @@ A dashboard to track all your financial accounts in one place using Plaid API. F
    PLAID_SECRET="your_secret"
    PLAID_ENV="development"  # or "sandbox" or "production"
 
+   # Coinbase API credentials
+   COINBASE_CLIENT_ID="your_coinbase_client_id"
+   COINBASE_CLIENT_SECRET="your_coinbase_client_secret"
+   COINBASE_REDIRECT_URI="http://localhost:3000/api/crypto/oauth/callback"
+
    # Database
    DATABASE_URL="file:./dev.db"
 
@@ -54,14 +70,14 @@ A dashboard to track all your financial accounts in one place using Plaid API. F
    NEXTAUTH_URL="http://localhost:3000"
    ```
 
-### 3. Database Setup
+### 4. Database Setup
 
 1. Initialize the database:
    ```bash
    npx prisma db push
    ```
 
-### 4. Running the Application
+### 5. Running the Application
 
 1. Start the development server:
    ```bash
@@ -70,12 +86,20 @@ A dashboard to track all your financial accounts in one place using Plaid API. F
 
 2. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-### 5. Connecting Bank Accounts
+### 6. Connecting Accounts
 
-1. Click the "Connect Account" button in the dashboard
-2. Follow the Plaid Link flow to connect your bank accounts
-3. Your accounts should appear in the dashboard immediately
-4. Refresh the page to see updated balances
+1. For Bank Accounts:
+   - Click the "Connect Bank Account" button in the dashboard
+   - Follow the Plaid Link flow to connect your bank accounts
+   - Your accounts should appear in the dashboard immediately
+
+2. For Coinbase:
+   - Click the "Connect Coinbase" button in the dashboard
+   - You'll be redirected to Coinbase to authorize the application
+   - After authorization, your Coinbase accounts and balances will appear in the dashboard
+   - Balances are automatically refreshed periodically
+
+3. Refresh the page to see updated balances for all accounts
 
 ## Daily Balance Updates (Optional)
 

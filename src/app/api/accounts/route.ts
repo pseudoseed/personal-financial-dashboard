@@ -35,6 +35,9 @@ export async function GET() {
       balance: account.balances[0],
       url: account.url,
       metadata: account.metadata,
+      plaidItem: {
+        institutionId: account.plaidItem.institutionId,
+      },
     }));
 
     return NextResponse.json(formattedAccounts);

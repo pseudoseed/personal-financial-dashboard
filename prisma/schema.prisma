@@ -14,6 +14,8 @@ model PlaidItem {
   id              String    @id @default(cuid())
   itemId          String    @unique // Plaid's item_id
   accessToken     String
+  refreshToken    String? // For Coinbase OAuth refresh token
+  provider        String    @default("plaid") // "plaid" or "coinbase"
   institutionId   String
   institutionName String?
   institutionLogo String?

@@ -14,6 +14,8 @@ import {
   LockOpenIcon,
   LockClosedIcon,
   PlusIcon,
+  ArrowPathIcon,
+  XCircleIcon,
 } from "@heroicons/react/24/solid";
 
 interface Account {
@@ -31,6 +33,9 @@ interface Account {
     available: number | null;
     limit: number | null;
   };
+  plaidItem?: {
+    institutionId: string;
+  };
 }
 
 export default function Home() {
@@ -41,6 +46,13 @@ export default function Home() {
   const [showHidden, setShowHidden] = useState(false);
   const [isMasked, setIsMasked] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [isConnectingCoinbase, setIsConnectingCoinbase] = useState(false);
+  const [refreshingInstitutions, setRefreshingInstitutions] = useState<
+    Record<string, boolean>
+  >({});
+  const [disconnectingInstitutions, setDisconnectingInstitutions] = useState<
+    Record<string, boolean>
+  >({});
 
   const { data: accounts, refetch } = useQuery<Account[]>({
     queryKey: ["accounts"],
@@ -125,6 +137,83 @@ export default function Home() {
     token: linkToken,
     onSuccess,
   });
+
+  const connectCoinbase = async () => {
+    try {
+      setIsConnectingCoinbase(true);
+      const response = await fetch("/api/crypto/oauth");
+      if (!response.ok) throw new Error("Failed to get Coinbase auth URL");
+      const { authUrl } = await response.json();
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error("Error connecting to Coinbase:", error);
+    } finally {
+      setIsConnectingCoinbase(false);
+    }
+  };
+
+  const refreshInstitution = async (institutionId: string) => {
+    try {
+      setRefreshingInstitutions((prev) => ({ ...prev, [institutionId]: true }));
+      const response = await fetch("/api/accounts/refresh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ institutionId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh institution");
+      }
+
+      await refetch();
+    } catch (error) {
+      console.error("Error refreshing institution:", error);
+    } finally {
+      setRefreshingInstitutions((prev) => ({
+        ...prev,
+        [institutionId]: false,
+      }));
+    }
+  };
+
+  const disconnectInstitution = async (institutionId: string) => {
+    if (
+      !confirm(
+        "Are you sure you want to disconnect this institution? This will remove all associated accounts."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDisconnectingInstitutions((prev) => ({
+        ...prev,
+        [institutionId]: true,
+      }));
+      const response = await fetch("/api/accounts/disconnect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ institutionId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to disconnect institution");
+      }
+
+      await refetch();
+    } catch (error) {
+      console.error("Error disconnecting institution:", error);
+    } finally {
+      setDisconnectingInstitutions((prev) => ({
+        ...prev,
+        [institutionId]: false,
+      }));
+    }
+  };
 
   useEffect(() => {
     const getToken = async () => {
@@ -225,6 +314,20 @@ export default function Home() {
                 Add Manual Account
               </button>
               <button
+                onClick={connectCoinbase}
+                disabled={isConnectingCoinbase}
+                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                {isConnectingCoinbase ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                    Connecting...
+                  </div>
+                ) : (
+                  "Connect Coinbase"
+                )}
+              </button>
+              <button
                 onClick={() => open()}
                 disabled={!ready}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
@@ -288,45 +391,86 @@ export default function Home() {
 
             <div className="space-y-8">
               {Object.entries(accountsByInstitution).map(
-                ([institution, institutionAccounts]) => (
-                  <div
-                    key={institution}
-                    className="bg-white p-6 rounded-lg shadow-md"
-                  >
-                    <h2 className="text-xl font-semibold mb-4">
-                      {institution}
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {institutionAccounts
-                        .sort((a, b) => {
-                          // Sort by type: checking > savings > investment > credit > loan
-                          const typeOrder = {
-                            depository: 1,
-                            investment: 2,
-                            credit: 3,
-                            loan: 4,
-                          };
-                          return (
-                            (typeOrder[
-                              a.type.toLowerCase() as keyof typeof typeOrder
-                            ] || 99) -
-                            (typeOrder[
-                              b.type.toLowerCase() as keyof typeof typeOrder
-                            ] || 99)
-                          );
-                        })
-                        .filter((account) => !account.hidden || showHidden)
-                        .map((account) => (
-                          <AccountCard
-                            key={account.id}
-                            {...account}
-                            onBalanceUpdate={refetch}
-                            isMasked={isMasked}
-                          />
-                        ))}
+                ([institution, institutionAccounts]) => {
+                  // Get the institutionId from the first account
+                  const institutionId =
+                    institutionAccounts[0]?.plaidItem?.institutionId;
+                  const isRefreshing = institutionId
+                    ? refreshingInstitutions[institutionId]
+                    : false;
+
+                  return (
+                    <div
+                      key={institution}
+                      className="bg-white p-6 rounded-lg shadow-md"
+                    >
+                      <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold">{institution}</h2>
+                        <div className="flex items-center gap-2">
+                          {institutionId && (
+                            <>
+                              <button
+                                onClick={() =>
+                                  refreshInstitution(institutionId)
+                                }
+                                disabled={isRefreshing}
+                                className="text-gray-600 hover:text-gray-800 disabled:opacity-50"
+                                title="Refresh institution"
+                              >
+                                <ArrowPathIcon
+                                  className={`w-5 h-5 ${
+                                    isRefreshing ? "animate-spin" : ""
+                                  }`}
+                                />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  disconnectInstitution(institutionId)
+                                }
+                                disabled={
+                                  disconnectingInstitutions[institutionId]
+                                }
+                                className="text-gray-600 hover:text-red-600 disabled:opacity-50"
+                                title="Disconnect institution"
+                              >
+                                <XCircleIcon className="w-5 h-5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {institutionAccounts
+                          .sort((a, b) => {
+                            // Sort by type: checking > savings > investment > credit > loan
+                            const typeOrder = {
+                              depository: 1,
+                              investment: 2,
+                              credit: 3,
+                              loan: 4,
+                            };
+                            return (
+                              (typeOrder[
+                                a.type.toLowerCase() as keyof typeof typeOrder
+                              ] || 99) -
+                              (typeOrder[
+                                b.type.toLowerCase() as keyof typeof typeOrder
+                              ] || 99)
+                            );
+                          })
+                          .filter((account) => !account.hidden || showHidden)
+                          .map((account) => (
+                            <AccountCard
+                              key={account.id}
+                              {...account}
+                              onBalanceUpdate={refetch}
+                              isMasked={isMasked}
+                            />
+                          ))}
+                      </div>
                     </div>
-                  </div>
-                )
+                  );
+                }
               )}
             </div>
 

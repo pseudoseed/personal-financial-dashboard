@@ -47,7 +47,6 @@ export function AccountCard({
   url,
   onBalanceUpdate,
   isMasked = false,
-  onToggleMask,
 }: AccountCardProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastChange, setLastChange] = useState<number | null>(null);
@@ -350,8 +349,8 @@ export function AccountCard({
               >
                 {formatBalance(balance.current)}
               </p>
-              {lastChange !== null && !isMasked && (
-                <p
+              {lastChange !== undefined && lastChange !== null && (
+                <div
                   className={`text-sm ${
                     lastChange >= 0 ? "text-green-600" : "text-red-600"
                   }`}
@@ -361,7 +360,7 @@ export function AccountCard({
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
-                </p>
+                </div>
               )}
             </div>
           </div>
