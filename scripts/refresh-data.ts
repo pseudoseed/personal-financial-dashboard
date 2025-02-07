@@ -8,6 +8,7 @@ import path from "path";
 
 interface AccountChange {
   name: string;
+  nickname: string | null;
   previousBalance: number;
   currentBalance: number;
   change: number;
@@ -217,6 +218,7 @@ async function refreshBalances(): Promise<{
               orderBy: { date: "desc" },
               take: 1,
             },
+            nickname: true,
           },
         });
 
@@ -228,6 +230,7 @@ async function refreshBalances(): Promise<{
           if (Math.abs(change) > 0.01) {
             institutionChanges.accounts.push({
               name: account.name,
+              nickname: existingAccount.nickname,
               previousBalance,
               currentBalance,
               change,

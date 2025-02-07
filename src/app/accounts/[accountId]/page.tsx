@@ -14,7 +14,8 @@ import {
 } from "chart.js";
 import { format } from "date-fns";
 import Link from "next/link";
-import { use } from "react";
+import { use, useState, useRef, useEffect } from "react";
+import { PencilIcon, CheckIcon, XMarkIcon } from "@heroicons/react/24/solid";
 
 // Register ChartJS components
 ChartJS.register(
@@ -35,6 +36,7 @@ interface BalanceHistory {
   limit: number | null;
   account: {
     name: string;
+    nickname: string | null;
     type: string;
     subtype: string | null;
   };
@@ -46,8 +48,15 @@ export default function AccountPage({
   params: Promise<{ accountId: string }>;
 }) {
   const resolvedParams = use(params);
+  const [isEditing, setIsEditing] = useState(false);
+  const [newNickname, setNewNickname] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const { data: history, isLoading } = useQuery<BalanceHistory[]>({
+  const {
+    data: history,
+    isLoading,
+    refetch,
+  } = useQuery<BalanceHistory[]>({
     queryKey: ["account-history", resolvedParams.accountId],
     queryFn: async () => {
       const response = await fetch(
@@ -57,6 +66,58 @@ export default function AccountPage({
       return response.json();
     },
   });
+
+  useEffect(() => {
+    if (history?.length) {
+      setNewNickname(history[0].account.nickname || "");
+    }
+  }, [history]);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditing]);
+
+  const handleStartEditing = () => {
+    setIsEditing(true);
+  };
+
+  const handleSaveNickname = async () => {
+    try {
+      const response = await fetch(
+        `/api/accounts/${resolvedParams.accountId}/update-nickname`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ nickname: newNickname.trim() || null }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update nickname");
+      }
+
+      setIsEditing(false);
+      refetch();
+    } catch (error) {
+      console.error("Error updating nickname:", error);
+    }
+  };
+
+  const handleCancelEditing = () => {
+    setNewNickname(history?.[0].account.nickname || "");
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      await handleSaveNickname();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -136,10 +197,56 @@ export default function AccountPage({
           >
             ← Back to Dashboard
           </Link>
-          <h1 className="text-3xl font-bold mb-2">{history[0].account.name}</h1>
-          <p className="text-gray-600">
-            {history[0].account.type}
-            {history[0].account.subtype && ` - ${history[0].account.subtype}`}
+          <div className="flex items-start gap-2">
+            {isEditing ? (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newNickname}
+                  onChange={(e) => setNewNickname(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="text-3xl font-bold px-2 py-1 border rounded"
+                  placeholder={history?.[0].account.name}
+                />
+                <button
+                  onClick={handleSaveNickname}
+                  className="p-2 text-green-600 hover:text-green-700"
+                  title="Save nickname"
+                >
+                  <CheckIcon className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={handleCancelEditing}
+                  className="p-2 text-red-600 hover:text-red-700"
+                  title="Cancel"
+                >
+                  <XMarkIcon className="w-6 h-6" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl font-bold">
+                  {history?.[0].account.nickname || history?.[0].account.name}
+                  {history?.[0].account.nickname && (
+                    <span className="text-gray-500 text-lg ml-2">
+                      ({history[0].account.name})
+                    </span>
+                  )}
+                </h1>
+                <button
+                  onClick={handleStartEditing}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                  title="Edit nickname"
+                >
+                  <PencilIcon className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+          <p className="text-gray-600 mt-1">
+            {history?.[0].account.type}
+            {history?.[0].account.subtype && ` - ${history[0].account.subtype}`}
           </p>
         </div>
 

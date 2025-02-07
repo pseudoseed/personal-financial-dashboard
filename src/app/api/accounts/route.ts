@@ -24,6 +24,7 @@ export async function GET() {
     const formattedAccounts = accounts.map((account) => ({
       id: account.id,
       name: account.name,
+      nickname: account.nickname,
       type: account.type,
       subtype: account.subtype,
       mask: account.mask,

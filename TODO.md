@@ -16,6 +16,7 @@
 - [ ] Add ability to group accounts (e.g., "Joint Accounts", "Business", "Personal")
 - [x] Add ability to hide accounts from dashboard
 - [ ] Add last refresh timestamp to each account
+- [x] Add ability to nickname accounts
 
 ## Medium Priority
 

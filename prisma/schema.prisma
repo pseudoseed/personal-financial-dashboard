@@ -26,6 +26,7 @@ model Account {
   id        String           @id @default(cuid())
   plaidId   String           @unique // Plaid's account_id
   name      String
+  nickname  String?
   type      String
   subtype   String?
   mask      String?

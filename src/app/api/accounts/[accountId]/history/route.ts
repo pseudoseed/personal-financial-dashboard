@@ -20,6 +20,7 @@ export async function GET(
         account: {
           select: {
             name: true,
+            nickname: true,
             type: true,
             subtype: true,
           },

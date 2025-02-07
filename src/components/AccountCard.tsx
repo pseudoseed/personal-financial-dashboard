@@ -5,12 +5,16 @@ import {
   ArrowPathIcon,
   EyeIcon,
   EyeSlashIcon,
+  PencilIcon,
+  CheckIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/solid";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface AccountCardProps {
   id: string;
   name: string;
+  nickname: string | null;
   type: string;
   subtype: string | null;
   mask: string | null;
@@ -28,6 +32,7 @@ interface AccountCardProps {
 export function AccountCard({
   id,
   name,
+  nickname,
   type,
   subtype,
   mask,
@@ -40,13 +45,15 @@ export function AccountCard({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastChange, setLastChange] = useState<number | null>(null);
   const [isHidden, setIsHidden] = useState(hidden);
+  const [isEditing, setIsEditing] = useState(false);
+  const [newNickname, setNewNickname] = useState(nickname || "");
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const isNegative = balance.current < 0;
-  const isCredit = type.toLowerCase() === "credit";
-  const utilization =
-    isCredit && balance.limit
-      ? (Math.abs(balance.current) / balance.limit) * 100
-      : null;
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditing]);
 
   const handleRefresh = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -98,6 +105,58 @@ export function AccountCard({
     }
   };
 
+  const handleStartEditing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditing(true);
+  };
+
+  const handleSaveNickname = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const response = await fetch(`/api/accounts/${id}/update-nickname`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ nickname: newNickname.trim() || null }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update nickname");
+      }
+
+      if (onBalanceUpdate) {
+        onBalanceUpdate();
+      }
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating nickname:", error);
+    }
+  };
+
+  const handleCancelEditing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setNewNickname(nickname || "");
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      await handleSaveNickname(e as unknown as React.MouseEvent);
+    }
+  };
+
+  const isNegative = balance.current < 0;
+  const isCredit = type.toLowerCase() === "credit";
+  const utilization =
+    isCredit && balance.limit
+      ? (Math.abs(balance.current) / balance.limit) * 100
+      : null;
+
   return (
     <Link
       href={`/accounts/${id}`}
@@ -115,7 +174,54 @@ export function AccountCard({
               />
             )}
             <div className="min-w-0">
-              <h3 className="text-lg font-semibold truncate">{name}</h3>
+              {isEditing ? (
+                <div
+                  className="flex items-center gap-2"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={newNickname}
+                    onChange={(e) => setNewNickname(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="text-lg font-semibold px-2 py-1 border rounded w-full"
+                    placeholder={name}
+                  />
+                  <button
+                    onClick={handleSaveNickname}
+                    className="p-1 text-green-600 hover:text-green-700"
+                    title="Save nickname"
+                  >
+                    <CheckIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleCancelEditing}
+                    className="p-1 text-red-600 hover:text-red-700"
+                    title="Cancel"
+                  >
+                    <XMarkIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-semibold truncate">
+                      {nickname || name}
+                    </h3>
+                    {nickname && (
+                      <p className="text-sm text-gray-500 truncate">{name}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleStartEditing}
+                    className="p-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                    title="Edit nickname"
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               <p className="text-sm text-gray-600 truncate">
                 {type} {subtype && `- ${subtype}`}
               </p>

@@ -45,6 +45,15 @@
             border-radius: 8px;
             margin-top: 20px;
         }
+        .account-name {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .original-name {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+        }
         @media only screen and (max-width: 600px) {
             body {
                 padding: 10px;
@@ -66,7 +75,8 @@
             </div>
             {{#each accounts}}
             <div class="account">
-                <h4>{{name}}</h4>
+                <div class="account-name">{{nickname}}{{#unless nickname}}{{name}}{{/unless}}</div>
+                {{#if nickname}}<div class="original-name">{{name}}</div>{{/if}}
                 <p>
                     Previous Balance: ${{formatMoney previousBalance}}<br>
                     Current Balance: ${{formatMoney currentBalance}}<br>
