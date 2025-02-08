@@ -79,9 +79,6 @@ export async function GET() {
 
     console.log("Formatted accounts:", formattedAccounts.length);
     formattedAccounts.forEach((account) => {
-      console.log(
-        `${account.name}: ${account.balances?.length} monthly balances`
-      );
       account.balances?.forEach((balance) => {
         console.log(`  ${balance.date}: ${balance.current}`);
       });

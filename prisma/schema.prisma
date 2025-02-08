@@ -25,21 +25,23 @@ model PlaidItem {
 }
 
 model Account {
-  id        String           @id @default(cuid())
-  plaidId   String           @unique // Plaid's account_id
-  name      String
-  nickname  String?
-  type      String
-  subtype   String?
-  mask      String?
-  hidden    Boolean          @default(false)
-  metadata  String? // JSON string for additional data like real estate details
-  url       String? // External reference URL
-  plaidItem PlaidItem        @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  itemId    String
-  balances  AccountBalance[]
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  id           String                   @id @default(cuid())
+  plaidId      String                   @unique // Plaid's account_id
+  name         String
+  nickname     String?
+  type         String
+  subtype      String?
+  mask         String?
+  hidden       Boolean                  @default(false)
+  metadata     String? // JSON string for additional data like real estate details
+  url          String? // External reference URL
+  plaidItem    PlaidItem                @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId       String
+  balances     AccountBalance[]
+  transactions Transaction[]
+  downloadLogs TransactionDownloadLog[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
 }
 
 model AccountBalance {
@@ -52,4 +54,36 @@ model AccountBalance {
   date      DateTime @default(now())
 
   @@index([date])
+}
+
+model Transaction {
+  id           String   @id @default(cuid())
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId    String
+  plaidId      String // Plaid's transaction_id
+  date         DateTime
+  name         String
+  amount       Float
+  category     String?
+  merchantName String?
+  pending      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([accountId, plaidId])
+  @@index([date])
+}
+
+model TransactionDownloadLog {
+  id              String   @id @default(cuid())
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId       String
+  startDate       DateTime
+  endDate         DateTime
+  numTransactions Int
+  status          String // 'success' or 'error'
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+
+  @@index([accountId, createdAt])
 }
