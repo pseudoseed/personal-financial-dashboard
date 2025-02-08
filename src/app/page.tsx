@@ -38,6 +38,9 @@ export default function Home() {
   const [accountsWithHistory, setAccountsWithHistory] = useState<Account[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [institutionShowHidden, setInstitutionShowHidden] = useState<
+    Record<string, boolean>
+  >({});
 
   const { data: accountsData, refetch } = useQuery<Account[]>({
     queryKey: ["accounts"],
@@ -228,6 +231,13 @@ export default function Home() {
     } finally {
       setIsLoadingHistory(false);
     }
+  };
+
+  const toggleInstitutionHidden = (institution: string) => {
+    setInstitutionShowHidden((prev) => ({
+      ...prev,
+      [institution]: !prev[institution],
+    }));
   };
 
   useEffect(() => {
@@ -428,7 +438,6 @@ export default function Home() {
             <div className="space-y-8">
               {Object.entries(accountsByInstitution).map(
                 ([institution, institutionAccounts]) => {
-                  // Get the institutionId from the first account
                   const institutionId =
                     institutionAccounts[0]?.plaidItem?.institutionId;
                   const isRefreshing = institutionId
@@ -436,6 +445,17 @@ export default function Home() {
                     : false;
                   const institutionLogo =
                     institutionAccounts[0]?.institutionLogo;
+                  const showHiddenForInstitution =
+                    institutionShowHidden[institution] || false;
+
+                  // Split accounts into visible and hidden
+                  const visibleAccounts = institutionAccounts.filter(
+                    (account) => !account.hidden
+                  );
+                  const hiddenAccounts = institutionAccounts.filter(
+                    (account) => account.hidden
+                  );
+                  const hasHiddenAccounts = hiddenAccounts.length > 0;
 
                   return (
                     <div
@@ -459,6 +479,8 @@ export default function Home() {
                               const assets = institutionAccounts
                                 .filter(
                                   (account) =>
+                                    (!account.hidden ||
+                                      showHiddenForInstitution) &&
                                     !["credit", "loan"].includes(
                                       account.type.toLowerCase()
                                     )
@@ -470,10 +492,13 @@ export default function Home() {
                                 );
 
                               const liabilities = institutionAccounts
-                                .filter((account) =>
-                                  ["credit", "loan"].includes(
-                                    account.type.toLowerCase()
-                                  )
+                                .filter(
+                                  (account) =>
+                                    (!account.hidden ||
+                                      showHiddenForInstitution) &&
+                                    ["credit", "loan"].includes(
+                                      account.type.toLowerCase()
+                                    )
                                 )
                                 .reduce(
                                   (sum, account) =>
@@ -511,6 +536,29 @@ export default function Home() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {hasHiddenAccounts && (
+                            <button
+                              onClick={() =>
+                                toggleInstitutionHidden(institution)
+                              }
+                              className="flex items-center gap-1 px-2 py-1 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                              title={
+                                showHiddenForInstitution
+                                  ? "Hide hidden accounts"
+                                  : "Show hidden accounts"
+                              }
+                            >
+                              {showHiddenForInstitution ? (
+                                <EyeSlashIcon className="w-4 h-4" />
+                              ) : (
+                                <EyeIcon className="w-4 h-4" />
+                              )}
+                              <span className="hidden sm:inline">
+                                {showHiddenForInstitution ? "Hide" : "Show"}{" "}
+                                Hidden ({hiddenAccounts.length})
+                              </span>
+                            </button>
+                          )}
                           {institutionId && (
                             <>
                               <button
@@ -566,19 +614,22 @@ export default function Home() {
                               const aBalance = ["credit", "loan"].includes(
                                 a.type.toLowerCase()
                               )
-                                ? -Math.abs(a.balance.current) // Negative for liabilities
+                                ? -Math.abs(a.balance.current)
                                 : a.balance.current;
                               const bBalance = ["credit", "loan"].includes(
                                 b.type.toLowerCase()
                               )
-                                ? -Math.abs(b.balance.current) // Negative for liabilities
+                                ? -Math.abs(b.balance.current)
                                 : b.balance.current;
-                              return bBalance - aBalance; // Descending order
+                              return bBalance - aBalance;
                             }
 
                             return typeComparison;
                           })
-                          .filter((account) => !account.hidden || showHidden)
+                          .filter(
+                            (account) =>
+                              !account.hidden || showHiddenForInstitution
+                          )
                           .map((account) => (
                             <AccountCard
                               key={account.id}
