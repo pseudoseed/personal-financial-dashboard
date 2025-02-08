@@ -23,6 +23,9 @@ import {
   LockOpenIcon,
   LockClosedIcon,
   TrashIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  BuildingLibraryIcon,
 } from "@heroicons/react/24/solid";
 import { TransactionList } from "@/components/TransactionList";
 import {
@@ -69,6 +72,8 @@ export function AccountDetails({ account }: AccountDetailsProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [newNickname, setNewNickname] = useState("");
   const [isMasked, setIsMasked] = useState(false);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [isTransactionsExpanded, setIsTransactionsExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -165,7 +170,11 @@ export function AccountDetails({ account }: AccountDetailsProps) {
   };
 
   const handleBackfill = async () => {
-    if (!confirm("Are you sure you want to backfill missing monthly data?")) {
+    if (
+      !confirm(
+        "Are you sure you want to backfill missing monthly data?  This will create monthly balances for all months in the account's history that are missing and going back to 2022-12-01 using the oldest balance amount as the starting point.  This is to ensure net worth is calculated correctly."
+      )
+    ) {
       return;
     }
 
@@ -346,84 +355,96 @@ export function AccountDetails({ account }: AccountDetailsProps) {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-2">
-          {isEditing ? (
-            <div className="flex items-center gap-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={newNickname}
-                onChange={(e) => setNewNickname(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="text-3xl font-bold px-2 py-1 border rounded"
-                placeholder={history?.[0].account.name}
-              />
-              <button
-                onClick={handleSaveNickname}
-                className="p-2 text-green-600 hover:text-green-700"
-                title="Save nickname"
-              >
-                <CheckIcon className="w-6 h-6" />
-              </button>
-              <button
-                onClick={handleCancelEditing}
-                className="p-2 text-red-600 hover:text-red-700"
-                title="Cancel"
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
+      {/* Institution and Account Info */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center gap-4">
+          {account.plaidItem.institutionLogo ? (
+            <img
+              src={account.plaidItem.institutionLogo}
+              alt={account.plaidItem.institutionName || "Bank logo"}
+              className="w-12 h-12 object-contain"
+            />
           ) : (
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold">
-                {history?.[0].account.nickname || history?.[0].account.name}
-                {history?.[0].account.nickname && (
-                  <span className="text-gray-500 text-lg ml-2">
-                    ({history[0].account.name})
-                  </span>
-                )}
-              </h1>
-              <button
-                onClick={handleStartEditing}
-                className="p-2 text-gray-400 hover:text-gray-600"
-                title="Edit nickname"
-              >
-                <PencilIcon className="w-5 h-5" />
-              </button>
-            </div>
+            <BuildingLibraryIcon className="w-12 h-12 text-gray-400" />
           )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsMasked(!isMasked)}
-            className="p-2 text-gray-600 hover:text-gray-800"
-            title={
-              isMasked
-                ? "Show sensitive information"
-                : "Hide sensitive information"
-            }
-          >
-            {isMasked ? (
-              <LockClosedIcon className="w-5 h-5" />
-            ) : (
-              <LockOpenIcon className="w-5 h-5" />
+          <div>
+            <div className="text-sm text-gray-500">
+              {account.plaidItem.institutionName}
+            </div>
+            <div className="flex items-start gap-2">
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={newNickname}
+                    onChange={(e) => setNewNickname(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="text-3xl font-bold px-2 py-1 border rounded"
+                    placeholder={account.name}
+                  />
+                  <button
+                    onClick={handleSaveNickname}
+                    className="p-2 text-green-600 hover:text-green-700"
+                    title="Save nickname"
+                  >
+                    <CheckIcon className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={handleCancelEditing}
+                    className="p-2 text-red-600 hover:text-red-700"
+                    title="Cancel"
+                  >
+                    <XMarkIcon className="w-6 h-6" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold">
+                    {account.nickname || account.name}
+                    {account.nickname && (
+                      <span className="text-gray-500 text-lg ml-2">
+                        ({account.name})
+                      </span>
+                    )}
+                  </h1>
+                  <button
+                    onClick={handleStartEditing}
+                    className="p-2 text-gray-400 hover:text-gray-600"
+                    title="Edit nickname"
+                  >
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+            {account.mask && (
+              <div className="text-sm text-gray-500">
+                Account ending in {account.mask}
+              </div>
             )}
-          </button>
-          <button
-            onClick={handleBackfill}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-            title="Fill in missing monthly data points"
-          >
-            Backfill Data
-          </button>
+          </div>
+          <div className="ml-auto">
+            <button
+              onClick={() => setIsMasked(!isMasked)}
+              className="p-2 text-gray-600 hover:text-gray-800"
+              title={
+                isMasked
+                  ? "Show sensitive information"
+                  : "Hide sensitive information"
+              }
+            >
+              {isMasked ? (
+                <LockClosedIcon className="w-5 h-5" />
+              ) : (
+                <LockOpenIcon className="w-5 h-5" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <Line options={chartOptions} data={chartData} />
-      </div>
-
+      {/* Balance History Section */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
           <div className="flex justify-between items-center">
@@ -431,6 +452,13 @@ export function AccountDetails({ account }: AccountDetailsProps) {
               Balance History
             </h2>
             <div className="flex gap-2">
+              <button
+                onClick={handleBackfill}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                title="Fill in missing monthly data points"
+              >
+                Backfill Data
+              </button>
               <button
                 onClick={handleCleanDailyRecords}
                 className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
@@ -448,48 +476,73 @@ export function AccountDetails({ account }: AccountDetailsProps) {
             </div>
           </div>
         </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Current Balance
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Available Balance
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {history.map((item) => (
-              <tr key={item.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {format(new Date(item.date), "MMM d, yyyy h:mm a")}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {formatBalance(item.current)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {formatBalance(item.available)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  <button
-                    onClick={() => handleDeleteBalance(item.id)}
-                    className="text-red-600 hover:text-red-800 transition-colors"
-                    title="Delete record"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+        <div className="p-6">
+          <Line options={chartOptions} data={chartData} />
+
+          <div className="mt-6">
+            <div
+              className="flex justify-between items-center px-6 py-3 bg-gray-50 border-y border-gray-200 cursor-pointer"
+              onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+            >
+              <h3 className="text-sm font-medium text-gray-500">
+                Balance History Records
+              </h3>
+              {isHistoryExpanded ? (
+                <ChevronUpIcon className="w-5 h-5 text-gray-500" />
+              ) : (
+                <ChevronDownIcon className="w-5 h-5 text-gray-500" />
+              )}
+            </div>
+
+            {isHistoryExpanded && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Current Balance
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Available Balance
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {history.map((item) => (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {format(new Date(item.date), "MMM d, yyyy h:mm a")}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatBalance(item.current)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatBalance(item.available)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <button
+                            onClick={() => handleDeleteBalance(item.id)}
+                            className="text-red-600 hover:text-red-800 transition-colors"
+                            title="Delete record"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <TransactionList
