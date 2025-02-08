@@ -51,6 +51,7 @@ export async function POST(
         count: 500,
         options: {
           include_original_description: true,
+          account_id: account.plaidId,
         },
       });
 
