@@ -38,74 +38,92 @@ export async function POST(
   try {
     let allTransactions: PlaidTransaction[] = [];
     let hasMore = true;
-    let offset = 0;
+    let cursor: string | undefined = undefined;
 
-    // Calculate date range - request 24 months of data
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - 24); // Go back 24 months from today
-
-    console.log(
-      "Requesting transactions from",
-      startDate.toISOString().split("T")[0],
-      "to",
-      endDate.toISOString().split("T")[0]
-    );
+    console.log("Starting transaction sync for account:", accountId);
 
     // Keep fetching transactions until we get them all
     while (hasMore) {
-      console.log(`Fetching transactions with offset ${offset}...`);
-      const response = await plaidClient.transactionsGet({
+      console.log("Fetching transactions with cursor:", cursor);
+      const response = await plaidClient.transactionsSync({
         access_token: account.plaidItem.accessToken,
-        start_date: startDate.toISOString().split("T")[0],
-        end_date: endDate.toISOString().split("T")[0],
+        cursor,
+        count: 500,
         options: {
-          count: 500,
-          offset: offset,
-          account_ids: [account.plaidId],
-          include_original_description: true, // Request additional transaction details
+          include_original_description: true,
         },
       });
 
       console.log("Plaid API Response:", {
-        total_transactions: response.data.total_transactions,
-        transactions_returned: response.data.transactions.length,
+        added: response.data.added.length,
+        modified: response.data.modified.length,
+        removed: response.data.removed.length,
+        has_more: response.data.has_more,
       });
 
-      const fetchedTransactions = response.data.transactions;
-      if (fetchedTransactions.length === 0) {
-        console.log("No more transactions returned from Plaid");
-        break;
+      // Filter transactions for this account
+      const addedTransactions = response.data.added.filter(
+        (tx) => tx.account_id === account.plaidId
+      );
+      const modifiedTransactions = response.data.modified.filter(
+        (tx) => tx.account_id === account.plaidId
+      );
+      const removedTransactions = response.data.removed.filter(
+        (tx) => tx.account_id === account.plaidId
+      );
+
+      // Process added transactions
+      allTransactions = [...allTransactions, ...addedTransactions];
+
+      // Process modified transactions (update existing ones)
+      for (const modifiedTx of modifiedTransactions) {
+        await prisma.transaction.update({
+          where: {
+            accountId_plaidId: {
+              accountId: account.id,
+              plaidId: modifiedTx.transaction_id,
+            },
+          },
+          data: {
+            date: new Date(modifiedTx.date),
+            name: modifiedTx.name,
+            amount: modifiedTx.amount,
+            category: modifiedTx.category ? modifiedTx.category[0] : null,
+            merchantName: modifiedTx.merchant_name,
+            pending: modifiedTx.pending,
+          },
+        });
+      }
+
+      // Process removed transactions
+      if (removedTransactions.length > 0) {
+        console.log(
+          `Deleting ${removedTransactions.length} removed transactions`
+        );
+        await prisma.transaction.deleteMany({
+          where: {
+            accountId: account.id,
+            plaidId: {
+              in: removedTransactions.map((tx) => tx.transaction_id),
+            },
+          },
+        });
       }
 
       // Log the date range of received transactions
-      if (fetchedTransactions.length > 0) {
-        const dates = fetchedTransactions.map((t) => new Date(t.date));
+      if (addedTransactions.length > 0) {
+        const dates = addedTransactions.map((t) => new Date(t.date));
         const oldestDate = new Date(Math.min(...dates.map((d) => d.getTime())));
         const newestDate = new Date(Math.max(...dates.map((d) => d.getTime())));
         console.log("Received transactions date range:", {
           oldest: oldestDate.toISOString().split("T")[0],
           newest: newestDate.toISOString().split("T")[0],
-          count: fetchedTransactions.length,
+          count: addedTransactions.length,
         });
       }
 
-      allTransactions = [...allTransactions, ...fetchedTransactions];
-
-      console.log(
-        `Fetched ${fetchedTransactions.length} transactions. Total: ${allTransactions.length}`
-      );
-
-      if (
-        fetchedTransactions.length < 500 ||
-        offset + fetchedTransactions.length >= response.data.total_transactions
-      ) {
-        console.log("No more pages to fetch");
-        hasMore = false;
-      } else {
-        offset += fetchedTransactions.length;
-        hasMore = true;
-      }
+      hasMore = response.data.has_more;
+      cursor = response.data.next_cursor;
     }
 
     // Calculate actual date range from fetched transactions
