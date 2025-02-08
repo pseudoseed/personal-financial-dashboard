@@ -1,15 +1,8 @@
 "use client";
 
-interface Account {
-  id: string;
-  type: string;
-  subtype: string | null;
-  balance: {
-    current: number;
-    available: number | null;
-    limit: number | null;
-  };
-}
+import { Account } from "@/types/account";
+
+
 
 interface DashboardSummaryProps {
   accounts: Account[];

@@ -11,52 +11,32 @@ import {
   ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/solid";
 import { useState, useRef, useEffect } from "react";
-
+import { getAccountTypeInfo } from "@/lib/accountTypes";
+import { Account } from "@/types/account";
 interface AccountCardProps {
-  id: string;
-  name: string;
-  nickname: string | null;
-  type: string;
-  subtype: string | null;
-  mask: string | null;
-  hidden: boolean;
-  institution: string;
-  institutionLogo: string | null;
-  url?: string | null;
-  balance: {
-    current: number;
-    available: number | null;
-    limit: number | null;
-  };
+  account: Account;
   onBalanceUpdate?: () => void;
   isMasked?: boolean;
   onToggleMask?: () => void;
 }
 
 export function AccountCard({
-  id,
-  name,
-  nickname,
-  type,
-  subtype,
-  mask,
-  hidden,
-  balance,
-  institution,
-  institutionLogo,
-  url,
+  account,
   onBalanceUpdate,
   isMasked = false,
 }: AccountCardProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastChange, setLastChange] = useState<number | null>(null);
-  const [isHidden, setIsHidden] = useState(hidden);
+  const [isHidden, setIsHidden] = useState(account.hidden);
   const [isEditing, setIsEditing] = useState(false);
-  const [newNickname, setNewNickname] = useState(nickname || "");
+  const [newNickname, setNewNickname] = useState(account.nickname || "");
   const [showBalanceDialog, setShowBalanceDialog] = useState(false);
-  const [newBalance, setNewBalance] = useState(balance.current.toString());
+  const [newBalance, setNewBalance] = useState(account.balance.current.toString());
   const inputRef = useRef<HTMLInputElement>(null);
-  const isManual = institution === "Manual Account";
+  const isManual = account.institution === "Manual Account";
+
+  const accountTypeInfo = getAccountTypeInfo(account.type, account.subtype);
+  const Icon = accountTypeInfo.icon;
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -75,7 +55,7 @@ export function AccountCard({
 
     try {
       setIsRefreshing(true);
-      const response = await fetch(`/api/accounts/${id}/refresh`, {
+      const response = await fetch(`/api/accounts/${account.id}/refresh`, {
         method: "POST",
       });
 
@@ -103,7 +83,7 @@ export function AccountCard({
     e.stopPropagation();
     try {
       console.log("Updating manual balance:", {
-        accountId: id,
+        accountId: account.id,
         newBalance: parseFloat(newBalance),
         isManual,
       });
@@ -115,7 +95,7 @@ export function AccountCard({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          accountId: id,
+          accountId: account.id,
           balance: parseFloat(newBalance),
         }),
       });
@@ -146,7 +126,7 @@ export function AccountCard({
     e.preventDefault();
     e.stopPropagation();
     try {
-      const response = await fetch(`/api/accounts/${id}/toggle-visibility`, {
+      const response = await fetch(`/api/accounts/${account.id}/toggle-visibility`, {
         method: "POST",
       });
 
@@ -175,7 +155,7 @@ export function AccountCard({
     e.preventDefault();
     e.stopPropagation();
     try {
-      const response = await fetch(`/api/accounts/${id}/update-nickname`, {
+      const response = await fetch(`/api/accounts/${account.id}/update-nickname`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -199,7 +179,7 @@ export function AccountCard({
   const handleCancelEditing = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setNewNickname(nickname || "");
+    setNewNickname(account.nickname || "");
     setIsEditing(false);
   };
 
@@ -223,26 +203,26 @@ export function AccountCard({
     }).format(amount);
   };
 
-  const isNegative = balance.current < 0;
-  const isCredit = type.toLowerCase() === "credit";
+  const isNegative = account.balance.current < 0;
+  const isCredit = account.type.toLowerCase() === "credit";
   const utilization =
-    isCredit && balance.limit
-      ? (Math.abs(balance.current) / balance.limit) * 100
+    isCredit && account.balance.limit
+      ? (Math.abs(account.balance.current) / account.balance.limit) * 100
       : null;
 
   return (
     <Link
-      href={`/accounts/${id}`}
+      href={`/accounts/${account.id}`}
       className="block transition-transform hover:scale-102"
     >
       <div className="relative p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
         {/* Header with Logo, Name, and Buttons */}
         <div className="flex items-start justify-between mb-2 pr-16">
           <div className="flex items-center gap-2 min-w-0">
-            {institutionLogo && (
+            {account.institutionLogo && (
               <img
-                src={institutionLogo}
-                alt={institution}
+                src={account.institutionLogo}
+                alt={account.institution}
                 className="w-6 h-6 flex-shrink-0 object-contain"
               />
             )}
@@ -259,7 +239,7 @@ export function AccountCard({
                     onChange={(e) => setNewNickname(e.target.value)}
                     onKeyDown={handleKeyDown}
                     className="text-lg font-semibold px-2 py-1 border rounded w-full"
-                    placeholder={name}
+                    placeholder={account.name}
                   />
                   <button
                     onClick={handleSaveNickname}
@@ -281,14 +261,14 @@ export function AccountCard({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="text-lg font-semibold truncate">
-                        {nickname || name}
+                        {account.nickname || account.name}
                       </h3>
-                      {url && (
+                      {account.url && (
                         <button
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            window.open(url, "_blank", "noopener,noreferrer");
+                            window.open(account.url || "", "_blank", "noopener,noreferrer");
                           }}
                           className="text-blue-500 hover:text-blue-700"
                           title="Open reference URL"
@@ -297,8 +277,8 @@ export function AccountCard({
                         </button>
                       )}
                     </div>
-                    {nickname && (
-                      <p className="text-sm text-gray-500 truncate">{name}</p>
+                    {account.nickname && (
+                      <p className="text-sm text-gray-500 truncate">{account.name}</p>
                     )}
                   </div>
                   <button
@@ -310,11 +290,11 @@ export function AccountCard({
                   </button>
                 </div>
               )}
-              <p className="text-sm text-gray-600 truncate">
-                {type} {subtype && `- ${subtype}`}
-              </p>
-              {mask && (
-                <p className="text-sm text-gray-500 truncate">****{mask}</p>
+              <div className="flex items-center gap-1">
+                <Icon className="h-4 w-4 text-gray-500" />
+              </div>
+              {account.mask && (
+                <p className="text-sm text-gray-500 truncate">****{account.mask}</p>
               )}
             </div>
           </div>
@@ -355,7 +335,7 @@ export function AccountCard({
                   isNegative ? "text-red-600" : "text-gray-900"
                 }`}
               >
-                {formatBalance(balance.current)}
+                {formatBalance(account.balance.current)}
               </p>
               {lastChange !== undefined && lastChange !== null && (
                 <div
@@ -370,18 +350,18 @@ export function AccountCard({
             </div>
           </div>
 
-          {balance.available !== null && (
+          {account.balance.available !== null && (
             <div className="flex justify-between items-baseline mt-1">
               <span className="text-sm text-gray-600">Available</span>
               <p className="text-sm text-gray-900">
-                {formatBalance(balance.available)}
+                {formatBalance(account.balance.available || null)}
               </p>
             </div>
           )}
         </div>
 
         {/* Credit Card Utilization */}
-        {isCredit && balance.limit && !isMasked && (
+        {isCredit && account.balance.limit && !isMasked && (
           <div className="mt-4">
             <div className="flex justify-between text-xs text-gray-600 mb-1">
               <span>Credit Used</span>
@@ -398,7 +378,7 @@ export function AccountCard({
               />
             </div>
             <p className="text-xs text-gray-600 mt-1">
-              Limit: {formatBalance(balance.limit)}
+              Limit: {formatBalance(account.balance.limit)}
             </p>
           </div>
         )}
@@ -447,14 +427,14 @@ export function AccountCard({
                   </div>
                 </div>
 
-                {url && (
+                {account.url && (
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-sm text-gray-600">Reference URL</span>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        window.open(url, "_blank", "noopener,noreferrer");
+                        window.open(account.url || "", "_blank", "noopener,noreferrer");
                       }}
                       className="text-blue-500 hover:text-blue-700 flex items-center gap-1"
                     >

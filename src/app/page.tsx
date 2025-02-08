@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { useQuery } from "@tanstack/react-query";
-import { AccountTypeChart } from "@/components/AccountTypeChart";
 import { FinancialGroupChart } from "@/components/FinancialGroupChart";
 import { DashboardSummary } from "@/components/DashboardSummary";
 import { AccountCard } from "@/components/AccountCard";
@@ -17,26 +16,8 @@ import {
   ArrowPathIcon,
   XCircleIcon,
 } from "@heroicons/react/24/solid";
-
-interface Account {
-  id: string;
-  name: string;
-  nickname: string | null;
-  type: string;
-  subtype: string | null;
-  mask: string | null;
-  hidden: boolean;
-  institution: string;
-  institutionLogo: string | null;
-  balance: {
-    current: number;
-    available: number | null;
-    limit: number | null;
-  };
-  plaidItem?: {
-    institutionId: string;
-  };
-}
+import { NetWorthChart } from "@/components/NetWorthChart";
+import { Account } from "@/types/account";
 
 export default function Home() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
@@ -53,8 +34,12 @@ export default function Home() {
   const [disconnectingInstitutions, setDisconnectingInstitutions] = useState<
     Record<string, boolean>
   >({});
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountsWithHistory, setAccountsWithHistory] = useState<Account[]>([]);
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
-  const { data: accounts, refetch } = useQuery<Account[]>({
+  const { data: accountsData, refetch } = useQuery<Account[]>({
     queryKey: ["accounts"],
     queryFn: async () => {
       const response = await fetch("/api/accounts");
@@ -65,17 +50,21 @@ export default function Home() {
 
   // Group accounts by institution
   const accountsByInstitution =
-    accounts?.reduce((acc, account) => {
-      if (!acc[account.institution]) {
+    accountsData?.reduce((acc, account) => {
+      if (account.institution && !acc[account.institution]) {
         acc[account.institution] = [];
       }
-      acc[account.institution].push(account);
+      if (account.institution) {
+        acc[account.institution].push(account);
+      }
       return acc;
     }, {} as Record<string, Account[]>) || {};
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const visibleAccounts =
-    accounts?.filter((account) => !account.hidden || showHidden) || [];
-  const hiddenAccounts = accounts?.filter((account) => account.hidden) || [];
+    accountsData?.filter((account) => !account.hidden || showHidden) || [];
+  const hiddenAccounts =
+    accountsData?.filter((account) => account.hidden) || [];
 
   const refreshInstitutions = async () => {
     try {
@@ -215,6 +204,32 @@ export default function Home() {
     }
   };
 
+  const fetchAccounts = async () => {
+    try {
+      const response = await fetch("/api/accounts");
+      if (!response.ok) throw new Error("Failed to fetch accounts");
+      const data: Account[] = await response.json();
+      setAccounts(data);
+    } catch (error) {
+      console.error("Error fetching accounts:", error);
+    } finally {
+      setIsLoadingAccounts(false);
+    }
+  };
+
+  const fetchAccountsWithHistory = async () => {
+    try {
+      const response = await fetch("/api/accounts/history");
+      if (!response.ok) throw new Error("Failed to fetch account history");
+      const data: Account[] = await response.json();
+      setAccountsWithHistory(data);
+    } catch (error) {
+      console.error("Error fetching account history:", error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
   useEffect(() => {
     const getToken = async () => {
       try {
@@ -232,10 +247,34 @@ export default function Home() {
     if (!linkToken) getToken();
   }, [linkToken]);
 
-  if (!accounts) {
+  useEffect(() => {
+    fetchAccounts();
+    fetchAccountsWithHistory();
+  }, []);
+
+  if (isLoadingAccounts || isLoadingHistory) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="min-h-screen p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-24 bg-gray-100 rounded"></div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="h-[400px] bg-gray-100 rounded"></div>
+              ))}
+            </div>
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-24 bg-gray-100 rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -354,19 +393,16 @@ export default function Home() {
           </div>
         )}
 
-        {accounts?.length ? (
+        {accountsData?.length ? (
           <>
-            <DashboardSummary accounts={visibleAccounts} isMasked={isMasked} />
+            <DashboardSummary accounts={accountsData} isMasked={isMasked} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <AccountTypeChart
-                accounts={visibleAccounts}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <NetWorthChart
+                accounts={accountsWithHistory}
                 isMasked={isMasked}
               />
-              <FinancialGroupChart
-                accounts={visibleAccounts}
-                isMasked={isMasked}
-              />
+              <FinancialGroupChart accounts={accounts} isMasked={isMasked} />
             </div>
 
             <div className="flex justify-between items-center mb-6">
@@ -546,7 +582,7 @@ export default function Home() {
                           .map((account) => (
                             <AccountCard
                               key={account.id}
-                              {...account}
+                              account={account}
                               onBalanceUpdate={refetch}
                               isMasked={isMasked}
                             />
@@ -567,7 +603,7 @@ export default function Home() {
                   {hiddenAccounts.map((account) => (
                     <AccountCard
                       key={account.id}
-                      {...account}
+                      account={account}
                       onBalanceUpdate={refetch}
                       isMasked={isMasked}
                     />

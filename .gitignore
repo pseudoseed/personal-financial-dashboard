@@ -43,3 +43,4 @@ prisma/dev.db
 logs/*.log
 blog/*
 prisma/dev.db-journal
+scripts/import.csv

@@ -159,6 +159,33 @@ export default function AccountPage({
     }
   };
 
+  const handleBackfill = async () => {
+    if (!confirm("Are you sure you want to backfill missing monthly data?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/accounts/${resolvedParams.accountId}/backfill`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to backfill data");
+      }
+
+      const result = await response.json();
+      alert(result.message);
+      refetch();
+    } catch (error) {
+      console.error("Error backfilling data:", error);
+      alert(error instanceof Error ? error.message : "Failed to backfill data");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen p-8">
@@ -263,67 +290,74 @@ export default function AccountPage({
           >
             ← Back to Dashboard
           </Link>
-          <div className="flex items-start gap-2">
-            {isEditing ? (
-              <div className="flex items-center gap-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={newNickname}
-                  onChange={(e) => setNewNickname(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="text-3xl font-bold px-2 py-1 border rounded"
-                  placeholder={history?.[0].account.name}
-                />
-                <button
-                  onClick={handleSaveNickname}
-                  className="p-2 text-green-600 hover:text-green-700"
-                  title="Save nickname"
-                >
-                  <CheckIcon className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={handleCancelEditing}
-                  className="p-2 text-red-600 hover:text-red-700"
-                  title="Cancel"
-                >
-                  <XMarkIcon className="w-6 h-6" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <h1 className="text-3xl font-bold">
-                  {history?.[0].account.nickname || history?.[0].account.name}
-                  {history?.[0].account.nickname && (
-                    <span className="text-gray-500 text-lg ml-2">
-                      ({history[0].account.name})
-                    </span>
-                  )}
-                </h1>
-                <button
-                  onClick={handleStartEditing}
-                  className="p-2 text-gray-400 hover:text-gray-600"
-                  title="Edit nickname"
-                >
-                  <PencilIcon className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setIsMasked(!isMasked)}
-                  className="p-2 text-gray-600 hover:text-gray-800"
-                  title={
-                    isMasked
-                      ? "Show sensitive information"
-                      : "Hide sensitive information"
-                  }
-                >
-                  {isMasked ? (
-                    <LockClosedIcon className="w-5 h-5" />
-                  ) : (
-                    <LockOpenIcon className="w-5 h-5" />
-                  )}
-                </button>
-              </div>
-            )}
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-2">
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={newNickname}
+                    onChange={(e) => setNewNickname(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="text-3xl font-bold px-2 py-1 border rounded"
+                    placeholder={history?.[0].account.name}
+                  />
+                  <button
+                    onClick={handleSaveNickname}
+                    className="p-2 text-green-600 hover:text-green-700"
+                    title="Save nickname"
+                  >
+                    <CheckIcon className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={handleCancelEditing}
+                    className="p-2 text-red-600 hover:text-red-700"
+                    title="Cancel"
+                  >
+                    <XMarkIcon className="w-6 h-6" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold">
+                    {history?.[0].account.nickname || history?.[0].account.name}
+                    {history?.[0].account.nickname && (
+                      <span className="text-gray-500 text-lg ml-2">
+                        ({history[0].account.name})
+                      </span>
+                    )}
+                  </h1>
+                  <button
+                    onClick={handleStartEditing}
+                    className="p-2 text-gray-400 hover:text-gray-600"
+                    title="Edit nickname"
+                  >
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsMasked(!isMasked)}
+                className="p-2 text-gray-600 hover:text-gray-800"
+                title={isMasked ? "Show sensitive information" : "Hide sensitive information"}
+              >
+                {isMasked ? (
+                  <LockClosedIcon className="w-5 h-5" />
+                ) : (
+                  <LockOpenIcon className="w-5 h-5" />
+                )}
+              </button>
+              <button
+                onClick={handleBackfill}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                title="Fill in missing monthly data points"
+              >
+                Backfill Data
+              </button>
+            </div>
           </div>
           <p className="text-gray-600 mt-1">
             {history?.[0].account.type}

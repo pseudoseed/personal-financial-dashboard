@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ACCOUNT_TYPES, AccountType } from "@/lib/accountTypes";
 
 interface ManualAccountFormProps {
   onSuccess: () => void;
@@ -12,7 +13,7 @@ export function ManualAccountForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    type: "depository",
+    type: "depository" as AccountType,
     subtype: "checking",
     balance: "",
     url: "",
@@ -29,45 +30,18 @@ export function ManualAccountForm({
     },
   });
 
-  const accountTypes = [
-    { value: "depository", label: "Depository" },
-    { value: "credit", label: "Credit" },
-    { value: "loan", label: "Loan" },
-    { value: "investment", label: "Investment" },
-    { value: "asset", label: "Asset" },
-    { value: "other", label: "Other" },
-  ];
+  const accountTypes = Object.entries(ACCOUNT_TYPES).map(([value, type]) => ({
+    value,
+    label: type.label,
+  }));
 
   const subtypes = {
-    depository: [
-      { value: "checking", label: "Checking" },
-      { value: "savings", label: "Savings" },
-      { value: "cd", label: "CD" },
-      { value: "money market", label: "Money Market" },
-    ],
-    credit: [
-      { value: "credit card", label: "Credit Card" },
-      { value: "line of credit", label: "Line of Credit" },
-    ],
-    loan: [
-      { value: "mortgage", label: "Mortgage" },
-      { value: "student", label: "Student Loan" },
-      { value: "auto", label: "Auto Loan" },
-      { value: "personal", label: "Personal Loan" },
-    ],
-    investment: [
-      { value: "brokerage", label: "Brokerage" },
-      { value: "retirement", label: "Retirement" },
-      { value: "ira", label: "IRA" },
-      { value: "401k", label: "401(k)" },
-    ],
-    asset: [
-      { value: "real_estate", label: "Real Estate" },
-      { value: "vehicle", label: "Vehicle" },
-      { value: "art", label: "Art" },
-      { value: "other", label: "Other" },
-    ],
-    other: [{ value: "other", label: "Other" }],
+    depository: ACCOUNT_TYPES.depository.subtypes,
+    credit: ACCOUNT_TYPES.credit.subtypes,
+    loan: ACCOUNT_TYPES.loan.subtypes,
+    investment: ACCOUNT_TYPES.investment.subtypes,
+    asset: ACCOUNT_TYPES.asset.subtypes,
+    other: ACCOUNT_TYPES.other.subtypes,
   };
 
   const propertyTypes = [
@@ -162,9 +136,8 @@ export function ManualAccountForm({
           onChange={(e) =>
             setFormData((prev) => ({
               ...prev,
-              type: e.target.value,
-              subtype:
-                subtypes[e.target.value as keyof typeof subtypes][0].value,
+              type: e.target.value as AccountType,
+              subtype: subtypes[e.target.value as AccountType][0].value,
             }))
           }
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -189,7 +162,7 @@ export function ManualAccountForm({
           }
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
         >
-          {subtypes[formData.type as keyof typeof subtypes].map((subtype) => (
+          {subtypes[formData.type].map((subtype) => (
             <option key={subtype.value} value={subtype.value}>
               {subtype.label}
             </option>
