@@ -257,8 +257,14 @@ async function handleInvestmentTransactions(
     // Insert new transactions
     if (allInvestmentTransactions.length > 0) {
       await prisma.$transaction(
-        allInvestmentTransactions.map((transaction) =>
-          prisma.transaction.create({
+        allInvestmentTransactions.map((transaction) => {
+          const security = transaction.security_id
+            ? allSecurities.find(
+                (s) => s.security_id === transaction.security_id
+              )
+            : null;
+
+          return prisma.transaction.create({
             data: {
               accountId: account.id,
               plaidId: transaction.investment_transaction_id,
@@ -266,15 +272,20 @@ async function handleInvestmentTransactions(
               name: transaction.name,
               amount: transaction.amount,
               category: transaction.type,
-              merchantName: transaction.security_id
-                ? allSecurities.find(
-                    (s) => s.security_id === transaction.security_id
-                  )?.name
-                : null,
+              merchantName: security?.name || null,
               pending: false,
+              // New investment-specific fields
+              fees: transaction.fees || 0,
+              price: transaction.price || 0,
+              quantity: transaction.quantity || 0,
+              securityId: transaction.security_id || null,
+              tickerSymbol: security?.ticker_symbol || null,
+              type: transaction.type || null,
+              subtype: transaction.subtype || null,
+              isoCurrencyCode: transaction.iso_currency_code || null,
             },
-          })
-        )
+          });
+        })
       );
     }
 
@@ -285,6 +296,7 @@ async function handleInvestmentTransactions(
     };
   } catch (error) {
     console.error("Investment transactions sync error details:", error);
+    console.error(error.response.data);
     throw error;
   }
 }

@@ -57,18 +57,27 @@ model AccountBalance {
 }
 
 model Transaction {
-  id           String   @id @default(cuid())
-  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  accountId    String
-  plaidId      String // Plaid's transaction_id
-  date         DateTime
-  name         String
-  amount       Float
-  category     String?
-  merchantName String?
-  pending      Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId       String
+  plaidId         String // Plaid's transaction_id
+  date            DateTime
+  name            String
+  amount          Float
+  category        String?
+  merchantName    String?
+  pending         Boolean  @default(false)
+  // Investment specific fields
+  fees            Float?
+  price           Float?
+  quantity        Float?
+  securityId      String?
+  tickerSymbol    String?
+  type            String? // 'buy', 'sell', 'cash', etc.
+  subtype         String? // 'buy', 'sell', 'dividend', etc.
+  isoCurrencyCode String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([accountId, plaidId])
   @@index([date])
