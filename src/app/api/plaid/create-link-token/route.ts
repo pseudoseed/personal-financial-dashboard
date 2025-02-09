@@ -7,7 +7,7 @@ export async function POST() {
     const request = {
       user: { client_user_id: "user-id" },
       client_name: "Personal Finance Dashboard",
-      products: [Products.Transactions],
+      products: [Products.Transactions, Products.Investments],
       country_codes: [CountryCode.Us],
       language: "en",
       transactions: {
