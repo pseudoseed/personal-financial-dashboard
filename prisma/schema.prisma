@@ -57,27 +57,66 @@ model AccountBalance {
 }
 
 model Transaction {
-  id              String   @id @default(cuid())
-  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  accountId       String
-  plaidId         String // Plaid's transaction_id
-  date            DateTime
-  name            String
-  amount          Float
-  category        String?
-  merchantName    String?
-  pending         Boolean  @default(false)
+  id                      String    @id @default(cuid())
+  account                 Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId               String
+  plaidId                 String // Plaid's transaction_id or investment_transaction_id
+  date                    DateTime
+  name                    String
+  amount                  Float
+  category                String?
+  merchantName            String?
+  pending                 Boolean   @default(false)
   // Investment specific fields
-  fees            Float?
-  price           Float?
-  quantity        Float?
-  securityId      String?
-  tickerSymbol    String?
-  type            String? // 'buy', 'sell', 'cash', etc.
-  subtype         String? // 'buy', 'sell', 'dividend', etc.
-  isoCurrencyCode String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  fees                    Float?
+  price                   Float?
+  quantity                Float?
+  // Security fields
+  securityId              String? // Plaid's security_id
+  tickerSymbol            String? // Trading symbol
+  isin                    String? // ISIN identifier
+  cusip                   String? // CUSIP identifier
+  sedol                   String? // SEDOL identifier
+  institutionSecurityId   String? // Institution's security identifier
+  securityName            String? // Descriptive name for the security
+  securityType            String? // e.g., 'equity', 'mutual fund', etc.
+  closePrice              Float? // Price at close of previous trading session
+  closePriceAsOf          DateTime? // Date for which close_price is accurate
+  isCashEquivalent        Boolean? // Whether security can be treated like cash
+  type                    String? // investment transaction type: 'buy', 'sell', 'cash', etc.
+  subtype                 String? // investment transaction subtype: 'buy', 'sell', 'dividend', etc.
+  isoCurrencyCode         String?
+  unofficialCurrencyCode  String? // For cryptocurrencies and unofficial currencies
+  marketIdentifierCode    String? // e.g., 'XNAS' for NASDAQ
+  sector                  String? // Industry sector
+  industry                String? // Specific industry
+  // Regular transaction fields
+  authorizedDate          DateTime? // Date the transaction was authorized
+  authorizedDatetime      DateTime? // Timestamp when transaction was authorized
+  datetime                DateTime? // Timestamp when transaction was posted
+  paymentChannel          String? // 'online', 'in store', etc.
+  transactionCode         String? // Additional transaction metadata
+  personalFinanceCategory String? // Enhanced categorization
+  merchantEntityId        String? // Stable ID for the merchant
+  // Location data
+  locationAddress         String?
+  locationCity            String?
+  locationRegion          String?
+  locationPostalCode      String?
+  locationCountry         String?
+  locationLat             Float?
+  locationLon             Float?
+  // Payment metadata
+  byOrderOf               String?
+  payee                   String?
+  payer                   String?
+  paymentMethod           String?
+  paymentProcessor        String?
+  ppd_id                  String?
+  reason                  String?
+  referenceNumber         String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   @@unique([accountId, plaidId])
   @@index([date])

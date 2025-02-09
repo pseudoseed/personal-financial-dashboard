@@ -160,6 +160,40 @@ async function handleRegularTransactions(
             category: transaction.category ? transaction.category[0] : null,
             merchantName: transaction.merchant_name,
             pending: transaction.pending,
+            // Additional fields
+            isoCurrencyCode: transaction.iso_currency_code,
+            unofficialCurrencyCode: transaction.unofficial_currency_code,
+            authorizedDate: transaction.authorized_date
+              ? new Date(transaction.authorized_date)
+              : null,
+            authorizedDatetime: transaction.authorized_datetime
+              ? new Date(transaction.authorized_datetime)
+              : null,
+            datetime: transaction.datetime
+              ? new Date(transaction.datetime)
+              : null,
+            paymentChannel: transaction.payment_channel,
+            transactionCode: transaction.transaction_code?.value || null,
+            personalFinanceCategory:
+              transaction.personal_finance_category?.primary || null,
+            merchantEntityId: transaction.merchant_entity_id,
+            // Location data
+            locationAddress: transaction.location?.address,
+            locationCity: transaction.location?.city,
+            locationRegion: transaction.location?.region,
+            locationPostalCode: transaction.location?.postal_code,
+            locationCountry: transaction.location?.country,
+            locationLat: transaction.location?.lat || null,
+            locationLon: transaction.location?.lon || null,
+            // Payment metadata
+            byOrderOf: transaction.payment_meta?.by_order_of,
+            payee: transaction.payment_meta?.payee,
+            payer: transaction.payment_meta?.payer,
+            paymentMethod: transaction.payment_meta?.payment_method,
+            paymentProcessor: transaction.payment_meta?.payment_processor,
+            ppd_id: transaction.payment_meta?.ppd_id,
+            reason: transaction.payment_meta?.reason,
+            referenceNumber: transaction.payment_meta?.reference_number,
           },
           update: {}, // No update if transaction exists
         })
@@ -274,15 +308,31 @@ async function handleInvestmentTransactions(
               category: transaction.type,
               merchantName: security?.name || null,
               pending: false,
-              // New investment-specific fields
+              // Investment transaction fields
               fees: transaction.fees || 0,
               price: transaction.price || 0,
               quantity: transaction.quantity || 0,
+              // Security fields
               securityId: transaction.security_id || null,
               tickerSymbol: security?.ticker_symbol || null,
+              isin: security?.isin || null,
+              cusip: security?.cusip || null,
+              sedol: security?.sedol || null,
+              institutionSecurityId: security?.institution_security_id || null,
+              securityName: security?.name || null,
+              securityType: security?.type || null,
+              closePrice: security?.close_price || null,
+              closePriceAsOf: security?.close_price_as_of
+                ? new Date(security.close_price_as_of)
+                : null,
+              isCashEquivalent: security?.is_cash_equivalent || null,
               type: transaction.type || null,
               subtype: transaction.subtype || null,
-              isoCurrencyCode: transaction.iso_currency_code || null,
+              isoCurrencyCode: transaction.iso_currency_code,
+              unofficialCurrencyCode: transaction.unofficial_currency_code,
+              marketIdentifierCode: security?.market_identifier_code || null,
+              sector: security?.sector || null,
+              industry: security?.industry || null,
             },
           });
         })
