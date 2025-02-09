@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { Account, PlaidItem, PrismaClient } from "@prisma/client";
 import {
   Configuration,
   PlaidApi,
@@ -7,9 +7,6 @@ import {
   InvestmentTransaction,
   Security,
 } from "plaid";
-import { prisma } from "@/lib/db";
-import { Account, PlaidItem } from "@prisma/client";
-import { downloadTransactions } from "@/lib/transactions";
 
 const plaidClient = new PlaidApi(
   new Configuration({
@@ -23,7 +20,21 @@ const plaidClient = new PlaidApi(
   })
 );
 
+export async function downloadTransactions(
+  prisma: PrismaClient,
+  account: Account & {
+    plaidItem: PlaidItem;
+  }
+) {
+  if (account.type === "investment") {
+    return handleInvestmentTransactions(prisma, account);
+  } else {
+    return handleRegularTransactions(prisma, account);
+  }
+}
+
 async function handleRegularTransactions(
+  prisma: PrismaClient,
   account: Account & {
     plaidItem: PlaidItem;
   }
@@ -84,6 +95,38 @@ async function handleRegularTransactions(
           category: modifiedTx.category ? modifiedTx.category[0] : null,
           merchantName: modifiedTx.merchant_name,
           pending: modifiedTx.pending,
+          // Additional fields
+          isoCurrencyCode: modifiedTx.iso_currency_code,
+          unofficialCurrencyCode: modifiedTx.unofficial_currency_code,
+          authorizedDate: modifiedTx.authorized_date
+            ? new Date(modifiedTx.authorized_date)
+            : null,
+          authorizedDatetime: modifiedTx.authorized_datetime
+            ? new Date(modifiedTx.authorized_datetime)
+            : null,
+          datetime: modifiedTx.datetime ? new Date(modifiedTx.datetime) : null,
+          paymentChannel: modifiedTx.payment_channel,
+          transactionCode: modifiedTx.transaction_code,
+          personalFinanceCategory:
+            modifiedTx.personal_finance_category?.primary || null,
+          merchantEntityId: modifiedTx.merchant_entity_id,
+          // Location data
+          locationAddress: modifiedTx.location?.address,
+          locationCity: modifiedTx.location?.city,
+          locationRegion: modifiedTx.location?.region,
+          locationPostalCode: modifiedTx.location?.postal_code,
+          locationCountry: modifiedTx.location?.country,
+          locationLat: modifiedTx.location?.lat || null,
+          locationLon: modifiedTx.location?.lon || null,
+          // Payment metadata
+          byOrderOf: modifiedTx.payment_meta?.by_order_of,
+          payee: modifiedTx.payment_meta?.payee,
+          payer: modifiedTx.payment_meta?.payer,
+          paymentMethod: modifiedTx.payment_meta?.payment_method,
+          paymentProcessor: modifiedTx.payment_meta?.payment_processor,
+          ppd_id: modifiedTx.payment_meta?.ppd_id,
+          reason: modifiedTx.payment_meta?.reason,
+          referenceNumber: modifiedTx.payment_meta?.reference_number,
         },
       });
     }
@@ -174,7 +217,7 @@ async function handleRegularTransactions(
               ? new Date(transaction.datetime)
               : null,
             paymentChannel: transaction.payment_channel,
-            transactionCode: transaction.transaction_code?.value || null,
+            transactionCode: transaction.transaction_code,
             personalFinanceCategory:
               transaction.personal_finance_category?.primary || null,
             merchantEntityId: transaction.merchant_entity_id,
@@ -210,6 +253,7 @@ async function handleRegularTransactions(
 }
 
 async function handleInvestmentTransactions(
+  prisma: PrismaClient,
   account: Account & {
     plaidItem: PlaidItem;
   }
@@ -347,48 +391,6 @@ async function handleInvestmentTransactions(
     };
   } catch (error) {
     console.error("Investment transactions sync error details:", error);
-    console.error(error.response.data);
     throw error;
-  }
-}
-
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ accountId: string }> }
-) {
-  const { accountId } = await params;
-
-  // Get the account and its Plaid item
-  const account = await prisma.account.findUnique({
-    where: { id: accountId },
-    include: { plaidItem: true },
-  });
-
-  if (!account) {
-    return NextResponse.json({ error: "Account not found" }, { status: 404 });
-  }
-
-  try {
-    const result = await downloadTransactions(prisma, account);
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error("Error downloading transactions:", error);
-    console.error(error.response.data);
-    // Log the error
-    await prisma.transactionDownloadLog.create({
-      data: {
-        accountId: accountId,
-        startDate: new Date(),
-        endDate: new Date(),
-        numTransactions: 0,
-        status: "error",
-        errorMessage: error instanceof Error ? error.message : "Unknown error",
-      },
-    });
-
-    return NextResponse.json(
-      { error: "Failed to download transactions" },
-      { status: 500 }
-    );
   }
 }

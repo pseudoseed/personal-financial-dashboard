@@ -5,6 +5,7 @@ import handlebars from "handlebars";
 import fs from "fs";
 import path from "path";
 import { PlaidItem } from "@prisma/client";
+import { downloadTransactions } from "@/lib/transactions";
 
 interface AccountChange {
   name: string;
@@ -216,12 +217,15 @@ async function refreshCoinbaseAccounts(
   console.log("Refreshing Coinbase accounts for:", item.institutionName);
   try {
     let accessToken = item.accessToken;
-    let response = await fetch("https://api.coinbase.com/v2/accounts?limit=100", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "CB-VERSION": "2024-02-07",
-      },
-    });
+    let response = await fetch(
+      "https://api.coinbase.com/v2/accounts?limit=100",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "CB-VERSION": "2024-02-07",
+        },
+      }
+    );
 
     // If token expired, try refreshing it
     if (response.status === 401) {
@@ -272,16 +276,27 @@ async function refreshCoinbaseAccounts(
       }
 
       const usdValue = cryptoAmount * spotPrice;
-
-      const existingAccount = await prisma.account.findFirst({
+      const existingAccount = await prisma.account.findUnique({
         where: { plaidId: `coinbase_${account.id}` },
-        include: {
+        select: {
+          id: true,
+          type: true,
           balances: {
-            orderBy: {
-              date: "desc",
-            },
+            orderBy: { date: "desc" },
             take: 1,
           },
+          nickname: true,
+          name: true,
+          plaidId: true,
+          itemId: true,
+          createdAt: true,
+          updatedAt: true,
+          subtype: true,
+          mask: true,
+          hidden: true,
+          metadata: true,
+          url: true,
+          plaidItem: true,
         },
       });
 
@@ -347,7 +362,7 @@ async function refreshBalances(): Promise<{
   changes: InstitutionChange[];
   totalChange: number;
 }> {
-  console.log("Refreshing account balances...");
+  console.log("Refreshing account balances and transactions...");
   const items = await prisma.plaidItem.findMany({
     where: {
       accessToken: {
@@ -356,8 +371,7 @@ async function refreshBalances(): Promise<{
     },
     include: {
       accounts: {
-        where: {
-        },
+        where: {},
       },
     },
   });
@@ -410,11 +424,23 @@ async function refreshBalances(): Promise<{
             where: { plaidId: account.account_id },
             select: {
               id: true,
+              type: true,
               balances: {
                 orderBy: { date: "desc" },
                 take: 1,
               },
               nickname: true,
+              name: true,
+              plaidId: true,
+              itemId: true,
+              createdAt: true,
+              updatedAt: true,
+              subtype: true,
+              mask: true,
+              hidden: true,
+              metadata: true,
+              url: true,
+              plaidItem: true,
             },
           });
 
@@ -454,6 +480,25 @@ async function refreshBalances(): Promise<{
                 subtype: account.subtype || null,
               },
             });
+
+            // Download transactions for this account
+            try {
+              console.log(
+                `Downloading transactions for account: ${account.name}`
+              );
+              const result = await downloadTransactions(
+                prisma,
+                existingAccount
+              );
+              console.log(
+                `Downloaded ${result.numTransactions} transactions for ${account.name}`
+              );
+            } catch (error) {
+              console.error(
+                `Error downloading transactions for ${account.name}:`,
+                error
+              );
+            }
           }
         }
       }
@@ -463,11 +508,13 @@ async function refreshBalances(): Promise<{
       }
 
       console.log(
-        `Refreshed balances for: ${item.institutionName || item.institutionId}`
+        `Refreshed balances and transactions for: ${
+          item.institutionName || item.institutionId
+        }`
       );
     } catch (error) {
       if (error instanceof Error) {
-        let errorMessage = `Error refreshing balances for ${
+        let errorMessage = `Error refreshing data for ${
           item.institutionName || item.institutionId
         }: ${error.message}`;
 
@@ -498,7 +545,7 @@ async function refreshBalances(): Promise<{
         console.error(errorMessage);
       } else {
         console.error(
-          `Unknown error refreshing balances for ${
+          `Unknown error refreshing data for ${
             item.institutionName || item.institutionId
           }:`,
           error
