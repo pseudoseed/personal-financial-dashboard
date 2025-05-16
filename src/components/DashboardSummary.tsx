@@ -2,8 +2,6 @@
 
 import { Account } from "@/types/account";
 
-
-
 interface DashboardSummaryProps {
   accounts: Account[];
   isMasked?: boolean;
@@ -16,6 +14,9 @@ export function DashboardSummary({
   const formatBalance = (amount: number) => {
     return isMasked ? "••••••" : `$${amount.toLocaleString()}`;
   };
+
+  // Log the number of accounts being processed
+  console.log(`Processing ${accounts.length} accounts for DashboardSummary`);
 
   const summary = accounts.reduce(
     (acc, account) => {
@@ -47,6 +48,15 @@ export function DashboardSummary({
   const creditUtilization = summary.totalCredit
     ? (summary.usedCredit / summary.totalCredit) * 100
     : 0;
+
+  // Log the financial summary for debugging
+  console.log("DashboardSummary calculated values:");
+  console.log(`  Net Worth: ${netWorth.toLocaleString()}`);
+  console.log(`  Total Assets: ${summary.totalAssets.toLocaleString()}`);
+  console.log(
+    `  Total Liabilities: ${summary.totalLiabilities.toLocaleString()}`
+  );
+  console.log(`  Credit Utilization: ${creditUtilization.toFixed(1)}%`);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
