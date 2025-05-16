@@ -14,6 +14,7 @@ interface AccountChange {
   currentBalance: number;
   change: number;
   isPositive: boolean;
+  type: string;
 }
 
 interface InstitutionChange {
@@ -79,6 +80,18 @@ handlebars.registerHelper("formatMoney", (amount: number) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+});
+
+// Helper to check if an account is a loan or credit account
+handlebars.registerHelper("isLoanOrCredit", (type: string) => {
+  if (!type) return false;
+  const accountType = type.toLowerCase();
+  return accountType === "credit" || accountType === "loan";
+});
+
+// Helper to get absolute value
+handlebars.registerHelper("absValue", (value: number) => {
+  return Math.abs(value);
 });
 
 async function refreshInstitutions() {
@@ -315,13 +328,20 @@ async function refreshCoinbaseAccounts(
 
         // Track significant changes (more than 1 cent)
         if (Math.abs(change) > 0.01) {
+          // For loan and credit accounts, a decreasing balance is positive
+          const isLoanOrCredit =
+            existingAccount.type.toLowerCase() === "credit" ||
+            existingAccount.type.toLowerCase() === "loan";
+          const isPositive = isLoanOrCredit ? change < 0 : change > 0;
+
           institutionChanges.accounts.push({
             name: existingAccount.name,
             nickname: existingAccount.nickname,
             previousBalance,
             currentBalance: usdValue,
             change,
-            isPositive: change > 0,
+            isPositive,
+            type: existingAccount.type,
           });
           totalChange += change;
         }
@@ -361,6 +381,11 @@ async function refreshCoinbaseAccounts(
 async function refreshBalances(): Promise<{
   changes: InstitutionChange[];
   totalChange: number;
+  portfolioSummary: {
+    netWorth: number;
+    totalAssets: number;
+    totalLiabilities: number;
+  };
 }> {
   console.log("Refreshing account balances and transactions...");
   const items = await prisma.plaidItem.findMany({
@@ -451,13 +476,20 @@ async function refreshBalances(): Promise<{
 
             // Track changes if they are significant
             if (Math.abs(change) > 0.01) {
+              // For loan and credit accounts, a decreasing balance is positive
+              const isLoanOrCredit =
+                existingAccount.type.toLowerCase() === "credit" ||
+                existingAccount.type.toLowerCase() === "loan";
+              const isPositive = isLoanOrCredit ? change < 0 : change > 0;
+
               institutionChanges.accounts.push({
                 name: account.name,
                 nickname: existingAccount.nickname,
                 previousBalance,
                 currentBalance,
                 change,
-                isPositive: change > 0,
+                isPositive,
+                type: existingAccount.type,
               });
               totalChange += change;
             }
@@ -554,15 +586,63 @@ async function refreshBalances(): Promise<{
     }
   }
 
-  return { changes, totalChange };
+  // Calculate current portfolio totals
+  const allAccounts = await prisma.account.findMany({
+    include: {
+      balances: {
+        orderBy: {
+          date: "desc",
+        },
+        take: 1,
+      },
+    },
+  });
+
+  let totalAssets = 0;
+  let totalLiabilities = 0;
+
+  // Calculate total assets and liabilities
+  allAccounts.forEach((account) => {
+    if (account.balances.length === 0) return;
+
+    const currentBalance = account.balances[0].current;
+    const accountType = account.type.toLowerCase();
+
+    if (accountType === "credit" || accountType === "loan") {
+      totalLiabilities += Math.abs(currentBalance);
+    } else {
+      totalAssets += currentBalance;
+    }
+  });
+
+  const netWorth = totalAssets - totalLiabilities;
+
+  const portfolioSummary = {
+    netWorth,
+    totalAssets,
+    totalLiabilities,
+  };
+
+  return { changes, totalChange, portfolioSummary };
 }
 
 async function sendEmail(
   changes: InstitutionChange[],
-  totalChange: number
+  totalChange: number,
+  portfolioSummary: {
+    netWorth: number;
+    totalAssets: number;
+    totalLiabilities: number;
+  }
 ): Promise<void> {
   const templatePath = path.join(__dirname, "email-template.html");
   const template = handlebars.compile(fs.readFileSync(templatePath, "utf-8"));
+
+  // Calculate the total number of accounts with changes
+  const totalAccountsChanged = changes.reduce(
+    (total, institution) => total + institution.accounts.length,
+    0
+  );
 
   const html = template({
     date: new Date().toLocaleDateString("en-US", {
@@ -575,6 +655,11 @@ async function sendEmail(
     institutions: changes,
     totalChange,
     isTotalPositive: totalChange > 0,
+    totalAccountsChanged,
+    netWorth: portfolioSummary.netWorth,
+    isNetWorthPositive: portfolioSummary.netWorth >= 0,
+    totalAssets: portfolioSummary.totalAssets,
+    totalLiabilities: portfolioSummary.totalLiabilities,
   });
 
   const mailOptions = {
@@ -596,8 +681,8 @@ async function sendEmail(
 async function main() {
   try {
     await refreshInstitutions();
-    const { changes, totalChange } = await refreshBalances();
-    await sendEmail(changes, totalChange);
+    const { changes, totalChange, portfolioSummary } = await refreshBalances();
+    await sendEmail(changes, totalChange, portfolioSummary);
   } catch (error) {
     console.error("Error in main:", error);
     process.exit(1);

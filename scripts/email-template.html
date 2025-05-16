@@ -19,6 +19,40 @@
             border-radius: 8px;
             margin-bottom: 20px;
         }
+        .total-summary {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 5px solid #6c757d;
+        }
+        .total-positive {
+            border-left-color: #28a745;
+        }
+        .total-negative {
+            border-left-color: #dc3545;
+        }
+        .portfolio-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .portfolio-item {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .portfolio-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+        .portfolio-value {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
         .institution {
             margin-bottom: 30px;
         }
@@ -54,9 +88,16 @@
             font-size: 0.9em;
             margin-bottom: 8px;
         }
+        .big-number {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
         @media only screen and (max-width: 600px) {
             body {
                 padding: 10px;
+            }
+            .portfolio-summary {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -68,6 +109,36 @@
     </div>
 
     {{#if hasChanges}}
+        <!-- Portfolio Summary -->
+        <div class="portfolio-summary">
+            <div class="portfolio-item">
+                <div class="portfolio-label">Net Worth</div>
+                <div class="portfolio-value {{#if isNetWorthPositive}}change-positive{{else}}change-negative{{/if}}">
+                    ${{formatMoney netWorth}}
+                </div>
+            </div>
+            <div class="portfolio-item">
+                <div class="portfolio-label">Total Assets</div>
+                <div class="portfolio-value">
+                    ${{formatMoney totalAssets}}
+                </div>
+            </div>
+            <div class="portfolio-item">
+                <div class="portfolio-label">Total Liabilities</div>
+                <div class="portfolio-value">
+                    ${{formatMoney totalLiabilities}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Change Summary -->
+        <div class="total-summary {{#if isTotalPositive}}total-positive{{else}}total-negative{{/if}}">
+            <h3>Net Change</h3>
+            <p class="big-number {{#if isTotalPositive}}change-positive{{else}}change-negative{{/if}}">
+                {{#if isTotalPositive}}+{{/if}}${{formatMoney totalChange}}
+            </p>
+        </div>
+
         {{#each institutions}}
         <div class="institution">
             <div class="institution-header">
@@ -81,7 +152,19 @@
                     Previous Balance: ${{formatMoney previousBalance}}<br>
                     Current Balance: ${{formatMoney currentBalance}}<br>
                     Change: <span class="{{#if isPositive}}change-positive{{else}}change-negative{{/if}}">
-                        {{#if isPositive}}+{{/if}}${{formatMoney change}}
+                        {{#if isPositive}}
+                            {{#if (isLoanOrCredit type)}}
+                                -${{formatMoney (absValue change)}} (Paid Down)
+                            {{else}}
+                                +${{formatMoney change}}
+                            {{/if}}
+                        {{else}}
+                            {{#if (isLoanOrCredit type)}}
+                                +${{formatMoney (absValue change)}} (Increased)
+                            {{else}}
+                                -${{formatMoney (absValue change)}}
+                            {{/if}}
+                        {{/if}}
                     </span>
                 </p>
             </div>
@@ -96,6 +179,8 @@
                     {{#if isTotalPositive}}+{{/if}}${{formatMoney totalChange}}
                 </span>
             </p>
+            <p>Total Accounts Changed: {{totalAccountsChanged}}</p>
+            <p>Total Institutions Changed: {{institutions.length}}</p>
         </div>
     {{else}}
         <p>No changes in account balances were detected.</p>
