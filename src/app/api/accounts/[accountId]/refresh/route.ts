@@ -171,6 +171,7 @@ export async function POST(
         previousBalance,
         change,
       });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       // Check for Plaid specific error codes
       if (error.response?.data) {

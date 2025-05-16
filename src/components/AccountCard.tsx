@@ -249,6 +249,7 @@ export function AccountCard({
         <div className="flex items-start justify-between mb-2 pr-16">
           <div className="flex items-center gap-2 min-w-0">
             {account.institutionLogo && (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={account.institutionLogo}
                 alt={account.institution}
@@ -320,7 +321,14 @@ export function AccountCard({
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-1"></div>
+              <div className="flex items-center gap-1">
+                <Icon className="h-4 w-4 text-gray-500" />
+                {account.mask && (
+                  <p className="text-sm text-gray-500 truncate">
+                    ****{account.mask}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
           <div className="absolute top-4 right-4 flex gap-2">
