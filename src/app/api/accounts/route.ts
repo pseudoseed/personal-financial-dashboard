@@ -33,6 +33,7 @@ export async function GET() {
         account.plaidItem.institutionName || account.plaidItem.institutionId,
       institutionLogo: account.plaidItem.institutionLogo,
       balance: account.balances[0],
+      lastUpdated: account.balances[0]?.date.toISOString() || null,
       url: account.url,
       metadata: account.metadata,
       plaidItem: {

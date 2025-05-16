@@ -25,4 +25,5 @@ export interface Account {
     institutionId: string;
   };
   url?: string | null;
+  lastUpdated?: string | null;
 }

@@ -45,3 +45,4 @@ blog/*
 prisma/dev.db-journal
 scripts/import.csv
 prisma/dev.db.backup
+prisma/dev-plaid-only.db

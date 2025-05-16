@@ -9,10 +9,13 @@ import {
   CheckIcon,
   XMarkIcon,
   ArrowTopRightOnSquareIcon,
+  ClockIcon,
 } from "@heroicons/react/24/solid";
 import { useState, useRef, useEffect } from "react";
 import { getAccountTypeInfo } from "@/lib/accountTypes";
 import { Account } from "@/types/account";
+import { formatDistanceToNow, parseISO, differenceInDays } from "date-fns";
+
 interface AccountCardProps {
   account: Account;
   onBalanceUpdate?: () => void;
@@ -31,7 +34,9 @@ export function AccountCard({
   const [isEditing, setIsEditing] = useState(false);
   const [newNickname, setNewNickname] = useState(account.nickname || "");
   const [showBalanceDialog, setShowBalanceDialog] = useState(false);
-  const [newBalance, setNewBalance] = useState(account.balance.current.toString());
+  const [newBalance, setNewBalance] = useState(
+    account.balance.current.toString()
+  );
   const inputRef = useRef<HTMLInputElement>(null);
   const isManual = account.institution === "Manual Account";
 
@@ -43,6 +48,24 @@ export function AccountCard({
       inputRef.current.focus();
     }
   }, [isEditing]);
+
+  // Format the last updated date and check if it's older than 5 days
+  const formatLastUpdated = () => {
+    if (!account.lastUpdated) return null;
+
+    try {
+      const date = parseISO(account.lastUpdated);
+      const formattedDate = formatDistanceToNow(date, { addSuffix: true });
+      const isOld = differenceInDays(new Date(), date) > 5;
+
+      return { text: formattedDate, isOld };
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return null;
+    }
+  };
+
+  const lastUpdatedInfo = formatLastUpdated();
 
   const handleRefresh = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -126,9 +149,12 @@ export function AccountCard({
     e.preventDefault();
     e.stopPropagation();
     try {
-      const response = await fetch(`/api/accounts/${account.id}/toggle-visibility`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/accounts/${account.id}/toggle-visibility`,
+        {
+          method: "POST",
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to toggle account visibility");
@@ -155,13 +181,16 @@ export function AccountCard({
     e.preventDefault();
     e.stopPropagation();
     try {
-      const response = await fetch(`/api/accounts/${account.id}/update-nickname`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ nickname: newNickname.trim() || null }),
-      });
+      const response = await fetch(
+        `/api/accounts/${account.id}/update-nickname`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ nickname: newNickname.trim() || null }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to update nickname");
@@ -268,7 +297,11 @@ export function AccountCard({
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            window.open(account.url || "", "_blank", "noopener,noreferrer");
+                            window.open(
+                              account.url || "",
+                              "_blank",
+                              "noopener,noreferrer"
+                            );
                           }}
                           className="text-blue-500 hover:text-blue-700"
                           title="Open reference URL"
@@ -277,9 +310,6 @@ export function AccountCard({
                         </button>
                       )}
                     </div>
-                    {account.nickname && (
-                      <p className="text-sm text-gray-500 truncate">{account.name}</p>
-                    )}
                   </div>
                   <button
                     onClick={handleStartEditing}
@@ -290,12 +320,7 @@ export function AccountCard({
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-1">
-                <Icon className="h-4 w-4 text-gray-500" />
-              </div>
-              {account.mask && (
-                <p className="text-sm text-gray-500 truncate">****{account.mask}</p>
-              )}
+              <div className="flex items-center gap-1"></div>
             </div>
           </div>
           <div className="absolute top-4 right-4 flex gap-2">
@@ -359,6 +384,20 @@ export function AccountCard({
             </div>
           )}
         </div>
+
+        {/* Last Updated Date */}
+        {lastUpdatedInfo && (
+          <div className="flex items-center gap-1 mt-3 text-xs">
+            <ClockIcon className="w-3.5 h-3.5 text-gray-500" />
+            <span
+              className={`${
+                lastUpdatedInfo.isOld ? "text-red-600" : "text-gray-500"
+              }`}
+            >
+              Updated {lastUpdatedInfo.text}
+            </span>
+          </div>
+        )}
 
         {/* Credit Card Utilization */}
         {isCredit && account.balance.limit && !isMasked && (
@@ -434,7 +473,11 @@ export function AccountCard({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        window.open(account.url || "", "_blank", "noopener,noreferrer");
+                        window.open(
+                          account.url || "",
+                          "_blank",
+                          "noopener,noreferrer"
+                        );
                       }}
                       className="text-blue-500 hover:text-blue-700 flex items-center gap-1"
                     >
