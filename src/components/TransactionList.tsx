@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Transaction, TransactionDownloadLog } from "@prisma/client";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/solid";
+import { TrashIcon } from "@heroicons/react/24/outline";
 
 interface TransactionListProps {
   accountId: string;
@@ -101,7 +102,7 @@ export function TransactionList({
             <button
               onClick={handleDownload}
               disabled={isLoading}
-              className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors ${
+              className={`px-4 py-2 bg-purple-600 dark:bg-purple-500 text-white rounded hover:bg-purple-700 dark:hover:bg-purple-400 transition-colors ${
                 isLoading ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
@@ -113,7 +114,7 @@ export function TransactionList({
 
       <div className="p-6">
         {error && (
-          <div className="mb-4 px-6 py-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 px-6 py-3 bg-pink-100 border border-pink-400 text-pink-800 rounded">
             {error}
           </div>
         )}
@@ -178,13 +179,13 @@ export function TransactionList({
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500">
-                          {transaction.category || "-"}
+                          {(transaction as any).categoryAi || transaction.category || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
                           <span
                             className={
                               transaction.amount < 0
-                                ? "text-red-600"
+                                ? "text-pink-500 dark:text-pink-400"
                                 : "text-green-600"
                             }
                           >
@@ -225,7 +226,7 @@ export function TransactionList({
                       className={`px-2 py-1 rounded-full text-xs ${
                         log.status === "success"
                           ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
+                          : "bg-pink-100 text-pink-800"
                       }`}
                     >
                       {log.status}

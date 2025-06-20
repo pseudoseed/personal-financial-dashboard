@@ -175,7 +175,14 @@ export function NetWorthChart({
     }
   });
 
-  const chartOptions: ChartOptions<"line"> = {
+  // Determine if dark mode is active
+  const isDarkMode = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
+
+  const labelColor = isDarkMode ? '#b0b0b0' : '#181818';
+  const gridColor = isDarkMode ? '#444' : '#e5e7eb';
+  const chartBg = isDarkMode ? '#181818' : '#fff';
+
+  const chartOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -184,7 +191,8 @@ export function NetWorthChart({
       },
       title: {
         display: true,
-        text: "Net Worth Over Time",
+        text: 'Net Worth Over Time',
+        color: labelColor,
       },
       tooltip: {
         callbacks: {
@@ -193,28 +201,38 @@ export function NetWorthChart({
             return `Net Worth: ${formatBalance(value)}`;
           },
         },
+        backgroundColor: chartBg,
+        titleColor: labelColor,
+        bodyColor: labelColor,
       },
     },
     scales: {
       y: {
-        type: "linear",
+        type: 'linear',
         beginAtZero: false,
-        grace: "5%",
+        grace: '5%',
         ticks: {
           callback: (value) => formatBalance(value as number),
           maxTicksLimit: 10,
+          color: labelColor,
+        },
+        grid: {
+          color: gridColor,
         },
       },
       x: {
         grid: {
-          display: true,
+          color: gridColor,
         },
         ticks: {
           maxRotation: 45,
           minRotation: 45,
+          color: labelColor,
         },
       },
     },
+    backgroundColor: chartBg,
+    color: labelColor,
   };
 
   return (

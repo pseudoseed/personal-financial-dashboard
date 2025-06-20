@@ -26,4 +26,6 @@ export interface Account {
   };
   url?: string | null;
   lastUpdated?: string | null;
+  plaidSyncCursor?: string | null;
+  lastSyncTime?: Date | null;
 }

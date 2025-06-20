@@ -40,6 +40,19 @@ model Account {
   balances     AccountBalance[]
   transactions Transaction[]
   downloadLogs TransactionDownloadLog[]
+  plaidSyncCursor String? // Plaid sync cursor for incremental sync
+  lastSyncTime   DateTime? // Last time transactions were synced
+
+  // Liability specific fields
+  lastStatementBalance      Float?
+  minimumPaymentAmount      Float?
+  nextPaymentDueDate        DateTime?
+  lastPaymentDate           DateTime?
+  lastPaymentAmount         Float?
+  nextMonthlyPayment        Float?
+  originationDate           DateTime?
+  originationPrincipalAmount Float?
+
   createdAt    DateTime                 @default(now())
   updatedAt    DateTime                 @updatedAt
 }
@@ -115,6 +128,7 @@ model Transaction {
   ppd_id                  String?
   reason                  String?
   referenceNumber         String?
+  categoryAi              String?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 

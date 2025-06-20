@@ -392,7 +392,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                   </button>
                   <button
                     onClick={handleCancelEditing}
-                    className="p-2 text-red-600 hover:text-red-700"
+                    className="p-2 text-pink-500 hover:text-pink-600 dark:text-pink-400 dark:hover:text-pink-300"
                     title="Cancel"
                   >
                     <XMarkIcon className="w-6 h-6" />
@@ -454,7 +454,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
             <div className="flex gap-2">
               <button
                 onClick={handleBackfill}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-purple-600 dark:bg-purple-500 text-white rounded hover:bg-purple-700 dark:hover:bg-purple-400 transition-colors"
                 title="Fill in missing monthly data points"
               >
                 Backfill Data
@@ -528,8 +528,11 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <button
-                            onClick={() => handleDeleteBalance(item.id)}
-                            className="text-red-600 hover:text-red-800 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteBalance(item.id);
+                            }}
+                            className="text-pink-500 hover:text-pink-600 dark:text-pink-400 dark:hover:text-pink-300 transition-colors"
                             title="Delete record"
                           >
                             <TrashIcon className="w-4 h-4" />

@@ -13,7 +13,7 @@ export async function POST() {
       transactions: {
         days_requested: 730, // Request 2 years of data
       },
-      optional_products: [Products.Investments], // Make investments optional
+      optional_products: [Products.Investments, Products.Liabilities], // Make investments optional
     };
 
     const response = await plaidClient.linkTokenCreate(request);

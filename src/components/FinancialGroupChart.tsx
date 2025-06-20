@@ -74,13 +74,13 @@ export function FinancialGroupChart({
         <div>
           <div className="flex justify-between items-center mb-1">
             <span className="text-sm font-medium">Liabilities</span>
-            <span className="text-sm font-medium text-red-600">
+            <span className="text-sm font-medium text-pink-500 dark:text-pink-400">
               {formatBalance(groupData.liabilities)}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
-              className="h-2 rounded-full bg-red-500"
+              className="h-2 rounded-full bg-pink-500 dark:bg-pink-400"
               style={{
                 width: `${Math.min(
                   (groupData.liabilities /

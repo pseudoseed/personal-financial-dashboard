@@ -41,7 +41,8 @@ async function handleRegularTransactions(
 ) {
   let allTransactions: PlaidTransaction[] = [];
   let hasMore = true;
-  let cursor: string | undefined = undefined;
+  // Type assertion is safe here: Prisma Account model includes plaidSyncCursor
+  let cursor: string | undefined = (account as any).plaidSyncCursor || undefined;
 
   console.log("Starting transaction sync for account:", account.id);
 
@@ -57,6 +58,11 @@ async function handleRegularTransactions(
         account_id: account.plaidId,
       },
     });
+
+    // Log the first few raw transactions from Plaid for debugging
+    if (response.data.added && response.data.added.length > 0) {
+      console.log('[PLAID RAW TRANSACTIONS SAMPLE]', response.data.added.slice(0, 3));
+    }
 
     console.log("Plaid API Response:", {
       added: response.data.added.length,
@@ -77,10 +83,20 @@ async function handleRegularTransactions(
     );
 
     // Process added transactions
-    allTransactions = [...allTransactions, ...addedTransactions];
+    // Only include transactions with valid amount
+    const validAddedTransactions = addedTransactions.filter(tx => typeof tx.amount === 'number' && !isNaN(tx.amount));
+    const invalidAddedTransactions = addedTransactions.filter(tx => typeof tx.amount !== 'number' || isNaN(tx.amount));
+    if (invalidAddedTransactions.length > 0) {
+      console.warn('[PLAID SYNC] Skipping transactions with invalid amount:', invalidAddedTransactions.map(tx => ({ transaction_id: tx.transaction_id, name: tx.name, amount: tx.amount })));
+    }
+    allTransactions = [...allTransactions, ...validAddedTransactions];
 
     // Process modified transactions (update existing ones)
     for (const modifiedTx of modifiedTransactions) {
+      if (typeof modifiedTx.amount !== 'number' || isNaN(modifiedTx.amount)) {
+        console.warn('[PLAID SYNC] Skipping modified transaction with invalid amount:', { transaction_id: modifiedTx.transaction_id, name: modifiedTx.name, amount: modifiedTx.amount });
+        continue;
+      }
       await prisma.transaction.update({
         where: {
           accountId_plaidId: {
@@ -244,6 +260,15 @@ async function handleRegularTransactions(
       )
     );
   }
+
+  // Update the account with the new cursor and last sync time
+  await prisma.account.update({
+    where: { id: account.id },
+    data: {
+      plaidSyncCursor: { set: cursor },
+      lastSyncTime: { set: new Date() },
+    },
+  });
 
   return {
     message: "Transactions downloaded successfully",

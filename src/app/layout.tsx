@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
+import { NavigationMenu } from "@/components/NavigationMenu";
+import { AccountConnectionButtons } from "@/components/AccountConnectionButtons";
+import { UtilityButtons } from "@/components/UtilityButtons";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Personal Finance Dashboard",
+  title: "Personal Financial Dashboard",
   description: "Track all your financial accounts in one place",
 };
 
@@ -16,9 +19,40 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="light">
-      <body className={`${inter.className} text-gray-900`}>
-        <Providers>{children}</Providers>
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} h-full bg-background text-foreground antialiased`}>
+        <Providers>
+          <div className="min-h-full flex flex-col">
+            {/* Header */}
+            <header className="sticky top-0 z-50 w-full border-b border-border bg-surface-0/95 backdrop-blur supports-[backdrop-filter]:bg-surface-0/60">
+              <div className="container-responsive">
+                <div className="flex h-16 items-center justify-between">
+                  {/* Left side - Navigation */}
+                  <div className="flex items-center">
+                    <NavigationMenu />
+                  </div>
+
+                  {/* Right side - Account Connection & Utility Buttons */}
+                  <div className="flex items-center gap-3">
+                    <AccountConnectionButtons />
+                    <div className="hidden sm:block h-6 w-px bg-border" />
+                    <UtilityButtons />
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            {/* Main content */}
+            <main className="flex-1 mt-8">
+              <div className="container-responsive py-12">
+                {children}
+              </div>
+            </main>
+          </div>
+          
+          {/* Dialog root for portal rendering */}
+          <div id="dialog-root" />
+        </Providers>
       </body>
     </html>
   );
