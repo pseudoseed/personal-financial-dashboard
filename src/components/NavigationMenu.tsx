@@ -44,22 +44,23 @@ export function NavigationMenu() {
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="card absolute left-0 mt-2 w-56 origin-top-left z-50">
-          <div className="px-1 py-1">
-            {navigation.map((item) => (
+        <Menu.Items className="absolute left-0 mt-2 w-44 origin-top-left z-50 rounded-xl shadow-lg bg-white dark:bg-[#232326] p-2 min-w-[10rem] max-w-[16rem] focus:outline-none focus:ring-2 focus:ring-primary-500">
+          <div>
+            {navigation.map((item, idx) => (
               <Menu.Item key={item.name}>
                 {({ active }) => (
                   <Link
                     href={item.href}
-                    className={`${
-                      active ? 'bg-surface-100 dark:bg-surface-200' : ''
-                    } ${
-                      pathname === item.href ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'text-foreground'
-                    } group flex items-center px-4 py-3 text-sm hover:bg-surface-50 dark:hover:bg-surface-200 transition-colors`}
+                    className={`
+                      ${active ? 'bg-primary-900/30 dark:bg-primary-900/30' : ''}
+                      ${pathname === item.href ? 'bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300' : 'text-foreground dark:text-secondary-200'}
+                      group flex items-center px-4 py-2 text-sm rounded-lg transition-colors
+                      ${idx !== navigation.length - 1 ? 'mb-1' : ''}
+                    `}
                   >
                     <div className="flex flex-col">
                       <span className="font-medium">{item.name}</span>
-                      <span className="text-xs text-secondary-600 dark:text-secondary-400 group-hover:text-secondary-700 dark:group-hover:text-secondary-300">
+                      <span className="text-xs text-secondary-600 dark:text-secondary-400 group-hover:text-primary-700 dark:group-hover:text-primary-300">
                         {item.description}
                       </span>
                     </div>

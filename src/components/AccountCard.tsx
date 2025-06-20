@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useSensitiveData } from "@/app/providers";
-import { formatCurrency, getValueColor, getRelativeTime } from "@/lib/ui";
+import { getRelativeTime } from "@/lib/ui";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
@@ -13,9 +13,18 @@ import {
   PencilIcon,
   ArrowTopRightOnSquareIcon,
   ClockIcon,
+  PencilSquareIcon,
+  BanknotesIcon,
+  CreditCardIcon,
+  HomeIcon,
+  ChartBarIcon,
+  WalletIcon,
+  QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
 import { Account } from "@/types/account";
 import { getAccountTypeInfo } from "@/lib/accountTypes";
+import { formatBalance } from "@/lib/formatters";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AccountCardProps {
   account: Account;
@@ -33,9 +42,16 @@ export function AccountCard({
   isHidden = false
 }: AccountCardProps) {
   const { showSensitiveData } = useSensitiveData();
+  const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [nickname, setNickname] = useState(account.nickname || "");
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const displayBalance = (amount: number | null) => {
+    if (amount === null) return "N/A";
+    return showSensitiveData ? formatBalance(amount) : "••••••";
+  };
 
   const accountTypeInfo = getAccountTypeInfo(account.type, account.subtype);
   const Icon = accountTypeInfo.icon;
@@ -57,11 +73,6 @@ export function AccountCard({
     text: getRelativeTime(account.lastSyncTime),
     isOld: new Date().getTime() - new Date(account.lastSyncTime).getTime() > 24 * 60 * 60 * 1000 // 24 hours
   } : null;
-
-  const formatBalance = (amount: number | null) => {
-    if (amount === null) return "N/A";
-    return showSensitiveData ? formatCurrency(amount) : "••••••";
-  };
 
   const handleRefresh = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -118,6 +129,21 @@ export function AccountCard({
     setIsEditing(false);
   };
 
+  const toggleVisibility = async () => {
+    setIsUpdating(true);
+    try {
+      const response = await fetch(`/api/accounts/${account.id}/toggle-visibility`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to toggle visibility status');
+      }
+      if (onRefresh) onRefresh();
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <Link href={`/accounts/${account.id}`} passHref>
       <div className="card flex flex-col justify-between min-h-[210px]">
@@ -130,9 +156,20 @@ export function AccountCard({
             </span>
           </div>
           <div className="flex items-center -mr-2 -mt-1">
-            <Button variant="ghost" size="sm" onClick={handleToggleVisibility} className="p-1">
-              {account.hidden ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
-            </Button>
+            <button
+              onClick={toggleVisibility}
+              disabled={isUpdating}
+              className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+              title={account.hidden ? "Show Account" : "Hide Account"}
+            >
+              {isUpdating ? (
+                <ArrowPathIcon className="w-4 h-4 animate-spin" />
+              ) : account.hidden ? (
+                <EyeSlashIcon className="w-4 h-4" />
+              ) : (
+                <EyeIcon className="w-4 h-4" />
+              )}
+            </button>
             <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="p-1">
               <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
@@ -171,45 +208,60 @@ export function AccountCard({
           <div className="flex justify-between items-baseline">
             <span className="text-secondary-500 dark:text-secondary-400 text-xs">Current Balance</span>
             <span className="font-semibold text-xl text-success-600 dark:text-success-400">
-              {formatBalance(account.balance.current)}
+              {displayBalance(account.balance.current)}
             </span>
           </div>
-          {account.balance.available !== null && (
-            <div className="flex justify-between items-baseline">
-              <span className="text-secondary-500 dark:text-secondary-400 text-xs">Available</span>
-              <span className="font-medium text-secondary-600 dark:text-secondary-400 text-sm">
-                {formatBalance(account.balance.available ?? null)}
-              </span>
-            </div>
+
+          {isCredit ? (
+            <>
+              {account.balance.available !== null && (
+                <div className="flex justify-between items-baseline">
+                  <span className="text-secondary-500 dark:text-secondary-400 text-xs">Available Credit</span>
+                  <span className="font-medium text-secondary-600 dark:text-secondary-400 text-sm">
+                    {displayBalance(account.balance.available ?? null)}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {account.balance.available !== null && (
+                <div className="flex justify-between items-baseline">
+                  <span className="text-secondary-500 dark:text-secondary-400 text-xs">Available</span>
+                  <span className="font-medium text-secondary-600 dark:text-secondary-400 text-sm">
+                    {displayBalance(account.balance.available ?? null)}
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </div>
 
         {/* Footer - Last Updated and Utilization */}
         <div className="mt-auto pt-2">
-          <div className="h-6 mb-1"> 
-            {utilizationPercentage !== null && (
-              <div>
-                <div className="flex justify-between text-xs text-secondary-500 dark:text-secondary-400">
-                  <span>Credit Utilization</span>
-                  <span>{utilizationPercentage}%</span>
-                </div>
-                <div className="w-full bg-surface-200 dark:bg-surface-dark-300 rounded-full h-1.5 mt-1">
-                  <div
-                    className={`h-1.5 rounded-full ${
-                      utilizationPercentage < 30
-                        ? "bg-success-500"
-                        : utilizationPercentage < 70
-                        ? "bg-warning-500"
-                        : "bg-error-500"
-                    }`}
-                    style={{ width: `${utilizationPercentage}%` }}
-                  ></div>
-                </div>
+          {utilizationPercentage !== null && (
+            <div>
+              <div className="flex justify-between text-xs text-secondary-500 dark:text-secondary-400 mb-1">
+                <span>Credit Utilization</span>
+                <span>{utilizationPercentage}%</span>
               </div>
-            )}
-          </div>
+              <div className="w-full bg-surface-200 dark:bg-surface-dark-300 rounded-full h-1.5">
+                <div
+                  className={`h-1.5 rounded-full ${
+                    utilizationPercentage < 30
+                      ? "bg-success-500"
+                      : utilizationPercentage < 70
+                      ? "bg-warning-500"
+                      : "bg-error-500"
+                  }`}
+                  style={{ width: `${utilizationPercentage}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
           {lastUpdatedInfo && (
-            <div className="flex items-center gap-1 text-xs text-secondary-500 dark:text-secondary-400">
+            <div className="flex items-center gap-1 text-xs text-secondary-500 dark:text-secondary-400 mt-2">
               <ClockIcon className="h-3 w-3" />
               <span>Updated {lastUpdatedInfo.text}</span>
             </div>

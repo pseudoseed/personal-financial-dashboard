@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import { format, compareAsc } from "date-fns";
 import { Account } from "@/types/account";
+import { formatBalance } from "@/lib/formatters";
 
 // Register ChartJS components
 ChartJS.register(
@@ -35,10 +36,6 @@ export function NetWorthChart({
   accounts,
   isMasked = false,
 }: NetWorthChartProps) {
-  const formatBalance = (amount: number) => {
-    return isMasked ? "••••••" : `$${amount.toLocaleString()}`;
-  };
-
   // Create a map to store net worth by month
   const monthlyNetWorth = new Map<string, number>();
 
@@ -198,7 +195,7 @@ export function NetWorthChart({
         callbacks: {
           label: (context) => {
             const value = context.raw as number;
-            return `Net Worth: ${formatBalance(value)}`;
+            return `Net Worth: ${!isMasked ? formatBalance(value) : "••••••"}`;
           },
         },
         backgroundColor: chartBg,
@@ -212,7 +209,7 @@ export function NetWorthChart({
         beginAtZero: false,
         grace: '5%',
         ticks: {
-          callback: (value) => formatBalance(value as number),
+          callback: (value) => !isMasked ? formatBalance(value as number) : "••••••",
           maxTicksLimit: 10,
           color: labelColor,
         },

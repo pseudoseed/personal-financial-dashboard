@@ -1,6 +1,7 @@
 "use client";
 
 import { Account } from "@/types/account";
+import { formatBalance } from "@/lib/formatters";
 
 interface DashboardSummaryProps {
   accounts: Account[];
@@ -11,10 +12,6 @@ export function DashboardSummary({
   accounts,
   isMasked = false,
 }: DashboardSummaryProps) {
-  const formatBalance = (amount: number) => {
-    return isMasked ? "••••••" : `$${amount.toLocaleString()}`;
-  };
-
   // Log the number of accounts being processed
   console.log(`Processing ${accounts.length} accounts for DashboardSummary`);
 
@@ -74,7 +71,7 @@ export function DashboardSummary({
               netWorth >= 0 ? "text-success-600 dark:text-success-400" : "text-error-600 dark:text-error-400"
             }`}
           >
-            {formatBalance(netWorth)}
+            {isMasked ? "••••••" : formatBalance(netWorth)}
           </p>
         </div>
 
@@ -83,7 +80,7 @@ export function DashboardSummary({
             Total Assets
           </h3>
           <p className="text-2xl font-bold text-surface-900 dark:text-surface-dark-900">
-            {formatBalance(summary.totalAssets)}
+            {isMasked ? "••••••" : formatBalance(summary.totalAssets)}
           </p>
         </div>
 
@@ -92,7 +89,7 @@ export function DashboardSummary({
             Total Liabilities
           </h3>
           <p className="text-2xl font-bold text-surface-900 dark:text-surface-dark-900">
-            {formatBalance(summary.totalLiabilities)}
+            {isMasked ? "••••••" : formatBalance(summary.totalLiabilities)}
           </p>
         </div>
 

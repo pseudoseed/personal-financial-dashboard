@@ -34,6 +34,7 @@ import {
   Transaction,
   TransactionDownloadLog,
 } from "@prisma/client";
+import { formatBalance } from "@/lib/formatters";
 
 // Register ChartJS components
 ChartJS.register(
@@ -74,7 +75,13 @@ export function AccountDetails({ account }: AccountDetailsProps) {
   const [isMasked, setIsMasked] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [isTransactionsExpanded, setIsTransactionsExpanded] = useState(false);
+  const [isInverting, setIsInverting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const displayBalance = (amount: number | null) => {
+    if (amount === null) return "-";
+    return isMasked ? "••••••" : formatBalance(amount);
+  };
 
   const {
     data: history,
@@ -139,11 +146,6 @@ export function AccountDetails({ account }: AccountDetailsProps) {
       e.preventDefault();
       await handleSaveNickname();
     }
-  };
-
-  const formatBalance = (amount: number | null) => {
-    if (amount === null) return "-";
-    return isMasked ? "••••••" : `$${amount.toFixed(2)}`;
   };
 
   const handleDeleteBalance = async (balanceId: string) => {
@@ -263,6 +265,25 @@ export function AccountDetails({ account }: AccountDetailsProps) {
     }
   };
 
+  const handleToggleInversion = async () => {
+    setIsInverting(true);
+    try {
+      const response = await fetch(`/api/accounts/${account.id}/toggle-inversion`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to toggle inversion status');
+      }
+      // Refresh the page to show updated data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error toggling inversion status:', error);
+      alert('Failed to toggle transaction sign inversion. Please try again.');
+    } finally {
+      setIsInverting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto">
@@ -355,100 +376,167 @@ export function AccountDetails({ account }: AccountDetailsProps) {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-      {/* Institution and Account Info */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center gap-4">
-          {account.plaidItem.institutionLogo ? (
-            <img
-              src={account.plaidItem.institutionLogo}
-              alt={account.plaidItem.institutionName || "Bank logo"}
-              className="w-12 h-12 object-contain"
-            />
-          ) : (
-            <BuildingLibraryIcon className="w-12 h-12 text-gray-400" />
-          )}
-          <div>
-            <div className="text-sm text-gray-500">
-              {account.plaidItem.institutionName}
+      {/* Grid container for top cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        {/* Institution and Account Info Card */}
+        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-6 flex flex-col">
+          <div className="flex items-start gap-4">
+            {account.plaidItem.institutionLogo ? (
+              <img
+                src={account.plaidItem.institutionLogo}
+                alt={account.plaidItem.institutionName || "Bank logo"}
+                className="w-12 h-12 object-contain"
+              />
+            ) : (
+              <BuildingLibraryIcon className="w-12 h-12 text-gray-400" />
+            )}
+            <div className="flex-grow">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {account.plaidItem.institutionName}
+              </div>
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                {account.name}
+              </h1>
+              <div className="flex items-center text-gray-600 dark:text-gray-300">
+                {isEditing ? (
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      value={newNickname}
+                      onChange={(e) => setNewNickname(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      ref={inputRef}
+                      className="bg-gray-100 dark:bg-zinc-800 border-b-2 border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <span className="mr-2">{newNickname || "No nickname"}</span>
+                  </div>
+                )}
+                <div className="flex">
+                  {isEditing ? (
+                    <>
+                      <button onClick={handleSaveNickname} className="p-1">
+                        <CheckIcon className="h-5 w-5 text-green-500" />
+                      </button>
+                      <button onClick={handleCancelEditing} className="p-1">
+                        <XMarkIcon className="h-5 w-5 text-red-500" />
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={handleStartEditing} className="p-1">
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex items-start gap-2">
-              {isEditing ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={newNickname}
-                    onChange={(e) => setNewNickname(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className="text-3xl font-bold px-2 py-1 border rounded"
-                    placeholder={account.name}
-                  />
-                  <button
-                    onClick={handleSaveNickname}
-                    className="p-2 text-green-600 hover:text-green-700"
-                    title="Save nickname"
-                  >
-                    <CheckIcon className="w-6 h-6" />
-                  </button>
-                  <button
-                    onClick={handleCancelEditing}
-                    className="p-2 text-pink-500 hover:text-pink-600 dark:text-pink-400 dark:hover:text-pink-300"
-                    title="Cancel"
-                  >
-                    <XMarkIcon className="w-6 h-6" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <h1 className="text-3xl font-bold">
-                    {account.nickname || account.name}
-                    {account.nickname && (
-                      <span className="text-gray-500 text-lg ml-2">
-                        ({account.name})
-                      </span>
-                    )}
-                  </h1>
-                  <button
-                    onClick={handleStartEditing}
-                    className="p-2 text-gray-400 hover:text-gray-600"
-                    title="Edit nickname"
-                  >
-                    <PencilIcon className="w-5 h-5" />
-                  </button>
-                </div>
+            <div className="ml-auto self-start">
+              <button
+                onClick={() => setIsMasked(!isMasked)}
+                className="p-2 text-gray-600 hover:text-gray-800"
+                title={
+                  isMasked
+                    ? "Show sensitive information"
+                    : "Hide sensitive information"
+                }
+              >
+                {isMasked ? (
+                  <LockClosedIcon className="w-5 h-5" />
+                ) : (
+                  <LockOpenIcon className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700 flex-grow">
+            <div className="text-sm space-y-1">
+              <p>
+                Current Balance:{" "}
+                <span className="font-semibold">
+                  {displayBalance(history?.[0]?.current)}
+                </span>
+              </p>
+              <p>
+                Available Balance:{" "}
+                <span className="font-semibold">
+                  {displayBalance(history?.[0]?.available)}
+                </span>
+              </p>
+              {history?.[0]?.limit && (
+                <p>
+                  Credit Limit:{" "}
+                  <span className="font-semibold">
+                    {displayBalance(history?.[0]?.limit)}
+                  </span>
+                </p>
               )}
             </div>
-            {account.mask && (
-              <div className="text-sm text-gray-500">
-                Account ending in {account.mask}
+          </div>
+          {account.mask && (
+            <div className="text-sm text-gray-500 dark:text-gray-400 mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
+              Account ending in {account.mask}
+            </div>
+          )}
+        </div>
+        
+        {/* Account Settings Section Card */}
+        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Account Settings</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label htmlFor={`invert-toggle-${account.id}`} className="font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                  Invert Transaction Signs
+                </label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Flip positive/negative amounts for this account.</p>
+              </div>
+              <button
+                id={`invert-toggle-${account.id}`}
+                onClick={handleToggleInversion}
+                disabled={isInverting}
+                aria-pressed={!!account.invertTransactions}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 dark:focus:ring-offset-zinc-800 ${
+                  account.invertTransactions ? "bg-purple-600" : "bg-gray-300 dark:bg-zinc-600"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    account.invertTransactions ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+            {isInverting && (
+              <div className="text-right text-xs text-blue-600">
+                Updating transaction signs...
               </div>
             )}
-          </div>
-          <div className="ml-auto">
-            <button
-              onClick={() => setIsMasked(!isMasked)}
-              className="p-2 text-gray-600 hover:text-gray-800"
-              title={
-                isMasked
-                  ? "Show sensitive information"
-                  : "Hide sensitive information"
-              }
-            >
-              {isMasked ? (
-                <LockClosedIcon className="w-5 h-5" />
-              ) : (
-                <LockOpenIcon className="w-5 h-5" />
-              )}
-            </button>
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="font-medium text-gray-700 dark:text-gray-300">
+                  Download Transactions
+                </label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Download a CSV file of all transactions for this account.</p>
+              </div>
+              <button
+                disabled
+                className="px-4 py-2 text-sm bg-gray-200 dark:bg-zinc-700 text-gray-500 dark:text-gray-400 rounded-lg cursor-not-allowed"
+              >
+                Download
+              </button>
+            </div>
           </div>
         </div>
       </div>
-
+      
       {/* Balance History Section */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Balance History
             </h2>
             <div className="flex gap-2">
@@ -461,14 +549,14 @@ export function AccountDetails({ account }: AccountDetailsProps) {
               </button>
               <button
                 onClick={handleCleanDailyRecords}
-                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-zinc-600 transition-colors"
                 title="Keep only the most recent record for each day"
               >
                 Clean Daily Records
               </button>
               <button
                 onClick={handleCleanMonthlyRecords}
-                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-zinc-600 transition-colors"
                 title="Keep only the most recent record for each month"
               >
                 Clean Monthly Records
@@ -482,51 +570,57 @@ export function AccountDetails({ account }: AccountDetailsProps) {
 
           <div className="mt-6">
             <div
-              className="flex justify-between items-center px-6 py-3 bg-gray-50 border-y border-gray-200 cursor-pointer"
+              className="flex justify-between items-center px-6 py-3 bg-gray-50 dark:bg-zinc-800 border-y border-gray-200 dark:border-zinc-700 cursor-pointer"
               onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
             >
-              <h3 className="text-sm font-medium text-gray-500">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 Balance History Records
               </h3>
               {isHistoryExpanded ? (
-                <ChevronUpIcon className="w-5 h-5 text-gray-500" />
+                <ChevronUpIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               ) : (
-                <ChevronDownIcon className="w-5 h-5 text-gray-500" />
+                <ChevronDownIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               )}
             </div>
 
             {isHistoryExpanded && (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                  <thead className="bg-gray-50 dark:bg-zinc-800">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Current Balance
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Available Balance
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Credit Limit
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700">
                     {history.map((item) => (
-                      <tr key={item.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {format(new Date(item.date), "MMM d, yyyy h:mm a")}
+                      <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800">
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(item.date).toLocaleDateString()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatBalance(item.current)}
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 font-semibold">
+                          {displayBalance(item.current)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatBalance(item.available)}
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                          {displayBalance(item.available)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                          {displayBalance(item.limit)}
+                        </td>
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

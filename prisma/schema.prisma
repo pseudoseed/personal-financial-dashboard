@@ -35,6 +35,7 @@ model Account {
   hidden       Boolean                  @default(false)
   metadata     String? // JSON string for additional data like real estate details
   url          String? // External reference URL
+  invertTransactions Boolean          @default(false)
   plaidItem    PlaidItem                @relation(fields: [itemId], references: [id], onDelete: Cascade)
   itemId       String
   balances     AccountBalance[]

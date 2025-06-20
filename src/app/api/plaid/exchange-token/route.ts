@@ -144,6 +144,7 @@ export async function POST(request: Request) {
               subtype: account.subtype || null,
               mask: account.mask || null,
               itemId: updatedItem.id,
+              invertTransactions: account.type === 'depository',
             },
           });
 
@@ -211,6 +212,7 @@ export async function POST(request: Request) {
             subtype: account.subtype || null,
             mask: account.mask || null,
             itemId: newItem.id,
+            invertTransactions: account.type === 'depository',
           },
         });
 

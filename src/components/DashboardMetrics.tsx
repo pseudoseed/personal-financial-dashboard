@@ -1,9 +1,9 @@
 "use client";
 
 import { useSensitiveData } from "@/app/providers";
-import { formatCurrency } from "@/lib/ui";
 import { Account } from "@/types/account";
 import { MetricCard } from "./MetricCard";
+import { formatBalance } from "@/lib/formatters";
 
 interface DashboardMetricsProps {
   accounts: Account[];
@@ -66,10 +66,6 @@ export function DashboardMetrics({ accounts }: DashboardMetricsProps) {
   const { showSensitiveData } = useSensitiveData();
   const metrics = calculateMetrics(accounts);
 
-  const formatBalance = (amount: number) => {
-    return showSensitiveData ? formatCurrency(amount) : "••••••";
-  };
-
   const getNetWorthColor = (netWorth: number) => {
     if (netWorth >= 0) return "text-success-600 dark:text-success-400";
     return "text-error-600 dark:text-error-400";
@@ -91,17 +87,17 @@ export function DashboardMetrics({ accounts }: DashboardMetricsProps) {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       <MetricCard
         title="Net Worth"
-        value={formatBalance(metrics.netWorth)}
+        value={showSensitiveData ? formatBalance(metrics.netWorth) : "••••••"}
         color={getNetWorthColor(metrics.netWorth)}
       />
       <MetricCard
         title="Assets"
-        value={formatBalance(metrics.totalAssets)}
+        value={showSensitiveData ? formatBalance(metrics.totalAssets) : "••••••"}
         color="text-surface-900 dark:text-surface-dark-900"
       />
       <MetricCard
         title="Liabilities"
-        value={formatBalance(metrics.totalLiabilities)}
+        value={showSensitiveData ? formatBalance(metrics.totalLiabilities) : "••••••"}
         color="text-surface-900 dark:text-surface-dark-900"
       />
       {showSensitiveData && metrics.hasCreditAccounts && (

@@ -142,7 +142,7 @@ export function AccountConnectionButtons() {
       <Button
         onClick={() => open()}
         disabled={!ready}
-        className="bg-violet-500 hover:bg-violet-400 text-white"
+        variant="primary"
         size="sm"
       >
         Connect Bank

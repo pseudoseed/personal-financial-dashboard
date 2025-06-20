@@ -97,7 +97,7 @@
 .dark {
   /* Base colors */
   --foreground: #f8fafc;
-  --background: #000000;
+  --background: #171717;
   
   /* Primary colors (adjusted for dark mode) */
   --primary-50: #831843;
@@ -105,7 +105,7 @@
   --primary-200: #be185d;
   --primary-300: #e91e63;
   --primary-400: #ff2d55;
-  --primary-500: #ff4d6d;
+  --primary-500: #a855f7;
   --primary-600: #ff6b8a;
   --primary-700: #ff8aa7;
   --primary-800: #ffa9c4;
@@ -160,7 +160,7 @@
   --error-900: #faf5ff;
   
   /* Surface colors (dark charcoal) */
-  --surface-0: #000000;
+  --surface-0: #171717;
   --surface-50: #171717;
   --surface-100: #262626;
   --surface-200: #404040;
@@ -198,6 +198,23 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  background-color: black;
+}
+
+/* Ensure all elements inherit the background in dark mode */
+/* This was too aggressive and was overriding component-specific backgrounds */
+/*
+.dark * {
+  background-color: inherit;
+}
+*/
+
+.dark html {
+  background-color: black;
+}
+
+.dark body {
+  background-color: black;
 }
 
 /* Typography */
@@ -260,8 +277,8 @@ p {
 
 .dark .card {
   background: var(--surface-100);
-  border-color: var(--border-dark);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
 }
 
 .card:hover {
@@ -312,10 +329,10 @@ p {
   pointer-events: none;
 }
 
-.btn-primary {
-  background: var(--primary-500);
-  color: white;
-  border-color: var(--primary-500);
+.btn-primary, .bg-primary-500 {
+  background-color: #a855f7 !important;
+  color: white !important;
+  border-color: #a855f7 !important;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -323,6 +340,13 @@ p {
   border-color: var(--primary-600);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(255, 45, 85, 0.3);
+}
+
+/* Force purple background for primary button in dark mode */
+.dark .btn-primary {
+  background: var(--primary-500) !important;
+  color: white !important;
+  border-color: var(--primary-500) !important;
 }
 
 .btn-secondary {
@@ -345,7 +369,7 @@ p {
 }
 
 .dark .btn-secondary:hover:not(:disabled) {
-  background: var(--surface-300);
+  background: var(--surface-200);
   border-color: var(--border-dark);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -670,4 +694,14 @@ p {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Fix for Tailwind bg-primary-500 utility in dark mode */
+.dark .bg-primary-500 {
+  background-color: var(--primary-500) !important;
+}
+
+.dark canvas {
+  color: #f3f4f6 !important;
+  font-family: inherit !important;
 }

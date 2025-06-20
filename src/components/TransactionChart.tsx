@@ -46,13 +46,28 @@ interface TransactionChartProps {
 export function TransactionChart({ isMasked = false }: TransactionChartProps) {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const { resolvedTheme } = useTheme();
-  const isDarkMode = resolvedTheme === "dark";
+  const { resolvedTheme, theme } = useTheme();
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [textColor, setTextColor] = useState('#18181b');
+  const [gridColor, setGridColor] = useState('rgba(0,0,0,0.1)');
+  const [tooltipBackgroundColor, setTooltipBackgroundColor] = useState('#ffffff');
   const queryClient = useQueryClient();
 
-  const textColor = isDarkMode ? "rgba(255, 255, 255, 0.85)" : "rgba(0, 0, 0, 0.9)";
-  const gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
-  const tooltipBackgroundColor = isDarkMode ? "#18181b" : "#ffffff";
+  useEffect(() => {
+    function updateThemeFromDom() {
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
+      setTextColor(isDark ? '#f3f4f6' : '#18181b');
+      setGridColor(isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)');
+      setTooltipBackgroundColor(isDark ? '#18181b' : '#ffffff');
+      ChartJS.defaults.color = isDark ? '#f3f4f6' : '#18181b';
+      console.log('DOM theme detection:', isDark);
+    }
+    updateThemeFromDom();
+    const observer = new MutationObserver(updateThemeFromDom);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Fetch transaction data
   const { data, isLoading, error } = useQuery<TransactionChartData>({
@@ -215,6 +230,9 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
     };
   }, [vendorData, chartColors]);
 
+  // Define a default font object for Chart.js
+  const defaultFont = { size: 12, weight: 400, family: 'inherit' };
+
   const barChartOptions: ChartOptions<"bar"> = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -223,12 +241,15 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
         position: "top" as const,
         labels: {
           color: textColor,
+          font: { ...defaultFont },
           boxWidth: 12,
           padding: 20,
         },
       },
       title: {
         display: false,
+        color: textColor,
+        font: { ...defaultFont },
       },
       tooltip: {
         backgroundColor: tooltipBackgroundColor,
@@ -236,6 +257,8 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
         bodyColor: textColor,
         padding: 10,
         boxPadding: 4,
+        titleFont: { ...defaultFont },
+        bodyFont: { ...defaultFont },
         callbacks: {
           label: function (context) {
             const label = context.dataset.label || "";
@@ -258,6 +281,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
         beginAtZero: true,
         ticks: {
           color: textColor,
+          font: { ...defaultFont },
           callback: function (value) {
             return formatCurrency(value as number);
           },
@@ -269,6 +293,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
       x: {
         ticks: {
           color: textColor,
+          font: { ...defaultFont },
         },
         grid: {
           color: gridColor,
@@ -276,7 +301,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
         },
       },
     },
-  }), [isDarkMode, isMasked]);
+  }), [isDarkMode, isMasked, textColor, gridColor, tooltipBackgroundColor, resolvedTheme]);
 
   const pieChartOptions: ChartOptions<"pie"> = useMemo(() => ({
     responsive: true,
@@ -286,6 +311,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
         position: 'right' as const,
         labels: {
           color: textColor,
+          font: { ...defaultFont },
           boxWidth: 12,
           padding: 15,
         },
@@ -295,6 +321,8 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
         backgroundColor: tooltipBackgroundColor,
         titleColor: textColor,
         bodyColor: textColor,
+        titleFont: { ...defaultFont },
+        bodyFont: { ...defaultFont },
         padding: 10,
         boxPadding: 4,
         callbacks: {
@@ -311,7 +339,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
         }
       }
     }
-  }), [isDarkMode, isMasked]);
+  }), [isDarkMode, isMasked, textColor, tooltipBackgroundColor, resolvedTheme]);
   
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error loading transaction data.</div>;
@@ -357,11 +385,11 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
           categories={data?.categories || []}
         />
       )}
-      <div className="bg-white p-6 rounded-lg shadow-md h-[400px] flex flex-col dark:bg-zinc-900">
+      <div className="bg-white p-6 rounded-lg shadow-md h-[400px] flex flex-col dark:bg-zinc-900 dark:text-gray-100">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold">Transaction Overview</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-lg font-semibold dark:text-gray-100">Transaction Overview</h2>
+            <p className="text-sm dark:text-gray-100">
               {settings.period.charAt(0).toUpperCase() +
                 settings.period.slice(1)}{" "}
               view
@@ -375,29 +403,29 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
           </div>
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-100 dark:hover:text-gray-100 transition-colors p-1 rounded"
           >
             <Cog6ToothIcon className="w-5 h-5" />
           </button>
         </div>
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div className="text-center">
-            <p className="text-sm text-gray-500">Total Income</p>
-            <p className="text-lg font-semibold text-green-600">
+            <p className="text-sm dark:text-gray-100">Total Income</p>
+            <p className="text-lg font-semibold text-green-600 dark:text-green-400">
               {formatCurrency(summary.totalIncome)}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-500">Total Expenses</p>
-            <p className="text-lg font-semibold text-pink-500">
+            <p className="text-sm dark:text-gray-100">Total Expenses</p>
+            <p className="text-lg font-semibold text-pink-500 dark:text-pink-400">
               {formatCurrency(summary.totalExpenses)}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-500">Net</p>
+            <p className="text-sm dark:text-gray-100">Net</p>
             <p
               className={`text-lg font-semibold ${
-                summary.netAmount >= 0 ? "text-green-600" : "text-pink-500"
+                summary.netAmount >= 0 ? "text-green-600 dark:text-green-400" : "text-pink-500 dark:text-pink-400"
               }`}
             >
               {formatCurrency(summary.netAmount)}
@@ -405,32 +433,33 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
           </div>
         </div>
         <div className="flex-1 min-h-0">
-          <Bar options={barChartOptions} data={chartData} />
+          <Bar key={resolvedTheme} options={barChartOptions} data={chartData} />
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 flex flex-col items-center h-[400px]">
-          <h3 className="text-md font-semibold mb-2">Top Vendors (by Spend)</h3>
+        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 flex flex-col items-center h-[400px] dark:text-gray-100">
+          <h3 className="text-md font-semibold mb-2 dark:text-gray-100">Top Vendors (by Spend)</h3>
           {isVendorsLoading ? (
-            <div>Loading...</div>
+            <div className="dark:text-gray-100">Loading...</div>
           ) : vendorError ? (
-            <div>Error loading vendors.</div>
+            <div className="dark:text-gray-100">Error loading vendors.</div>
           ) : (
             <div className="w-full flex-1 min-h-0">
               <Bar
+                key={resolvedTheme + '-vendors'}
                 options={{ ...barChartOptions, indexAxis: "y" as const }}
                 data={vendorBarData}
               />
             </div>
           )}
         </div>
-        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 flex flex-col items-center h-[400px]">
+        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 flex flex-col items-center h-[400px] dark:text-gray-100">
           <div className="flex justify-between w-full items-center">
-            <h3 className="text-md font-semibold mb-2">AI-Powered Categories</h3>
+            <h3 className="text-md font-semibold mb-2 dark:text-gray-100">AI-Powered Categories</h3>
             <button
               onClick={triggerAICategorization}
               disabled={aiLoading}
-              className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50"
+              className="p-1 rounded-md hover:bg-gray-100 dark:bg-zinc-800 disabled:opacity-50 text-gray-400 dark:text-gray-100"
               title="Refresh AI Categories"
             >
               <ArrowPathIcon
@@ -439,14 +468,14 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
             </button>
           </div>
           {aiLoading && !aiCompleted ? (
-            <div>Categorizing...</div>
+            <div className="dark:text-gray-100">Categorizing...</div>
           ) : aiError ? (
-            <div>{aiError}</div>
+            <div className="dark:text-gray-100">{aiError}</div>
           ) : Object.keys(aiCategoryTotals).length === 0 ? (
-            <div>No spend data available for categorization.</div>
+            <div className="dark:text-gray-100">No spend data available for categorization.</div>
           ) : (
             <div className="w-full flex-1 min-h-0">
-              <Pie data={aiPieData} options={pieChartOptions} />
+              <Pie key={resolvedTheme} data={aiPieData} options={pieChartOptions} />
             </div>
           )}
         </div>

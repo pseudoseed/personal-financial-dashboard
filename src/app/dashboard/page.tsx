@@ -3,6 +3,9 @@ import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { ListStatCard } from "@/components/ListStatCard";
 import { prisma } from "@/lib/db";
 import { Account } from "@/types/account";
+import { BillsVsCashCard } from "@/components/BillsVsCashCard";
+import TopVendorsCard from '@/components/TopVendorsCard';
+import DashboardSidebarCards from '@/components/DashboardSidebarCards';
 
 async function getAccounts(): Promise<Account[]> {
   try {
@@ -71,7 +74,7 @@ export default async function DashboardPage() {
     <>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-1">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
           Financial Dashboard
         </h1>
         <p className="text-secondary-500 dark:text-secondary-400">
@@ -90,38 +93,11 @@ export default async function DashboardPage() {
             </div>}>
             <DashboardMetrics accounts={accounts} />
           </Suspense>
+          <TopVendorsCard />
         </div>
 
         {/* Right Column - Quick Actions */}
-        <div className="space-y-6">
-          <ListStatCard title="Account Status" stats={accountStatusStats} />
-
-          {/* Quick Stats */}
-          <div className="card p-4">
-            <h3 className="text-xl font-semibold text-surface-600 dark:text-gray-200 mb-3">
-              Quick Stats
-            </h3>
-            <div className="space-y-3">
-              <div className="p-3 bg-success-50 dark:bg-success-900/20 rounded-lg">
-                <p className="text-xs font-medium text-success-700 dark:text-success-300 mb-1">
-                  Total Assets
-                </p>
-                <p className="text-lg font-bold text-success-700 dark:text-success-300">
-                  $0.00
-                </p>
-              </div>
-              
-              <div className="p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg">
-                <p className="text-xs font-medium text-warning-700 dark:text-warning-300 mb-1">
-                  Monthly Change
-                </p>
-                <p className="text-lg font-bold text-warning-700 dark:text-warning-300">
-                  +0.00%
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DashboardSidebarCards accountStatusStats={accountStatusStats} />
       </div>
     </>
   );

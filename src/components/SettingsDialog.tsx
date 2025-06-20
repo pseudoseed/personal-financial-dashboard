@@ -10,7 +10,10 @@ import {
   SunIcon,
   MoonIcon,
   ArrowPathIcon,
-  GlobeAltIcon
+  GlobeAltIcon,
+  ChevronDownIcon,
+  WrenchScrewdriverIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme, useSensitiveData } from "@/app/providers";
 import { Button } from "@/components/ui/Button";
@@ -48,9 +51,15 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [cooldown, setCooldown] = useState(false);
   const [cooldownMsg, setCooldownMsg] = useState("");
   const [isMounted, setIsMounted] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [fixAmountsStatus, setFixAmountsStatus] = useState<string>("");
+  const [isFixingAmounts, setIsFixingAmounts] = useState(false);
+  const [forceSyncStatus, setForceSyncStatus] = useState<string>("");
+  const [isForceSyncing, setIsForceSyncing] = useState(false);
 
   const allAccounts = accounts.filter(account => account.institution !== 'Coinbase');
   const newAccounts = allAccounts.filter(account => !account.lastSyncTime);
+  const creditCardAccounts = allAccounts.filter(account => account.type === 'credit');
 
   const fetchAccounts = async () => {
     try {
@@ -69,6 +78,78 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
       setCooldown(false);
       setCooldownMsg("");
     }, 30000);
+  };
+
+  const handleFixAmounts = async () => {
+    if (creditCardAccounts.length === 0) {
+      setFixAmountsStatus("No credit card accounts found to fix");
+      return;
+    }
+
+    setIsFixingAmounts(true);
+    setFixAmountsStatus("Fixing transaction amounts...");
+
+    try {
+      let totalUpdated = 0;
+      let errors: string[] = [];
+
+      for (const account of creditCardAccounts) {
+        try {
+          const response = await fetch(`/api/accounts/${account.id}/fix-amounts`, {
+            method: 'POST',
+          });
+          const data = await response.json();
+          
+          if (response.ok) {
+            totalUpdated += data.updatedCount || 0;
+          } else {
+            errors.push(`${account.name}: ${data.error || 'Unknown error'}`);
+          }
+        } catch (error) {
+          errors.push(`${account.name}: Network error`);
+        }
+      }
+
+      if (errors.length === 0) {
+        setFixAmountsStatus(`Successfully fixed amounts for ${totalUpdated} transactions across ${creditCardAccounts.length} credit card accounts`);
+      } else {
+        setFixAmountsStatus(`Fixed ${totalUpdated} transactions. Errors: ${errors.join(', ')}`);
+      }
+    } catch (error) {
+      setFixAmountsStatus("Failed to fix transaction amounts");
+    } finally {
+      setIsFixingAmounts(false);
+    }
+  };
+
+  const handleForceResync = async () => {
+    if (!window.confirm("Are you sure you want to perform a full re-sync? This will re-download all available transaction history from your banks to update amounts and other data, but will preserve your categories. This can take several minutes and cannot be undone.")) {
+      return;
+    }
+
+    setIsForceSyncing(true);
+    setForceSyncStatus("Starting full transaction re-sync for all accounts...");
+
+    try {
+      const response = await fetch('/api/accounts/force-resync', {
+        method: 'POST',
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        const successCount = data.results?.filter((r: any) => r.status === 'success').length || 0;
+        const errorCount = data.results?.filter((r: any) => r.status === 'error').length || 0;
+        setForceSyncStatus(`Re-sync complete. ${successCount} accounts succeeded, ${errorCount} failed.`);
+      } else {
+        setForceSyncStatus(`Error: ${data.error || 'An unknown error occurred.'}`);
+      }
+    } catch (error) {
+      setForceSyncStatus("A network error occurred during the re-sync.");
+    } finally {
+      setIsForceSyncing(false);
+      // Refresh account data after sync
+      fetchAccounts();
+    }
   };
 
   useEffect(() => {
@@ -303,6 +384,51 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
             <p className="text-xs text-gray-500 mt-1">
               Built with Next.js, Prisma, and Plaid
             </p>
+          </div>
+
+          {/* Advanced Settings Section */}
+          <div className="mb-8 p-4 rounded-lg bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800">
+            <button 
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Advanced Settings
+              </h3>
+              <ChevronDownIcon className={`w-5 h-5 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showAdvanced && (
+              <div className="mt-4 space-y-4">
+                <div className="p-3 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg flex items-start gap-3">
+                  <ExclamationTriangleIcon className="w-6 h-6 text-yellow-600 dark:text-yellow-400 mt-1 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-yellow-800 dark:text-yellow-200">Use with caution.</h4>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                      These tools can modify your data. A full re-sync will download all available history from Plaid to update your existing transactions.
+                    </p>
+                  </div>
+                </div>
+                
+                <Button
+                  onClick={handleForceResync}
+                  disabled={isForceSyncing || allAccounts.length === 0}
+                  className="w-full justify-center bg-red-600 hover:bg-red-700 text-white dark:bg-red-700 dark:hover:bg-red-800"
+                >
+                  {isForceSyncing ? (
+                    <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
+                  ) : (
+                    <WrenchScrewdriverIcon className="w-5 h-5 mr-2" />
+                  )}
+                  Force Full Re-sync All Accounts
+                </Button>
+                {forceSyncStatus && (
+                  <div className="text-xs text-center text-gray-600 dark:text-gray-400 mt-2 p-2 bg-gray-200 dark:bg-zinc-800 rounded">
+                    {forceSyncStatus}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
