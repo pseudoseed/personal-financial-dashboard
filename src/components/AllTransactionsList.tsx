@@ -1,87 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Transaction } from "@prisma/client";
+import { useQuery } from "@tanstack/react-query";
+import { useSensitiveData } from "@/app/providers";
 
-interface AllTransactionsListProps {
-  isMasked?: boolean;
+interface Transaction {
+  id: string;
+  name: string;
+  amount: number;
+  date: string;
+  category?: string;
+  pending: boolean;
+  categoryAi?: string;
 }
 
-export function AllTransactionsList({ isMasked = false }: AllTransactionsListProps) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isTableExpanded, setIsTableExpanded] = useState(false);
+interface AllTransactionsListProps {}
 
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
+export function AllTransactionsList({}: AllTransactionsListProps) {
+  const { showSensitiveData } = useSensitiveData();
 
-  // Remove automatic AI categorization to avoid timing issues
-  // useEffect(() => {
-  //   if (transactions.length > 0) {
-  //     triggerAICategorization();
-  //   }
-  // }, [transactions.length]);
-
-  const triggerAICategorization = async () => {
-    try {
-      // Send transactions to AI for categorization
-      const response = await fetch('/api/ai/categorize-transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactions: transactions.slice(0, 50) }), // Limit to first 50 for performance
-      });
-      
-      if (response.ok) {
-        // Refresh transactions after categorization
-        setTimeout(() => fetchTransactions(), 1000);
-      }
-    } catch (err) {
-      console.error('Failed to trigger AI categorization:', err);
-    }
-  };
-
-  const fetchTransactions = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`/api/transactions?t=${Date.now()}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch transactions');
-      }
-      const data = await response.json();
-      setTransactions(data.transactions || []);
-      
-      // Debug: Log the first few transactions to see if categoryAi is present
-      if (data.transactions && data.transactions.length > 0) {
-        console.log(`[DEBUG ${new Date().toISOString()}] First 3 transactions:`, data.transactions.slice(0, 3).map((t: any) => ({
-          id: t.id,
-          name: t.name,
-          category: t.category,
-          categoryAi: t.categoryAi
-        })));
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRefresh = () => {
-    fetchTransactions();
-  };
+  const { data: transactions, isLoading, error } = useQuery<Transaction[]>({
+    queryKey: ["allTransactions"],
+    queryFn: async () => {
+      const response = await fetch("/api/transactions");
+      if (!response.ok) throw new Error("Failed to fetch transactions");
+      return response.json();
+    },
+  });
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">All Transactions</h2>
-        </div>
+      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md">
         <div className="p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            All Transactions
+          </h2>
           <div className="animate-pulse space-y-4">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-12 bg-gray-100 rounded"></div>
+              <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded"></div>
             ))}
           </div>
         </div>
@@ -91,64 +46,54 @@ export function AllTransactionsList({ isMasked = false }: AllTransactionsListPro
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">All Transactions</h2>
-        </div>
+      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md">
         <div className="p-6">
-          <div className="px-6 py-3 bg-pink-100 border border-pink-400 text-pink-800 rounded">
-            {error}
-          </div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            All Transactions
+          </h2>
+          <p className="text-red-600 dark:text-red-400">
+            Error loading transactions: {error.message}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!transactions || transactions.length === 0) {
+    return (
+      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md">
+        <div className="p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            All Transactions
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400">
+            No transactions found. Connect your accounts to see transaction data.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-900">All Transactions</h2>
-          <div className="flex gap-2">
-            <button
-              onClick={handleRefresh}
-              className="text-sm text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100"
-              title="Refresh transactions"
-            >
-              ↻ Refresh
-            </button>
-            <button
-              onClick={triggerAICategorization}
-              className="text-sm text-blue-600 hover:text-blue-900 px-2 py-1 rounded hover:bg-blue-100"
-              title="Categorize transactions with AI"
-            >
-              🤖 AI Categorize
-            </button>
-            <button
-              onClick={() => setIsTableExpanded(!isTableExpanded)}
-              className="text-sm text-gray-600 hover:text-gray-900"
-            >
-              {isTableExpanded ? 'Hide' : 'Show'} Transactions
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {isTableExpanded && (
+    <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md">
+      <div className="p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          All Transactions
+        </h2>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Description
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Category
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Amount
                 </th>
               </tr>
@@ -164,13 +109,13 @@ export function AllTransactionsList({ isMasked = false }: AllTransactionsListPro
                   </td>
                 </tr>
               ) : (
-                transactions.slice(0, 100).map((transaction) => (
+                transactions.slice(0, 100).map((transaction: Transaction) => (
                   <tr key={transaction.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(transaction.date).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      {isMasked ? '••••••••••' : transaction.name}
+                      {showSensitiveData ? transaction.name : '••••••••••'}
                       {transaction.pending && (
                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                           Pending
@@ -179,7 +124,7 @@ export function AllTransactionsList({ isMasked = false }: AllTransactionsListPro
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {(() => {
-                        const categoryAi = (transaction as any).categoryAi;
+                        const categoryAi = transaction.categoryAi;
                         const category = transaction.category;
                         const displayCategory = categoryAi || category || "-";
                         
@@ -205,7 +150,7 @@ export function AllTransactionsList({ isMasked = false }: AllTransactionsListPro
                             : "text-green-600"
                         }
                       >
-                        {isMasked ? '••••' : `$${Math.abs(transaction.amount).toFixed(2)}`}
+                        {showSensitiveData ? `$${Math.abs(transaction.amount).toFixed(2)}` : '••••'}
                       </span>
                     </td>
                   </tr>
@@ -219,7 +164,7 @@ export function AllTransactionsList({ isMasked = false }: AllTransactionsListPro
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 } 

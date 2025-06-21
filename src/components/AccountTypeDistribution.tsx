@@ -1,13 +1,15 @@
 "use client";
 
 import { Account } from "@/types/account";
+import { useSensitiveData } from "@/app/providers";
 
 interface AccountTypeDistributionProps {
   accounts: Account[];
-  isMasked: boolean;
 }
 
-export function AccountTypeDistribution({ accounts, isMasked }: AccountTypeDistributionProps) {
+export function AccountTypeDistribution({ accounts }: AccountTypeDistributionProps) {
+  const { showSensitiveData } = useSensitiveData();
+  
   const typeCounts = accounts.reduce((acc, account) => {
     const type = account.type.toLowerCase();
     acc[type] = (acc[type] || 0) + 1;
@@ -24,7 +26,7 @@ export function AccountTypeDistribution({ accounts, isMasked }: AccountTypeDistr
               {type.replace(/_/g, ' ')}
             </span>
             <span className="text-sm font-semibold text-surface-900 dark:text-surface-dark-900">
-              {isMasked ? '••' : count}
+              {showSensitiveData ? count : '••'}
             </span>
           </div>
         ))}

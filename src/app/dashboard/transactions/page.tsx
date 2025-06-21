@@ -36,7 +36,7 @@ export default function TransactionsPage() {
     <div className="p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         {accountsData?.length ? (
-          <TransactionChart isMasked={isMasked} />
+          <TransactionChart />
         ) : (
           <div className="text-center py-12">
             <h2 className="text-2xl font-semibold text-gray-600 mb-4">

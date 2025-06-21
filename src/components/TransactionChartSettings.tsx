@@ -10,7 +10,7 @@ import {
   XMarkIcon as XMarkIconSolid,
   CalendarIcon
 } from "@heroicons/react/24/outline";
-import { useTheme } from "@/app/providers";
+import { useTheme, useSensitiveData } from "@/app/providers";
 import {
   getThisWeek,
   getThisMonth,
@@ -52,6 +52,7 @@ export function TransactionChartSettings({
   const [localSettings, setLocalSettings] = useState<TransactionChartSettings>(settings);
   const [searchTerm, setSearchTerm] = useState("");
   const { darkMode, setDarkMode } = useTheme();
+  const { showSensitiveData } = useSensitiveData();
   const [accessibleColors, setAccessibleColorsState] = useState(false);
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
@@ -145,6 +146,9 @@ export function TransactionChartSettings({
   ];
 
   function getInstitutionName(account: Account): string {
+    if (!showSensitiveData) {
+      return "••••••••••";
+    }
     if (account.plaidItem && typeof (account.plaidItem as any).institutionName === 'string') {
       return (account.plaidItem as any).institutionName;
     }
@@ -153,6 +157,10 @@ export function TransactionChartSettings({
 
   // Helper function to format account display name (same as settings dialog)
   function formatAccountDisplayName(account: Account): string {
+    if (!showSensitiveData) {
+      return "••••••••••";
+    }
+    
     const institution = getInstitutionName(account);
     const name = (account.nickname || account.name || '').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     
@@ -214,10 +222,12 @@ export function TransactionChartSettings({
     return `${institution} - ${name} (${last4})`;
   }
 
-  const filteredAccounts = accounts.filter(account =>
-    account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    getInstitutionName(account).toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAccounts = showSensitiveData 
+    ? accounts.filter(account =>
+        account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getInstitutionName(account).toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : accounts; // Show all accounts when sensitive data is hidden
 
   const groupedAccounts = filteredAccounts.reduce((groups, account) => {
     const institutionName = getInstitutionName(account);
@@ -435,10 +445,11 @@ export function TransactionChartSettings({
 
             <input
               type="text"
-              placeholder="Search accounts..."
+              placeholder={showSensitiveData ? "Search accounts..." : "Search disabled when sensitive data is hidden"}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 mb-3"
+              disabled={!showSensitiveData}
+              className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
             />
 
             <div className="max-h-48 overflow-y-auto space-y-2 bg-gray-100 dark:bg-zinc-800 rounded-lg p-2 border border-gray-200 dark:border-zinc-700">

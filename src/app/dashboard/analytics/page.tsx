@@ -11,6 +11,7 @@ import { MonthOverMonthChart } from "@/components/MonthOverMonthChart";
 import { AnomalyAlert } from "@/components/AnomalyAlert";
 import { Account } from "@/types/account";
 import { useTheme } from "../../providers";
+import { useSensitiveData } from "@/app/providers";
 import {
   ChartBarIcon,
   CurrencyDollarIcon,
@@ -19,7 +20,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 export default function AnalyticsPage() {
-  const [isMasked, setIsMasked] = useState(false);
+  const { showSensitiveData } = useSensitiveData();
   const [showAnomalyAlert, setShowAnomalyAlert] = useState(true);
   const { darkMode } = useTheme();
 
@@ -85,7 +86,7 @@ export default function AnalyticsPage() {
             {showAnomalyAlert ? (
               <div className="mb-6">
                 <AnomalyAlert 
-                  isMasked={isMasked} 
+                  isMasked={!showSensitiveData} 
                   limit={5} 
                   onHide={() => setShowAnomalyAlert(false)}
                 />
@@ -121,19 +122,17 @@ export default function AnalyticsPage() {
               <div className="lg:col-span-1">
                 <NetWorthChart
                   accounts={accountsWithHistory || []}
-                  isMasked={isMasked}
+                  isMasked={!showSensitiveData}
                 />
               </div>
               <div className="lg:col-span-1 grid gap-6">
-                <FinancialGroupChart accounts={accountsData} isMasked={isMasked} />
+                <FinancialGroupChart accounts={accountsData} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <AccountTypeDistribution
                     accounts={accountsData}
-                    isMasked={isMasked}
                   />
                   <InstitutionBreakdown
                     accounts={accountsData}
-                    isMasked={isMasked}
                   />
                 </div>
               </div>
@@ -141,7 +140,7 @@ export default function AnalyticsPage() {
 
             {/* Month-over-Month Comparison */}
             <div className="mb-6">
-              <MonthOverMonthChart isMasked={isMasked} />
+              <MonthOverMonthChart />
             </div>
           </>
         ) : (

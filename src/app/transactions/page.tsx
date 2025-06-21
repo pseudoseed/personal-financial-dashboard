@@ -10,9 +10,10 @@ import { AllTransactionsList } from "@/components/AllTransactionsList";
 import { TransactionChartSettings } from "@/components/TransactionChartSettings";
 import { Account } from "@/types/account";
 import { useTheme } from "../providers";
+import { useSensitiveData } from "@/app/providers";
 
 export default function TransactionsPage() {
-  const [isMasked, setIsMasked] = useState(false);
+  const { showSensitiveData } = useSensitiveData();
   const { darkMode } = useTheme();
 
   const { data: accountsData, isLoading: isLoadingAccounts } = useQuery<Account[]>({
@@ -69,18 +70,18 @@ export default function TransactionsPage() {
 
         {accountsData?.length ? (
           <>
-            <DashboardSummary accounts={accountsData} isMasked={isMasked} />
+            <DashboardSummary accounts={accountsData} isMasked={!showSensitiveData} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <NetWorthChart
                 accounts={accountsWithHistory || []}
-                isMasked={isMasked}
+                isMasked={!showSensitiveData}
               />
-              <FinancialGroupChart accounts={accountsData} isMasked={isMasked} />
+              <FinancialGroupChart accounts={accountsData} />
             </div>
 
             <div className="grid grid-cols-1 gap-6 mb-6">
-              <TransactionChart isMasked={isMasked} />
+              <TransactionChart />
             </div>
 
             <div className="grid grid-cols-1 gap-6">

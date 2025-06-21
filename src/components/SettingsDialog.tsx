@@ -61,6 +61,60 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const newAccounts = allAccounts.filter(account => !account.lastSyncTime);
   const creditCardAccounts = allAccounts.filter(account => account.type === 'credit');
 
+  // Helper functions to mask sensitive data
+  const maskAccountName = (name: string) => showSensitiveData ? name : "••••••••••";
+  const maskInstitutionName = (institution: string) => showSensitiveData ? institution : "••••••••••";
+  const maskAccountNumber = (mask: string | null) => showSensitiveData ? mask : "••••";
+  const maskLastSyncTime = (lastSyncTime: string | Date | null) => {
+    if (!showSensitiveData) return "••••••••••";
+    if (!lastSyncTime) return "Never";
+    const date = new Date(lastSyncTime);
+    return date.toLocaleString();
+  };
+
+  const formatAccountDisplayName = (account: Account): string => {
+    if (!showSensitiveData) {
+      return "••••••••••";
+    }
+    
+    const institution = account.institution || 'Manual';
+    const name = (account.nickname || account.name || '').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+    const last4 = account.mask || account.name?.match(/\d{4}$/)?.[0] || '----';
+    
+    const accountNameLower = account.name.toLowerCase();
+    const isCreditCard = account.type.toLowerCase() === 'credit' || 
+                        accountNameLower.includes('credit') || 
+                        accountNameLower.includes('card');
+    
+    if (isCreditCard) {
+      const cardNamePatterns = [
+        /freedom/i, /sapphire/i, /preferred/i, /reserve/i, /unlimited/i,
+        /cash back/i, /rewards/i, /signature/i, /platinum/i, /gold/i,
+        /elite/i, /premium/i, /standard/i, /classic/i, /business/i,
+        /corporate/i, /student/i, /secured/i
+      ];
+      
+      let cardName = '';
+      for (const pattern of cardNamePatterns) {
+        if (pattern.test(accountNameLower)) {
+          const match = account.name.match(pattern);
+          if (match) {
+            cardName = match[0].replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+            break;
+          }
+        }
+      }
+      
+      if (!cardName) {
+        cardName = 'Credit Card';
+      }
+      
+      return `${institution} - ${cardName} (${last4})`;
+    }
+    
+    return `${institution} - ${name} (${last4})`;
+  };
+
   const fetchAccounts = async () => {
     try {
       const response = await fetch('/api/accounts');
@@ -307,15 +361,15 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                   </thead>
                   <tbody className="text-gray-700 dark:text-gray-300">
                     {accounts.map((account) => {
-                      const institution = account.institution || 'Unknown';
+                      const institution = maskInstitutionName(account.institution || 'Unknown');
                       const type = account.type ? (account.type.charAt(0).toUpperCase() + account.type.slice(1)) : "Unknown";
-                      const last4 = account.mask || '----';
-                      const formattedName = `${institution} - ${type} (${last4})`;
+                      const last4 = maskAccountNumber(account.mask || null);
+                      const formattedName = showSensitiveData ? `${institution} - ${type} (${last4})` : "••••••••••";
                       
                       return (
                         <tr key={account.id}>
                           <td className="px-2 py-1 whitespace-nowrap">{formattedName}</td>
-                          <td className="px-2 py-1 whitespace-nowrap">{account.lastSyncTime ? new Date(account.lastSyncTime).toLocaleString() : 'Never'}</td>
+                          <td className="px-2 py-1 whitespace-nowrap">{maskLastSyncTime(account.lastSyncTime || null)}</td>
                         </tr>
                       );
                     })}

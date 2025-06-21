@@ -8,6 +8,7 @@ import {
 } from "chart.js";
 import { getFinancialGroup } from "@/lib/accountTypes";
 import { formatBalance } from "@/lib/formatters";
+import { useSensitiveData } from "@/app/providers";
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -23,13 +24,13 @@ interface Account {
 
 interface FinancialGroupChartProps {
   accounts: Account[];
-  isMasked?: boolean;
 }
 
 export function FinancialGroupChart({
   accounts,
-  isMasked = false,
 }: FinancialGroupChartProps) {
+  const { showSensitiveData } = useSensitiveData();
+  
   const groupData = accounts.reduce(
     (acc, account) => {
       const group = getFinancialGroup(account.type);
@@ -52,7 +53,7 @@ export function FinancialGroupChart({
     if (active && payload && payload.length) {
       return (
         <div className="p-2 bg-background border rounded-md shadow-md">
-          <p className="label">{`${label} : ${formatBalance(payload[0].value)}`}</p>
+          <p className="label">{`${label} : ${showSensitiveData ? formatBalance(payload[0].value) : "••••••"}`}</p>
         </div>
       );
     }
@@ -67,7 +68,7 @@ export function FinancialGroupChart({
           <div className="flex justify-between items-center mb-1">
             <span className="text-sm font-medium text-surface-600 dark:text-gray-400">Assets</span>
             <span className="text-sm font-medium text-green-600">
-              {formatBalance(groupData.assets)}
+              {showSensitiveData ? formatBalance(groupData.assets) : "••••••"}
             </span>
           </div>
           <div className="w-full bg-surface-200 dark:bg-surface-300 rounded-full h-2">
@@ -88,7 +89,7 @@ export function FinancialGroupChart({
           <div className="flex justify-between items-center mb-1">
             <span className="text-sm font-medium text-surface-600 dark:text-gray-400">Liabilities</span>
             <span className="text-sm font-medium text-pink-500 dark:text-pink-400">
-              {formatBalance(groupData.liabilities)}
+              {showSensitiveData ? formatBalance(groupData.liabilities) : "••••••"}
             </span>
           </div>
           <div className="w-full bg-surface-200 dark:bg-surface-300 rounded-full h-2">

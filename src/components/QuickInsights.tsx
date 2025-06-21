@@ -3,12 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { ExclamationTriangleIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import { useSensitiveData } from "@/app/providers";
 
-interface QuickInsightsProps {
-  isMasked?: boolean;
-}
+interface QuickInsightsProps {}
 
-export function QuickInsights({ isMasked = false }: QuickInsightsProps) {
+export function QuickInsights({}: QuickInsightsProps) {
+  const { showSensitiveData } = useSensitiveData();
+  
   const { data: anomaliesData, isLoading: isLoadingAnomalies } = useQuery({
     queryKey: ["anomalies", "quick"],
     queryFn: async () => {
@@ -41,8 +42,8 @@ export function QuickInsights({ isMasked = false }: QuickInsightsProps) {
   if (highCount > 0) {
     insights.push({
       type: 'warning',
-      title: `${highCount} High Priority Alerts`,
-      description: `${totalAnomalies} total anomalies detected`,
+      title: showSensitiveData ? `${highCount} High Priority Alerts` : "••••••••••",
+      description: showSensitiveData ? `${totalAnomalies} total anomalies detected` : "••••••••••",
       icon: ExclamationTriangleIcon,
       color: 'text-red-600 dark:text-red-400',
       bgColor: 'bg-red-50 dark:bg-red-900/20',
@@ -58,7 +59,7 @@ export function QuickInsights({ isMasked = false }: QuickInsightsProps) {
       insights.push({
         type: 'trend',
         title: 'Spending Increased',
-        description: `Net change: $${Math.abs(netChange).toFixed(2)} decrease`,
+        description: showSensitiveData ? `Net change: $${Math.abs(netChange).toFixed(2)} decrease` : "••••••••••",
         icon: ArrowRightIcon,
         color: 'text-orange-600 dark:text-orange-400',
         bgColor: 'bg-orange-50 dark:bg-orange-900/20',
@@ -68,7 +69,7 @@ export function QuickInsights({ isMasked = false }: QuickInsightsProps) {
       insights.push({
         type: 'trend',
         title: 'Savings Increased',
-        description: `Net change: $${netChange.toFixed(2)} increase`,
+        description: showSensitiveData ? `Net change: $${netChange.toFixed(2)} increase` : "••••••••••",
         icon: ArrowRightIcon,
         color: 'text-green-600 dark:text-green-400',
         bgColor: 'bg-green-50 dark:bg-green-900/20',
@@ -81,8 +82,8 @@ export function QuickInsights({ isMasked = false }: QuickInsightsProps) {
       const topInsight = momInsights[0];
       insights.push({
         type: 'insight',
-        title: topInsight.title,
-        description: topInsight.description,
+        title: showSensitiveData ? topInsight.title : "••••••••••",
+        description: showSensitiveData ? topInsight.description : "••••••••••",
         icon: ArrowRightIcon,
         color: 'text-blue-600 dark:text-blue-400',
         bgColor: 'bg-blue-50 dark:bg-blue-900/20',
@@ -154,7 +155,7 @@ export function QuickInsights({ isMasked = false }: QuickInsightsProps) {
               href="/dashboard/analytics"
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1"
             >
-              <span>View all {totalAnomalies} anomalies</span>
+              <span>View all {showSensitiveData ? totalAnomalies : "••"} anomalies</span>
               <ArrowRightIcon className="w-3 h-3" />
             </Link>
           </div>

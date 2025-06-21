@@ -1,68 +1,54 @@
-import { Suspense } from "react";
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { ListStatCard } from "@/components/ListStatCard";
-import { prisma } from "@/lib/db";
 import { Account } from "@/types/account";
 import { BillsVsCashCard } from "@/components/BillsVsCashCard";
 import TopVendorsCard from '@/components/TopVendorsCard';
 import DashboardSidebarCards from '@/components/DashboardSidebarCards';
 import { QuickInsights } from "@/components/QuickInsights";
+import { useSensitiveData } from "@/app/providers";
 
 async function getAccounts(): Promise<Account[]> {
   try {
-    const accounts = await prisma.account.findMany({
-      where: {
-        hidden: false,
-      },
-      include: {
-        plaidItem: {
-          select: {
-            institutionId: true,
-            institutionName: true,
-            institutionLogo: true,
-          },
-        },
-        balances: {
-          orderBy: {
-            date: "desc",
-          },
-          take: 1,
-        },
-      },
-    });
-
-    return accounts.map((account): Account => {
-      const latestBalance = account.balances[0] || { current: 0, available: null, limit: null };
-      
-      return {
-        id: account.id,
-        name: account.name,
-        nickname: account.nickname,
-        type: account.type,
-        subtype: account.subtype,
-        mask: account.mask,
-        hidden: account.hidden,
-        institution: account.plaidItem?.institutionName || undefined,
-        institutionLogo: account.plaidItem?.institutionLogo,
-        balance: {
-          current: latestBalance.current,
-          available: latestBalance.available ?? null,
-          limit: latestBalance.limit ?? null,
-        },
-        url: account.url,
-        lastSyncTime: account.lastSyncTime,
-        plaidItem: account.plaidItem ? { institutionId: account.plaidItem.institutionId } : undefined,
-        invertTransactions: account.invertTransactions,
-      };
-    });
+    const response = await fetch("/api/accounts");
+    if (!response.ok) throw new Error("Failed to fetch accounts");
+    return response.json();
   } catch (error) {
     console.error("Error fetching accounts:", error);
     return [];
   }
 }
 
-export default async function DashboardPage() {
-  const accounts = await getAccounts();
+export default function DashboardPage() {
+  const { showSensitiveData } = useSensitiveData();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      setIsLoading(true);
+      const accountsData = await getAccounts();
+      setAccounts(accountsData);
+      setIsLoading(false);
+    };
+    fetchAccounts();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="animate-pulse space-y-6">
+        <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="card min-h-[120px] animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const connectedAccounts = accounts.filter(a => a.institution);
   const manualAccounts = accounts.filter(a => !a.institution);
 
@@ -88,13 +74,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column - Metrics and Summary */}
         <div className="lg:col-span-3 space-y-6">
-          <Suspense fallback={<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="card min-h-[120px] animate-pulse" />
-              ))}
-            </div>}>
-            <DashboardMetrics accounts={accounts} />
-          </Suspense>
+          <DashboardMetrics accounts={accounts} />
           <TopVendorsCard />
         </div>
 

@@ -34,7 +34,7 @@ export default async function AccountPage({ params }: PageProps) {
     <div className="container mx-auto px-4 py-8">
       <Link
         href="/dashboard/accounts"
-        className="text-blue-600 hover:text-blue-800 mb-8 inline-block"
+        className="text-surface-600 hover:text-surface-800 dark:text-gray-400 dark:hover:text-gray-200 mb-8 inline-block transition-colors"
       >
         ← Back to Accounts
       </Link>

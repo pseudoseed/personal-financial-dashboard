@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import { formatBalance } from "@/lib/formatters";
 import { ArrowTrendingUpIcon, ArrowTrendingDownIcon } from "@heroicons/react/24/outline";
+import { useSensitiveData } from "@/app/providers";
 
 // Register ChartJS components
 ChartJS.register(
@@ -25,9 +26,7 @@ ChartJS.register(
   Legend
 );
 
-interface MonthOverMonthChartProps {
-  isMasked?: boolean;
-}
+interface MonthOverMonthChartProps {}
 
 interface MonthOverMonthData {
   periods: {
@@ -64,7 +63,9 @@ interface MonthOverMonthData {
   };
 }
 
-export function MonthOverMonthChart({ isMasked = false }: MonthOverMonthChartProps) {
+export function MonthOverMonthChart({}: MonthOverMonthChartProps) {
+  const { showSensitiveData } = useSensitiveData();
+  
   const { data, isLoading, error } = useQuery<MonthOverMonthData>({
     queryKey: ["monthOverMonth"],
     queryFn: async () => {
@@ -93,6 +94,17 @@ export function MonthOverMonthChart({ isMasked = false }: MonthOverMonthChartPro
     );
   }
 
+  // Calculate net change percentage
+  const netSummary = data.summary.net;
+  let netChangePercent: number | null = null;
+  if (netSummary.previous !== 0) {
+    netChangePercent = (netSummary.change / Math.abs(netSummary.previous)) * 100;
+  } else if (netSummary.current !== 0) {
+    netChangePercent = null; // Represents infinite change, handled in UI
+  } else {
+    netChangePercent = 0; // 0 to 0 is 0% change
+  }
+
   // Prepare chart data for top categories
   const topCategories = data.categories.top.slice(0, 8); // Show top 8 categories
   
@@ -112,12 +124,12 @@ export function MonthOverMonthChart({ isMasked = false }: MonthOverMonthChartPro
         backgroundColor: topCategories.map(cat => 
           cat.changePercent > 0 
             ? 'rgba(244, 114, 182, 0.7)' // App's pink for increases
-            : 'rgba(0, 255, 133, 0.7)' // App's green for decreases
+            : 'rgba(34, 197, 94, 0.7)' // App's green for decreases
         ),
         borderColor: topCategories.map(cat => 
           cat.changePercent > 0 
             ? 'rgb(244, 114, 182)' 
-            : 'rgb(0, 255, 133)'
+            : 'rgb(34, 197, 94)'
         ),
         borderWidth: 1,
       },
@@ -131,7 +143,7 @@ export function MonthOverMonthChart({ isMasked = false }: MonthOverMonthChartPro
       legend: {
         position: "top" as const,
         labels: {
-          color: isMasked ? "#6b7280" : "#374151",
+          color: showSensitiveData ? "#374151" : "#6b7280",
           usePointStyle: true,
         },
       },
@@ -139,7 +151,7 @@ export function MonthOverMonthChart({ isMasked = false }: MonthOverMonthChartPro
         callbacks: {
           label: (context) => {
             const value = context.raw as number;
-            return `${context.dataset.label}: ${!isMasked ? formatBalance(value) : "••••••"}`;
+            return `${context.dataset.label}: ${showSensitiveData ? formatBalance(value) : "••••••"}`;
           },
         },
       },
@@ -148,16 +160,16 @@ export function MonthOverMonthChart({ isMasked = false }: MonthOverMonthChartPro
       y: {
         beginAtZero: true,
         ticks: {
-          callback: (value) => !isMasked ? formatBalance(value as number) : "••••••",
-          color: isMasked ? "#6b7280" : "#374151",
+          callback: (value) => showSensitiveData ? formatBalance(value as number) : "••••••",
+          color: showSensitiveData ? "#374151" : "#6b7280",
         },
         grid: {
-          color: isMasked ? "#374151" : "#e5e7eb",
+          color: showSensitiveData ? "#e5e7eb" : "#374151",
         },
       },
       x: {
         ticks: {
-          color: isMasked ? "#6b7280" : "#374151",
+          color: showSensitiveData ? "#374151" : "#6b7280",
           maxRotation: 45,
         },
         grid: {
@@ -192,21 +204,21 @@ export function MonthOverMonthChart({ isMasked = false }: MonthOverMonthChartPro
           <p className="text-sm text-surface-600 dark:text-gray-400 mb-1">Income</p>
           <div className="flex items-center justify-center space-x-1 mb-1">
             {data.summary.income.changePercent > 0 ? (
-              <ArrowTrendingUpIcon className="w-4 h-4 text-success-500" />
+              <ArrowTrendingUpIcon className="w-4 h-4 text-green-500 dark:text-green-400" />
             ) : (
-              <ArrowTrendingDownIcon className="w-4 h-4 text-primary-500 dark:text-primary-400" />
+              <ArrowTrendingDownIcon className="w-4 h-4 text-pink-500 dark:text-pink-400" />
             )}
             <span className={`text-lg font-semibold ${
               data.summary.income.changePercent > 0 
-                ? 'text-success-500' 
-                : 'text-primary-500 dark:text-primary-400'
+                ? 'text-green-500 dark:text-green-400' 
+                : 'text-pink-500 dark:text-pink-400'
             }`}>
               {data.summary.income.changePercent > 0 ? '+' : ''}
               {data.summary.income.changePercent.toFixed(1)}%
             </span>
           </div>
           <p className="text-xs text-surface-600 dark:text-gray-400">
-            {!isMasked ? formatBalance(data.summary.income.current) : "••••••"}
+            {showSensitiveData ? formatBalance(data.summary.income.current) : "••••••"}
           </p>
         </div>
 
@@ -214,21 +226,21 @@ export function MonthOverMonthChart({ isMasked = false }: MonthOverMonthChartPro
           <p className="text-sm text-surface-600 dark:text-gray-400 mb-1">Expenses</p>
           <div className="flex items-center justify-center space-x-1 mb-1">
             {data.summary.expenses.changePercent < 0 ? (
-              <ArrowTrendingDownIcon className="w-4 h-4 text-success-500" />
+              <ArrowTrendingDownIcon className="w-4 h-4 text-green-500 dark:text-green-400" />
             ) : (
-              <ArrowTrendingUpIcon className="w-4 h-4 text-primary-500 dark:text-primary-400" />
+              <ArrowTrendingUpIcon className="w-4 h-4 text-pink-500 dark:text-pink-400" />
             )}
             <span className={`text-lg font-semibold ${
               data.summary.expenses.changePercent < 0 
-                ? 'text-success-500' 
-                : 'text-primary-500 dark:text-primary-400'
+                ? 'text-green-500 dark:text-green-400' 
+                : 'text-pink-500 dark:text-pink-400'
             }`}>
               {data.summary.expenses.changePercent > 0 ? '+' : ''}
               {data.summary.expenses.changePercent.toFixed(1)}%
             </span>
           </div>
           <p className="text-xs text-surface-600 dark:text-gray-400">
-            {!isMasked ? formatBalance(data.summary.expenses.current) : "••••••"}
+            {showSensitiveData ? formatBalance(data.summary.expenses.current) : "••••••"}
           </p>
         </div>
 
@@ -236,21 +248,27 @@ export function MonthOverMonthChart({ isMasked = false }: MonthOverMonthChartPro
           <p className="text-sm text-surface-600 dark:text-gray-400 mb-1">Net</p>
           <div className="flex items-center justify-center space-x-1 mb-1">
             {data.summary.net.change > 0 ? (
-              <ArrowTrendingUpIcon className="w-4 h-4 text-success-500" />
+              <ArrowTrendingUpIcon className="w-4 h-4 text-green-500 dark:text-green-400" />
             ) : (
-              <ArrowTrendingDownIcon className="w-4 h-4 text-primary-500 dark:text-primary-400" />
+              <ArrowTrendingDownIcon className="w-4 h-4 text-pink-500 dark:text-pink-400" />
             )}
             <span className={`text-lg font-semibold ${
               data.summary.net.change > 0 
-                ? 'text-success-500' 
-                : 'text-primary-500 dark:text-primary-400'
+                ? 'text-green-500 dark:text-green-400' 
+                : 'text-pink-500 dark:text-pink-400'
             }`}>
-              {data.summary.net.change > 0 ? '+' : ''}
-              {!isMasked ? formatBalance(data.summary.net.change) : "••••••"}
+              {netChangePercent !== null ? (
+                <>
+                  {netChangePercent > 0 ? '+' : ''}
+                  {netChangePercent.toFixed(1)}%
+                </>
+              ) : (
+                'N/A'
+              )}
             </span>
           </div>
           <p className="text-xs text-surface-600 dark:text-gray-400">
-            {!isMasked ? formatBalance(data.summary.net.current) : "••••••"}
+            {showSensitiveData ? formatBalance(data.summary.net.current) : "••••••"}
           </p>
         </div>
       </div>
@@ -273,18 +291,18 @@ export function MonthOverMonthChart({ isMasked = false }: MonthOverMonthChartPro
               </span>
               <div className="flex items-center space-x-2">
                 <span className="text-xs text-surface-600 dark:text-gray-400">
-                  {!isMasked ? formatBalance(category.amount) : "••••••"}
+                  {showSensitiveData ? formatBalance(category.amount) : "••••••"}
                 </span>
                 <div className="flex items-center space-x-1">
                   {category.changePercent > 0 ? (
-                    <ArrowTrendingUpIcon className="w-3 h-3 text-primary-500 dark:text-primary-400" />
+                    <ArrowTrendingUpIcon className="w-3 h-3 text-pink-500 dark:text-pink-400" />
                   ) : (
-                    <ArrowTrendingDownIcon className="w-3 h-3 text-success-500" />
+                    <ArrowTrendingDownIcon className="w-3 h-3 text-green-500 dark:text-green-400" />
                   )}
                   <span className={`text-xs font-medium ${
                     category.changePercent > 0 
-                      ? 'text-primary-500 dark:text-primary-400' 
-                      : 'text-success-500'
+                      ? 'text-pink-500 dark:text-pink-400' 
+                      : 'text-green-500 dark:text-green-400'
                   }`}>
                     {category.changePercent > 0 ? '+' : ''}
                     {category.changePercent.toFixed(1)}%

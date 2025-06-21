@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Transaction, TransactionDownloadLog } from "@prisma/client";
-import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/solid";
-import { TrashIcon } from "@heroicons/react/24/outline";
+import { useState, useEffect } from "react";
+import { Transaction } from "@prisma/client";
+import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
+import { useSensitiveData } from "@/app/providers";
 
 interface TransactionListProps {
   accountId: string;
   initialTransactions: Transaction[];
-  downloadLogs: TransactionDownloadLog[];
+  downloadLogs: any[];
 }
 
 export function TransactionList({
@@ -16,226 +16,160 @@ export function TransactionList({
   initialTransactions,
   downloadLogs,
 }: TransactionListProps) {
-  const [transactions, setTransactions] = useState(initialTransactions);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { showSensitiveData } = useSensitiveData();
+  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
   const [isTableExpanded, setIsTableExpanded] = useState(false);
 
-  const handleDownload = async () => {
-    setIsLoading(true);
-    setError(null);
+  useEffect(() => {
+    setTransactions(initialTransactions);
+  }, [initialTransactions]);
 
-    try {
-      const response = await fetch(`/api/accounts/${accountId}/transactions`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to download transactions");
-      }
-
-      const data = await response.json();
-
-      // Refresh the page to show new transactions
-      window.location.reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setIsLoading(false);
-    }
+  const displayAmount = (amount: number) => {
+    return showSensitiveData ? `$${Math.abs(amount).toFixed(2)}` : "••••";
   };
 
-  const handleDeleteAll = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete ALL transactions and download logs? This cannot be undone."
-      )
-    ) {
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(
-        `/api/accounts/${accountId}/transactions/delete-all`,
-        {
-          method: "POST",
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to delete transactions");
-      }
-
-      const data = await response.json();
-      alert(data.message);
-
-      // Refresh the page to show changes
-      window.location.reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setIsLoading(false);
-    }
+  const displayTransactionName = (name: string) => {
+    return showSensitiveData ? name : "••••••••••";
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-900">Transactions</h2>
-          <div className="flex gap-2">
-            <button
-              onClick={handleDeleteAll}
-              disabled={isLoading}
-              className={`px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors ${
-                isLoading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-              title="Delete all transactions and download logs"
-            >
-              Delete All
-            </button>
-            <button
-              onClick={handleDownload}
-              disabled={isLoading}
-              className={`px-4 py-2 bg-purple-600 dark:bg-purple-500 text-white rounded hover:bg-purple-700 dark:hover:bg-purple-400 transition-colors ${
-                isLoading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              {isLoading ? "Downloading..." : "Download Transactions"}
-            </button>
-          </div>
-        </div>
+    <div className="card">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold text-surface-600 dark:text-gray-200">
+          Transactions
+        </h2>
       </div>
 
-      <div className="p-6">
-        {error && (
-          <div className="mb-4 px-6 py-3 bg-pink-100 border border-pink-400 text-pink-800 rounded">
-            {error}
-          </div>
-        )}
-
-        {/* Transactions Table */}
-        <div>
-          <div
-            className="flex justify-between items-center px-6 py-3 bg-gray-50 border-y border-gray-200 cursor-pointer"
-            onClick={() => setIsTableExpanded(!isTableExpanded)}
-          >
-            <h3 className="text-sm font-medium text-gray-500">
-              Transaction Records
-            </h3>
-            {isTableExpanded ? (
-              <ChevronUpIcon className="w-5 h-5 text-gray-500" />
-            ) : (
-              <ChevronDownIcon className="w-5 h-5 text-gray-500" />
-            )}
-          </div>
-
-          {isTableExpanded && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Category
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {transactions.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="px-6 py-4 text-center text-sm text-gray-500"
-                      >
-                        No transactions found
-                      </td>
-                    </tr>
-                  ) : (
-                    transactions.map((transaction) => (
-                      <tr key={transaction.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(transaction.date).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          {transaction.name}
-                          {transaction.pending && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                              Pending
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {(transaction as any).categoryAi || transaction.category || "-"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                          <span
-                            className={
-                              transaction.amount < 0
-                                ? "text-pink-500 dark:text-pink-400"
-                                : "text-green-600"
-                            }
-                          >
-                            ${Math.abs(transaction.amount).toFixed(2)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+      <div>
+        <div
+          className="flex justify-between items-center px-6 py-3 bg-gray-50 dark:bg-[rgb(46,46,46)] border-y border-gray-200 dark:border-zinc-700 cursor-pointer"
+          onClick={() => setIsTableExpanded(!isTableExpanded)}
+        >
+          <h3 className="text-sm font-medium text-surface-600 dark:text-gray-400">
+            Transaction Records
+          </h3>
+          {isTableExpanded ? (
+            <ChevronUpIcon className="w-5 h-5 text-surface-600 dark:text-gray-400" />
+          ) : (
+            <ChevronDownIcon className="w-5 h-5 text-surface-600 dark:text-gray-400" />
           )}
         </div>
 
-        {/* Download History */}
-        <div className="mt-6">
-          <div className="flex justify-between items-center px-6 py-3 bg-gray-50 border-y border-gray-200">
-            <h3 className="text-sm font-medium text-gray-500">
-              Download History
-            </h3>
-          </div>
-          <div className="mt-4 px-6">
-            {downloadLogs.length === 0 ? (
-              <p className="text-sm text-gray-500">No previous downloads</p>
-            ) : (
-              <ul className="space-y-2">
-                {downloadLogs.slice(0, 5).map((log) => (
-                  <li
-                    key={log.id}
-                    className="flex justify-between items-center text-sm"
-                  >
-                    <span>
-                      {new Date(log.createdAt).toLocaleDateString()} -{" "}
-                      {log.numTransactions} transactions
-                    </span>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        log.status === "success"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-pink-100 text-pink-800"
-                      }`}
+        {isTableExpanded && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+              <thead className="bg-gray-50 dark:bg-[rgb(46,46,46)]">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                    Amount
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700">
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-6 py-4 text-center text-sm text-surface-600 dark:text-gray-400"
                     >
-                      {log.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+                      No transactions found
+                    </td>
+                  </tr>
+                ) : (
+                  transactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-surface-600 dark:text-gray-400">
+                        {new Date(transaction.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-surface-900 dark:text-surface-dark-900">
+                        {displayTransactionName(transaction.name)}
+                        {transaction.pending && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-surface-600 dark:text-gray-400">
+                        {(transaction as any).categoryAi || transaction.category || "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                        <span
+                          className={
+                            transaction.amount < 0
+                              ? "text-pink-500 dark:text-pink-400"
+                              : "text-green-600"
+                          }
+                        >
+                          {displayAmount(transaction.amount)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
+        )}
+      </div>
+
+      {/* Download History */}
+      <div className="mt-6">
+        <div className="flex justify-between items-center px-6 py-3 bg-gray-50 dark:bg-[rgb(46,46,46)] border-y border-gray-200 dark:border-zinc-700">
+          <h3 className="text-sm font-medium text-surface-600 dark:text-gray-400">
+            Download History
+          </h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+            <thead className="bg-gray-50 dark:bg-[rgb(46,46,46)]">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                  Transactions Added
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700">
+              {downloadLogs.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="px-6 py-4 text-center text-sm text-surface-600 dark:text-gray-400"
+                  >
+                    No download history found
+                  </td>
+                </tr>
+              ) : (
+                downloadLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-surface-600 dark:text-gray-400">
+                      {new Date(log.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-surface-600 dark:text-gray-400">
+                      {log.status}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-surface-600 dark:text-gray-400">
+                      {showSensitiveData ? log.transactionsAdded : "••"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

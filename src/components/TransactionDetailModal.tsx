@@ -26,21 +26,23 @@ interface TransactionDetailModalProps {
   transaction: Transaction | null;
   isOpen: boolean;
   onClose: () => void;
+  isMasked?: boolean;
 }
 
-export function TransactionDetailModal({ transaction, isOpen, onClose }: TransactionDetailModalProps) {
+export function TransactionDetailModal({ transaction, isOpen, onClose, isMasked = false }: TransactionDetailModalProps) {
   if (!isOpen || !transaction) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-zinc-800 rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-zinc-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Transaction Details
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
             <XMarkIcon className="w-6 h-6" />
           </button>
@@ -53,7 +55,7 @@ export function TransactionDetailModal({ transaction, isOpen, onClose }: Transac
               Transaction Name
             </h3>
             <p className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
-              {transaction.name}
+              {isMasked ? "••••••••••" : transaction.name}
             </p>
           </div>
 
@@ -67,7 +69,7 @@ export function TransactionDetailModal({ transaction, isOpen, onClose }: Transac
                 ? 'text-red-600 dark:text-red-400' 
                 : 'text-green-600 dark:text-green-400'
             }`}>
-              {formatBalance(Math.abs(transaction.amount))}
+              {isMasked ? "••••••" : formatBalance(Math.abs(transaction.amount))}
             </p>
           </div>
 
@@ -100,7 +102,7 @@ export function TransactionDetailModal({ transaction, isOpen, onClose }: Transac
                 Merchant
               </h3>
               <p className="text-gray-900 dark:text-white mt-1">
-                {transaction.merchantName}
+                {isMasked ? "••••••••••" : transaction.merchantName}
               </p>
             </div>
           )}
@@ -137,11 +139,11 @@ export function TransactionDetailModal({ transaction, isOpen, onClose }: Transac
               </h3>
               <div className="text-gray-900 dark:text-white mt-1">
                 {transaction.locationAddress && (
-                  <p>{transaction.locationAddress}</p>
+                  <p>{isMasked ? "••••••••••" : transaction.locationAddress}</p>
                 )}
                 {(transaction.locationCity || transaction.locationRegion) && (
                   <p>
-                    {[transaction.locationCity, transaction.locationRegion, transaction.locationPostalCode]
+                    {isMasked ? "••••••••••" : [transaction.locationCity, transaction.locationRegion, transaction.locationPostalCode]
                       .filter(Boolean)
                       .join(', ')}
                   </p>
@@ -156,20 +158,11 @@ export function TransactionDetailModal({ transaction, isOpen, onClose }: Transac
               <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 Personal Finance Category
               </h3>
-              <p className="text-gray-900 dark:text-white mt-1">
+              <p className="text-gray-900 dark:text-white mt-1 capitalize">
                 {transaction.personalFinanceCategory.replace(/_/g, ' ')}
               </p>
             </div>
           )}
-        </div>
-
-        <div className="flex justify-end p-6 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>

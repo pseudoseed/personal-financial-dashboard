@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from 'react';
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/solid';
+import { useSensitiveData } from '@/app/providers';
 
 const periodOptions = [
   { value: 'this_week', label: 'This Week' },
@@ -41,6 +42,7 @@ function getInitialValues() {
 }
 
 export default function TopVendorsCard() {
+  const { showSensitiveData } = useSensitiveData();
   const initialValues = getInitialValues();
   const [vendors, setVendors] = useState<{ vendor: string; total: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,16 +148,24 @@ export default function TopVendorsCard() {
           <ul className="space-y-2 flex-1">
             {leftVendors.map((v) => (
               <li key={v.vendor} className="flex justify-between">
-                <span className="font-semibold text-gray-800 dark:text-gray-200 truncate pr-2">{v.vendor}</span>
-                <span className="font-mono font-medium text-right text-primary-600 dark:text-primary-400">${v.total.toFixed(2)}</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200 truncate pr-2">
+                  {showSensitiveData ? v.vendor : "••••••••••"}
+                </span>
+                <span className="font-mono font-medium text-right text-primary-600 dark:text-primary-400">
+                  {showSensitiveData ? `$${v.total.toFixed(2)}` : "••••••"}
+                </span>
               </li>
             ))}
           </ul>
           <ul className="space-y-2 flex-1">
             {rightVendors.map((v) => (
               <li key={v.vendor} className="flex justify-between">
-                <span className="font-semibold text-gray-800 dark:text-gray-200 truncate pr-2">{v.vendor}</span>
-                <span className="font-mono font-medium text-right text-primary-600 dark:text-primary-400">${v.total.toFixed(2)}</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200 truncate pr-2">
+                  {showSensitiveData ? v.vendor : "••••••••••"}
+                </span>
+                <span className="font-mono font-medium text-right text-primary-600 dark:text-primary-400">
+                  {showSensitiveData ? `$${v.total.toFixed(2)}` : "••••••"}
+                </span>
               </li>
             ))}
           </ul>

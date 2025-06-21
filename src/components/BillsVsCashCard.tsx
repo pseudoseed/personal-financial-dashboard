@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { formatBalance } from "@/lib/formatters";
+import { useSensitiveData } from "@/app/providers";
 
 interface BillsData {
   totalBillsDueThisMonth: number;
@@ -9,6 +10,7 @@ interface BillsData {
 }
 
 export function BillsVsCashCard() {
+  const { showSensitiveData } = useSensitiveData();
   const [data, setData] = useState<BillsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -70,7 +72,7 @@ export function BillsVsCashCard() {
             Upcoming Bills
           </p>
           <p className={`text-lg font-bold ${isHealthy ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'}`}>
-            {formatBalance(data.totalBillsDueThisMonth)}
+            {showSensitiveData ? formatBalance(data.totalBillsDueThisMonth) : "••••••"}
           </p>
         </div>
         
@@ -79,7 +81,7 @@ export function BillsVsCashCard() {
             Available Cash
           </p>
           <p className="text-lg font-bold text-purple-700 dark:text-purple-300">
-            {formatBalance(data.availableCash)}
+            {showSensitiveData ? formatBalance(data.availableCash) : "••••••"}
           </p>
         </div>
 
@@ -88,7 +90,7 @@ export function BillsVsCashCard() {
             Net Position
           </p>
           <p className={`text-lg font-bold ${isNetPositive ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'}`}>
-            {formatBalance(netPosition)}
+            {showSensitiveData ? formatBalance(netPosition) : "••••••"}
           </p>
         </div>
       </div>

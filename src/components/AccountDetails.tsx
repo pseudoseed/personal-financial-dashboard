@@ -20,8 +20,6 @@ import {
   PencilIcon,
   CheckIcon,
   XMarkIcon,
-  LockOpenIcon,
-  LockClosedIcon,
   TrashIcon,
   ChevronDownIcon,
   ChevronUpIcon,
@@ -36,6 +34,7 @@ import {
   TransactionDownloadLog,
 } from "@prisma/client";
 import { formatBalance } from "@/lib/formatters";
+import { useSensitiveData } from "@/app/providers";
 
 // Register ChartJS components
 ChartJS.register(
@@ -71,9 +70,9 @@ interface AccountDetailsProps {
 }
 
 export function AccountDetails({ account }: AccountDetailsProps) {
+  const { showSensitiveData } = useSensitiveData();
   const [isEditing, setIsEditing] = useState(false);
   const [newNickname, setNewNickname] = useState("");
-  const [isMasked, setIsMasked] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [isTransactionsExpanded, setIsTransactionsExpanded] = useState(false);
   const [isInverting, setIsInverting] = useState(false);
@@ -82,7 +81,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
 
   const displayBalance = (amount: number | null) => {
     if (amount === null) return "-";
-    return isMasked ? "••••••" : formatBalance(amount);
+    return showSensitiveData ? formatBalance(amount) : "••••••";
   };
 
   const {
@@ -334,7 +333,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
     labels: [...history]
       .reverse()
       .map((item) => format(new Date(item.date), "MMM d, yyyy")),
-    datasets: isMasked
+    datasets: !showSensitiveData
       ? [
           {
             label: "Balance History",
@@ -371,6 +370,10 @@ export function AccountDetails({ account }: AccountDetailsProps) {
     plugins: {
       legend: {
         position: "top" as const,
+        labels: {
+          color: !showSensitiveData ? "#6b7280" : "#374151",
+          usePointStyle: true,
+        },
       },
       title: {
         display: true,
@@ -379,7 +382,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
       tooltip: {
         callbacks: {
           label: function (tooltipItem: TooltipItem<"line">) {
-            if (isMasked) return "••••••";
+            if (!showSensitiveData) return "••••••";
             const label = tooltipItem.dataset.label || "";
             const value = tooltipItem.raw as number;
             return `${label}: $${value.toLocaleString()}`;
@@ -392,13 +395,35 @@ export function AccountDetails({ account }: AccountDetailsProps) {
         beginAtZero: false,
         ticks: {
           callback: function (value) {
-            if (isMasked) return "••••••";
+            if (!showSensitiveData) return "••••••";
             return `$${value.toLocaleString()}`;
           },
+          color: !showSensitiveData ? "#6b7280" : "#374151",
+        },
+        grid: {
+          color: !showSensitiveData ? "#374151" : "#e5e7eb",
+        },
+      },
+      x: {
+        ticks: {
+          color: !showSensitiveData ? "#6b7280" : "#374151",
+        },
+        grid: {
+          color: !showSensitiveData ? "#374151" : "#e5e7eb",
         },
       },
     },
   };
+
+  // Determine if dark mode is active for chart colors
+  const isDarkMode = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
+  
+  // Update chart colors for dark mode
+  if (isDarkMode) {
+    chartOptions.plugins!.legend!.labels!.color = "rgb(156, 163, 175)"; // dark:text-gray-400
+    chartOptions.scales!.y!.ticks!.color = "rgb(156, 163, 175)"; // dark:text-gray-400
+    chartOptions.scales!.x!.ticks!.color = "rgb(156, 163, 175)"; // dark:text-gray-400
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -406,9 +431,9 @@ export function AccountDetails({ account }: AccountDetailsProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* Institution and Account Info Card */}
-        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-6 flex flex-col">
+        <div className="card flex flex-col">
           <div className="flex items-start gap-4">
-            {account.plaidItem.institutionLogo ? (
+            {showSensitiveData && account.plaidItem.institutionLogo ? (
               <img
                 src={account.plaidItem.institutionLogo}
                 alt={account.plaidItem.institutionName || "Bank logo"}
@@ -418,13 +443,13 @@ export function AccountDetails({ account }: AccountDetailsProps) {
               <BuildingLibraryIcon className="w-12 h-12 text-gray-400" />
             )}
             <div className="flex-grow">
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {account.plaidItem.institutionName}
+              <div className="text-sm text-surface-600 dark:text-gray-400">
+                {showSensitiveData ? account.plaidItem.institutionName : "••••••••••"}
               </div>
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                {account.name}
+              <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-dark-900">
+                {showSensitiveData ? account.name : "••••••••••"}
               </h1>
-              <div className="flex items-center text-gray-600 dark:text-gray-300">
+              <div className="flex items-center text-surface-600 dark:text-gray-400">
                 {isEditing ? (
                   <div className="flex items-center">
                     <input
@@ -438,7 +463,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                   </div>
                 ) : (
                   <div className="flex items-center">
-                    <span className="mr-2">{newNickname || "No nickname"}</span>
+                    <span className="mr-2">{showSensitiveData ? (newNickname || "No nickname") : "••••••••••"}</span>
                   </div>
                 )}
                 <div className="flex">
@@ -459,69 +484,52 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                 </div>
               </div>
             </div>
-            <div className="ml-auto self-start">
-              <button
-                onClick={() => setIsMasked(!isMasked)}
-                className="p-2 text-gray-600 hover:text-gray-800"
-                title={
-                  isMasked
-                    ? "Show sensitive information"
-                    : "Hide sensitive information"
-                }
-              >
-                {isMasked ? (
-                  <LockClosedIcon className="w-5 h-5" />
-                ) : (
-                  <LockOpenIcon className="w-5 h-5" />
-                )}
-              </button>
-            </div>
           </div>
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700 flex-grow">
             <div className="text-sm space-y-1">
               <p>
                 Current Balance:{" "}
-                <span className="font-semibold">
+                <span className="font-semibold text-surface-900 dark:text-surface-dark-900">
                   {displayBalance(history?.[0]?.current)}
                 </span>
               </p>
               <p>
                 Available Balance:{" "}
-                <span className="font-semibold">
+                <span className="font-semibold text-surface-900 dark:text-surface-dark-900">
                   {displayBalance(history?.[0]?.available)}
                 </span>
               </p>
               {history?.[0]?.limit && (
                 <p>
                   Credit Limit:{" "}
-                  <span className="font-semibold">
+                  <span className="font-semibold text-surface-900 dark:text-surface-dark-900">
                     {displayBalance(history?.[0]?.limit)}
                   </span>
                 </p>
               )}
             </div>
+            {account.mask && (
+              <div className="text-sm text-surface-600 dark:text-gray-400 mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
+                Account ending in {showSensitiveData ? account.mask : "••••"}
+              </div>
+            )}
           </div>
-          {account.mask && (
-            <div className="text-sm text-gray-500 dark:text-gray-400 mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700">
-              Account ending in {account.mask}
-            </div>
-          )}
         </div>
         
         {/* Account Settings Section Card */}
-        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Account Settings</h3>
+        <div className="card">
+          <h3 className="text-lg font-semibold text-surface-600 dark:text-gray-200 mb-4">Account Settings</h3>
           <div className="divide-y divide-gray-200 dark:divide-zinc-700">
             <div className="flex justify-between items-center py-3">
               <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Invert Transaction Signs</span>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Flip positive/negative amounts for this account.</p>
+                <span className="font-medium text-surface-700 dark:text-gray-300">Invert Transaction Signs</span>
+                <p className="text-sm text-surface-600 dark:text-gray-400">Flip positive/negative amounts for this account.</p>
               </div>
               <button
                 onClick={handleToggleInversion}
                 disabled={isInverting}
-                className={`relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
-                  account.invertTransactions ? "bg-purple-600" : "bg-gray-200"
+                className={`relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
+                  account.invertTransactions ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
                 }`}
               >
                 <span
@@ -536,13 +544,13 @@ export function AccountDetails({ account }: AccountDetailsProps) {
             </div>
             <div className="flex justify-between items-center py-3">
               <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Sync Transactions</span>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Pull the latest transactions for this account.</p>
+                <span className="font-medium text-surface-700 dark:text-gray-300">Sync Transactions</span>
+                <p className="text-sm text-surface-600 dark:text-gray-400">Pull the latest transactions for this account.</p>
               </div>
               <button
                 onClick={handleDownload}
                 disabled={isDownloading}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-purple-600 dark:bg-purple-500 text-white rounded-md hover:bg-purple-700 dark:hover:bg-purple-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-primary-600 dark:bg-primary-500 text-white rounded-md hover:bg-primary-700 dark:hover:bg-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ArrowDownTrayIcon className="w-4 h-4" />
                 {isDownloading ? "Syncing..." : "Sync"}
@@ -553,112 +561,108 @@ export function AccountDetails({ account }: AccountDetailsProps) {
       </div>
       
       {/* Balance History Section */}
-      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Balance History
-            </h2>
-            <div className="flex gap-2">
-              <button
-                onClick={handleBackfill}
-                className="px-4 py-2 bg-purple-600 dark:bg-purple-500 text-white rounded hover:bg-purple-700 dark:hover:bg-purple-400 transition-colors"
-                title="Fill in missing monthly data points"
-              >
-                Backfill Data
-              </button>
-              <button
-                onClick={handleCleanDailyRecords}
-                className="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-zinc-600 transition-colors"
-                title="Keep only the most recent record for each day"
-              >
-                Clean Daily
-              </button>
-              <button
-                onClick={handleCleanMonthlyRecords}
-                className="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-zinc-600 transition-colors"
-                title="Keep only the most recent record for each month"
-              >
-                Clean Monthly
-              </button>
-            </div>
+      <div className="card">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold text-surface-600 dark:text-gray-200">
+            Balance History
+          </h2>
+          <div className="flex gap-2">
+            <button
+              onClick={handleBackfill}
+              className="px-4 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded hover:bg-primary-700 dark:hover:bg-primary-400 transition-colors"
+              title="Fill in missing monthly data points"
+            >
+              Backfill Data
+            </button>
+            <button
+              onClick={handleCleanDailyRecords}
+              className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-surface-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              title="Keep only the most recent record for each day"
+            >
+              Clean Daily
+            </button>
+            <button
+              onClick={handleCleanMonthlyRecords}
+              className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-surface-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              title="Keep only the most recent record for each month"
+            >
+              Clean Monthly
+            </button>
           </div>
         </div>
 
-        <div className="p-6">
-          <Line options={chartOptions} data={chartData} />
+        <Line options={chartOptions} data={chartData} />
 
-          <div className="mt-6">
-            <div
-              className="flex justify-between items-center px-6 py-3 bg-gray-50 dark:bg-zinc-800 border-y border-gray-200 dark:border-zinc-700 cursor-pointer"
-              onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
-            >
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Balance History Records
-              </h3>
-              {isHistoryExpanded ? (
-                <ChevronUpIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              ) : (
-                <ChevronDownIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              )}
-            </div>
-
-            {isHistoryExpanded && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
-                  <thead className="bg-gray-50 dark:bg-zinc-800">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Current Balance
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Available Balance
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Credit Limit
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700">
-                    {history.map((item) => (
-                      <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800">
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(item.date).toLocaleDateString()}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 font-semibold">
-                          {displayBalance(item.current)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          {displayBalance(item.available)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          {displayBalance(item.limit)}
-                        </td>
-                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteBalance(item.id);
-                            }}
-                            className="text-pink-500 hover:text-pink-600 dark:text-pink-400 dark:hover:text-pink-300 transition-colors"
-                            title="Delete record"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+        <div className="mt-6">
+          <div
+            className="flex justify-between items-center px-6 py-3 bg-gray-50 dark:bg-[rgb(46,46,46)] border-y border-gray-200 dark:border-zinc-700 cursor-pointer"
+            onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+          >
+            <h3 className="text-sm font-medium text-surface-600 dark:text-gray-400">
+              Balance History Records
+            </h3>
+            {isHistoryExpanded ? (
+              <ChevronUpIcon className="w-5 h-5 text-surface-600 dark:text-gray-400" />
+            ) : (
+              <ChevronDownIcon className="w-5 h-5 text-surface-600 dark:text-gray-400" />
             )}
           </div>
+
+          {isHistoryExpanded && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700">
+                <thead className="bg-gray-50 dark:bg-[rgb(46,46,46)]">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                      Current Balance
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                      Available Balance
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                      Credit Limit
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-surface-600 dark:text-gray-400 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700">
+                  {history.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800">
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-surface-600 dark:text-gray-400">
+                        {new Date(item.date).toLocaleDateString()}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-surface-900 dark:text-surface-dark-900 font-semibold">
+                        {displayBalance(item.current)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-surface-600 dark:text-gray-400">
+                        {displayBalance(item.available)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-surface-600 dark:text-gray-400">
+                        {displayBalance(item.limit)}
+                      </td>
+                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteBalance(item.id);
+                          }}
+                          className="text-pink-500 hover:text-pink-600 dark:text-pink-400 dark:hover:text-pink-300 transition-colors"
+                          title="Delete record"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

@@ -27,6 +27,7 @@ import {
 } from "@/lib/transactionChartSettings";
 import type { ChartData } from "chart.js";
 import { useTheme } from "next-themes";
+import { useSensitiveData } from "@/app/providers";
 import { CategoryTransactionsList } from "./CategoryTransactionsList";
 
 // Register ChartJS components
@@ -40,11 +41,10 @@ ChartJS.register(
   ArcElement
 );
 
-interface TransactionChartProps {
-  isMasked?: boolean;
-}
+interface TransactionChartProps {}
 
-export function TransactionChart({ isMasked = false }: TransactionChartProps) {
+export function TransactionChart({}: TransactionChartProps) {
+  const { showSensitiveData } = useSensitiveData();
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -168,7 +168,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
   };
 
   const formatCurrency = (amount: number) => {
-    return isMasked ? "••••••" : `$${amount.toLocaleString()}`;
+    return showSensitiveData ? `$${amount.toLocaleString()}` : "••••••";
   };
 
   const triggerAICategorization = async () => {
@@ -250,7 +250,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
       (a: any, b: any) => b.total_spend - a.total_spend
     );
     return {
-      labels: sortedVendors.map((v: any) => v.vendor),
+      labels: sortedVendors.map((v: any) => showSensitiveData ? v.vendor : "••••••••••"),
       datasets: [
         {
           label: "Spend",
@@ -263,7 +263,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
         },
       ],
     };
-  }, [vendorData, chartColors]);
+  }, [vendorData, chartColors, showSensitiveData]);
 
   // Define a default font object for Chart.js
   const defaultFont = { size: 12, weight: 400, family: 'inherit' };
@@ -336,7 +336,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
         },
       },
     },
-  }), [isDarkMode, isMasked, textColor, gridColor, tooltipBackgroundColor, resolvedTheme]);
+  }), [isDarkMode, showSensitiveData, textColor, gridColor, tooltipBackgroundColor, resolvedTheme]);
 
   const pieChartOptions: ChartOptions<"pie"> = useMemo(() => ({
     responsive: true,
@@ -376,14 +376,18 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
               label += ': ';
             }
             if (context.parsed !== null) {
-              label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed);
+              if (showSensitiveData) {
+                label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed);
+              } else {
+                label += "••••••";
+              }
             }
             return label;
           }
         }
       }
     }
-  }), [isDarkMode, isMasked, textColor, tooltipBackgroundColor, resolvedTheme, aiPieData.labels]);
+  }), [isDarkMode, showSensitiveData, textColor, tooltipBackgroundColor, resolvedTheme, aiPieData.labels]);
   
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error loading transaction data.</div>;
@@ -553,7 +557,6 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
                   endDate: settings.endDate,
                 }}
                 accountIds={settings.selectedAccountIds}
-                isMasked={isMasked}
               />
             </div>
           )}

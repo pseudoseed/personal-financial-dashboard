@@ -150,9 +150,17 @@ export function AccountCard({
         {/* Card Header */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-2 min-w-0">
-            <Icon className="h-5 w-5 text-secondary-500 dark:text-secondary-400 flex-shrink-0" />
+            {showSensitiveData && account.institutionLogo ? (
+              <img
+                src={account.institutionLogo}
+                alt={account.institution || "Bank logo"}
+                className="h-5 w-5 object-contain"
+              />
+            ) : (
+              <BanknotesIcon className="h-5 w-5 text-gray-400" />
+            )}
             <span className="text-xs text-secondary-500 dark:text-secondary-400">
-              ****{account.mask}
+              {showSensitiveData ? `****${account.mask}` : "••••"}
             </span>
           </div>
           <div className="flex items-center -mr-2 -mt-1">
@@ -194,7 +202,7 @@ export function AccountCard({
           ) : (
             <div className="flex items-center gap-1">
               <h3 className="text-xl font-semibold text-surface-600 dark:text-gray-200">
-                {nickname || account.name}
+                {showSensitiveData ? (nickname || account.name) : "••••••••••"}
               </h3>
               <Button variant="ghost" size="sm" onClick={handleStartEditing} className="p-1">
                 <PencilIcon className="h-4 w-4" />

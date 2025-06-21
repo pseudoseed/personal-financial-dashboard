@@ -445,6 +445,7 @@ export function AnomalyAlert({ isMasked = false, limit = 5, onHide }: AnomalyAle
           setShowTransactionModal(false);
           setSelectedTransaction(null);
         }}
+        isMasked={isMasked}
       />
 
       {/* Anomaly Dismissal Dialog */}
@@ -468,6 +469,7 @@ export function AnomalyAlert({ isMasked = false, limit = 5, onHide }: AnomalyAle
         }}
         duplicateTransactions={duplicateTransactions}
         timeSpan={duplicateTimeSpan}
+        isMasked={isMasked}
       />
     </div>
   );
