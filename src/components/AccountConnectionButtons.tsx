@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
 import { usePlaidLink } from "react-plaid-link";
 import { PlusIcon } from "@heroicons/react/24/solid";
 import { Menu } from "@headlessui/react";
@@ -13,6 +14,8 @@ export function AccountConnectionButtons() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
   const [isConnectingCoinbase, setIsConnectingCoinbase] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // Fetch Plaid link token on mount
   React.useEffect(() => {
@@ -30,6 +33,42 @@ export function AccountConnectionButtons() {
     };
     if (!linkToken) getToken();
   }, [linkToken]);
+
+  // Handle mounting state for portal
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Handle ESC key and click outside for dialog
+  useEffect(() => {
+    if (!showManualForm) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowManualForm(false);
+      }
+    };
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dialogRef.current && !dialogRef.current.contains(event.target as Node)) {
+        setShowManualForm(false);
+      }
+    };
+
+    // Add event listeners
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+
+    // Prevent body scroll when dialog is open
+    document.body.style.overflow = 'hidden';
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showManualForm]);
 
   const onSuccess = useCallback(async (public_token: string) => {
     try {
@@ -135,6 +174,22 @@ export function AccountConnectionButtons() {
     </div>
   );
 
+  // Dialog content
+  const dialogContent = showManualForm ? (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div 
+        ref={dialogRef}
+        className="card max-w-md w-full mx-2"
+      >
+        <h2 className="text-xl font-semibold mb-4 text-foreground">Add Account</h2>
+        <ManualAccountForm
+          onSuccess={() => setShowManualForm(false)}
+          onCancel={() => setShowManualForm(false)}
+        />
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="flex items-center gap-2">
       <MobileMenu />
@@ -148,17 +203,10 @@ export function AccountConnectionButtons() {
         Connect Bank
       </Button>
 
-      {/* Manual Account Form Dialog */}
-      {showManualForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="card max-w-md w-full mx-2">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Add Account</h2>
-            <ManualAccountForm
-              onSuccess={() => setShowManualForm(false)}
-              onCancel={() => setShowManualForm(false)}
-            />
-          </div>
-        </div>
+      {/* Manual Account Form Dialog - Rendered via Portal */}
+      {isMounted && dialogContent && ReactDOM.createPortal(
+        dialogContent,
+        document.getElementById("dialog-root") as HTMLElement
       )}
     </div>
   );

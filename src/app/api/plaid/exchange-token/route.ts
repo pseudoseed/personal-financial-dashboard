@@ -39,7 +39,10 @@ function findMatchingAccount(account: any, existingAccounts: any[]) {
 
 export async function POST(request: Request) {
   try {
-    const { publicToken } = await request.json();
+    const body = await request.json();
+    
+    // Accept both public_token and publicToken field names
+    const publicToken = body.publicToken || body.public_token;
 
     if (!publicToken) {
       return NextResponse.json(
