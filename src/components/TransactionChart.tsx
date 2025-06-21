@@ -56,19 +56,8 @@ export function TransactionChart({}: TransactionChartProps) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    function updateThemeFromDom() {
-      const isDark = document.documentElement.classList.contains('dark');
-      setIsDarkMode(isDark);
-      setTextColor(isDark ? '#f3f4f6' : '#18181b');
-      setGridColor(isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)');
-      setTooltipBackgroundColor(isDark ? '#18181b' : '#ffffff');
-      ChartJS.defaults.color = isDark ? '#f3f4f6' : '#18181b';
-      console.log('DOM theme detection:', isDark);
-    }
-    updateThemeFromDom();
-    const observer = new MutationObserver(updateThemeFromDom);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
+    const isDark = document.documentElement.classList.contains('dark');
+    setIsDarkMode(isDark);
   }, []);
 
   // Fetch transaction data

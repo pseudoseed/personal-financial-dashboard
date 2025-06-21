@@ -39,198 +39,139 @@ function findMatchingAccount(account: any, existingAccounts: any[]) {
 
 export async function POST(request: Request) {
   try {
-    const { public_token } = await request.json();
-    console.log("Exchanging public token...");
+    const { publicToken } = await request.json();
 
-    const exchangeResponse = await plaidClient.itemPublicTokenExchange({
-      public_token,
+    if (!publicToken) {
+      return NextResponse.json(
+        { error: "Public token is required" },
+        { status: 400 }
+      );
+    }
+
+    // Exchange public token for access token
+    const response = await plaidClient.itemPublicTokenExchange({
+      public_token: publicToken,
     });
 
-    const { access_token, item_id } = exchangeResponse.data;
+    const accessToken = response.data.access_token;
+    const itemId = response.data.item_id;
 
-    // Get item details
+    // Get item information
     const itemResponse = await plaidClient.itemGet({
-      access_token,
+      access_token: accessToken,
     });
 
     const institutionId = itemResponse.data.item.institution_id;
-    if (!institutionId) {
-      throw new Error("Institution ID is missing");
-    }
 
-    // Get institution details
+    // Get institution information
     const institutionResponse = await plaidClient.institutionsGetById({
       institution_id: institutionId,
-      country_codes: [CountryCode.Us],
-      options: {
-        include_optional_metadata: true,
-      },
+      country_codes: ["US"],
     });
 
     const institution = institutionResponse.data.institution;
 
-    // Check if we already have this institution
-    const existingItem = await prisma.plaidItem.findFirst({
+    // Check if institution already exists
+    const existingInstitution = await prisma.plaidItem.findFirst({
       where: { institutionId },
-      include: { accounts: true },
     });
 
-    // Get accounts from Plaid
-    const accountsResponse = await plaidClient.accountsGet({
-      access_token,
-    });
-
-    if (existingItem) {
-      console.log("Found existing institution, updating records...");
-
-      // Update the existing PlaidItem
-      const updatedItem = await prisma.plaidItem.update({
-        where: { id: existingItem.id },
+    if (existingInstitution) {
+      // Update existing institution
+      await prisma.plaidItem.update({
+        where: { id: existingInstitution.id },
         data: {
-          itemId: item_id,
-          accessToken: access_token,
+          accessToken,
           institutionName: institution.name,
-          institutionLogo: formatLogoUrl(institution.logo, institutionId),
+          institutionLogo: institution.logo,
+          lastSyncTime: new Date(),
         },
       });
 
-      // Keep track of processed accounts to identify deleted ones
-      const processedAccountIds = new Set<string>();
+      // Get existing accounts for this institution
+      const existingAccounts = await prisma.account.findMany({
+        where: { plaidItemId: existingInstitution.id },
+      });
+
+      // Get accounts from Plaid
+      const accountsResponse = await plaidClient.accountsGet({
+        access_token: accessToken,
+      });
+
+      const plaidAccounts = accountsResponse.data.accounts;
 
       // Update existing accounts and create new ones
-      for (const account of accountsResponse.data.accounts) {
-        const existingAccount = findMatchingAccount(
-          account,
-          existingItem.accounts
+      for (const plaidAccount of plaidAccounts) {
+        const existingAccount = existingAccounts.find(
+          (acc) => acc.plaidId === plaidAccount.account_id
         );
 
         if (existingAccount) {
-          console.log(
-            `Updating existing account: ${existingAccount.name} (${existingAccount.mask})`
-          );
-          processedAccountIds.add(existingAccount.id);
-
           // Update existing account
           await prisma.account.update({
             where: { id: existingAccount.id },
             data: {
-              plaidId: account.account_id, // Update to new Plaid ID
-              name: account.name,
-              type: account.type,
-              subtype: account.subtype || null,
-              mask: account.mask || null,
-            },
-          });
-
-          // Update balance
-          await prisma.accountBalance.create({
-            data: {
-              accountId: existingAccount.id,
-              current: account.balances.current || 0,
-              available: account.balances.available || null,
-              limit: account.balances.limit || null,
+              name: plaidAccount.name,
+              type: plaidAccount.type,
+              subtype: plaidAccount.subtype,
+              mask: plaidAccount.mask,
             },
           });
         } else {
-          console.log(
-            `Creating new account: ${account.name} (${account.mask})`
-          );
-          // Create new account if no match found
-          const newAccount = await prisma.account.create({
+          // Create new account
+          await prisma.account.create({
             data: {
-              plaidId: account.account_id,
-              name: account.name,
-              type: account.type,
-              subtype: account.subtype || null,
-              mask: account.mask || null,
-              itemId: updatedItem.id,
-              invertTransactions: account.type === 'depository',
-            },
-          });
-
-          // Create initial balance
-          await prisma.accountBalance.create({
-            data: {
-              accountId: newAccount.id,
-              current: account.balances.current || 0,
-              available: account.balances.available || null,
-              limit: account.balances.limit || null,
+              plaidId: plaidAccount.account_id,
+              name: plaidAccount.name,
+              type: plaidAccount.type,
+              subtype: plaidAccount.subtype,
+              mask: plaidAccount.mask,
+              plaidItemId: existingInstitution.id,
             },
           });
         }
       }
 
-      // Handle accounts that no longer exist at the institution
-      const deletedAccounts = existingItem.accounts.filter(
-        (account) => !processedAccountIds.has(account.id)
-      );
-
-      if (deletedAccounts.length > 0) {
-        console.log(
-          `Found ${deletedAccounts.length} accounts no longer available at institution`
-        );
-        // Optionally mark accounts as hidden instead of deleting them
-        await prisma.account.updateMany({
-          where: {
-            id: {
-              in: deletedAccounts.map((account) => account.id),
-            },
-          },
-          data: {
-            hidden: true,
-          },
-        });
-      }
-
       return NextResponse.json({
-        success: true,
-        message: "Updated existing institution and accounts",
-        institution: institution.name,
+        message: "Institution updated successfully",
+        institutionId: existingInstitution.id,
       });
     } else {
-      console.log("Creating new institution and accounts...");
-
-      // Create new PlaidItem
-      const newItem = await prisma.plaidItem.create({
+      // Create new institution
+      const newInstitution = await prisma.plaidItem.create({
         data: {
-          itemId: item_id,
-          accessToken: access_token,
           institutionId,
+          accessToken,
           institutionName: institution.name,
-          institutionLogo: formatLogoUrl(institution.logo, institutionId),
+          institutionLogo: institution.logo,
+          lastSyncTime: new Date(),
         },
       });
 
-      // Create accounts and initial balances
-      for (const account of accountsResponse.data.accounts) {
-        console.log(`Creating new account: ${account.name} (${account.mask})`);
-        const newAccount = await prisma.account.create({
-          data: {
-            plaidId: account.account_id,
-            name: account.name,
-            type: account.type,
-            subtype: account.subtype || null,
-            mask: account.mask || null,
-            itemId: newItem.id,
-            invertTransactions: account.type === 'depository',
-          },
-        });
+      // Get accounts from Plaid
+      const accountsResponse = await plaidClient.accountsGet({
+        access_token: accessToken,
+      });
 
-        // Create initial balance
-        await prisma.accountBalance.create({
+      const plaidAccounts = accountsResponse.data.accounts;
+
+      // Create accounts
+      for (const plaidAccount of plaidAccounts) {
+        await prisma.account.create({
           data: {
-            accountId: newAccount.id,
-            current: account.balances.current || 0,
-            available: account.balances.available || null,
-            limit: account.balances.limit || null,
+            plaidId: plaidAccount.account_id,
+            name: plaidAccount.name,
+            type: plaidAccount.type,
+            subtype: plaidAccount.subtype,
+            mask: plaidAccount.mask,
+            plaidItemId: newInstitution.id,
           },
         });
       }
 
       return NextResponse.json({
-        success: true,
-        message: "Created new institution and accounts",
-        institution: institution.name,
+        message: "Institution connected successfully",
+        institutionId: newInstitution.id,
       });
     }
   } catch (error) {

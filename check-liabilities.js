@@ -4,8 +4,7 @@ const prisma = new PrismaClient();
 
 async function checkLiabilities() {
   try {
-    console.log('Checking for credit and loan accounts...');
-    
+    // Find all credit and loan accounts
     const accounts = await prisma.account.findMany({
       where: {
         type: {
@@ -24,6 +23,7 @@ async function checkLiabilities() {
     });
 
     console.log(`Found ${accounts.length} credit/loan accounts:`);
+    
     accounts.forEach(account => {
       console.log(`- ${account.name} (${account.type})`);
       console.log(`  Statement Balance: ${account.lastStatementBalance}`);
@@ -33,20 +33,20 @@ async function checkLiabilities() {
       console.log('');
     });
 
-    // Check all accounts to see what types we have
+    // Also show all account types for reference
     const allAccounts = await prisma.account.findMany({
       select: {
-        name: true,
         type: true
       }
     });
 
-    console.log('All account types:');
-    const typeCount = {};
-    allAccounts.forEach(acc => {
-      typeCount[acc.type] = (typeCount[acc.type] || 0) + 1;
+    const typeCounts = {};
+    allAccounts.forEach(account => {
+      typeCounts[account.type] = (typeCounts[account.type] || 0) + 1;
     });
-    Object.entries(typeCount).forEach(([type, count]) => {
+
+    console.log('All account types:');
+    Object.entries(typeCounts).forEach(([type, count]) => {
       console.log(`  ${type}: ${count}`);
     });
 

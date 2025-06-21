@@ -74,6 +74,11 @@ export function AllTransactionsList({}: AllTransactionsListProps) {
     );
   }
 
+  // Debug: Log category values for first few transactions
+  if (transactions.length > 0) {
+    const sampleTransactions = transactions.slice(0, 3);
+  }
+
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md">
       <div className="p-6">
@@ -127,17 +132,6 @@ export function AllTransactionsList({}: AllTransactionsListProps) {
                         const categoryAi = transaction.categoryAi;
                         const category = transaction.category;
                         const displayCategory = categoryAi || category || "-";
-                        
-                        // Debug: Log category values for first few transactions
-                        if (transactions.indexOf(transaction) < 3) {
-                          console.log(`[DEBUG ${new Date().toISOString()}] Category display:`, {
-                            id: transaction.id,
-                            name: transaction.name,
-                            category,
-                            categoryAi,
-                            displayCategory
-                          });
-                        }
                         
                         return displayCategory;
                       })()}

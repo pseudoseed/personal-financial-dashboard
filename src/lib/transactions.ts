@@ -46,11 +46,8 @@ async function handleRegularTransactions(
   // If forcing a full refresh, ignore the existing cursor
   let cursor: string | undefined = force ? undefined : (account as any).plaidSyncCursor || undefined;
 
-  console.log(`Starting transaction sync for account: ${account.id} (Force: ${!!force})`);
-
   // Keep fetching transactions until we get them all
   while (hasMore) {
-    console.log("Fetching transactions with cursor:", cursor);
     const response = await plaidClient.transactionsSync({
       access_token: account.plaidItem.accessToken,
       cursor,
@@ -59,18 +56,6 @@ async function handleRegularTransactions(
         include_original_description: true,
         account_id: account.plaidId,
       },
-    });
-
-    // Log the first few raw transactions from Plaid for debugging
-    if (response.data.added && response.data.added.length > 0) {
-      console.log('[PLAID RAW TRANSACTIONS SAMPLE]', response.data.added.slice(0, 3));
-    }
-
-    console.log("Plaid API Response:", {
-      added: response.data.added.length,
-      modified: response.data.modified.length,
-      removed: response.data.removed.length,
-      has_more: response.data.has_more,
     });
 
     // Filter transactions for this account
@@ -152,9 +137,6 @@ async function handleRegularTransactions(
 
     // Process removed transactions
     if (removedTransactions.length > 0) {
-      console.log(
-        `Deleting ${removedTransactions.length} removed transactions`
-      );
       await prisma.transaction.deleteMany({
         where: {
           accountId: account.id,
@@ -162,18 +144,6 @@ async function handleRegularTransactions(
             in: removedTransactions.map((tx) => tx.transaction_id),
           },
         },
-      });
-    }
-
-    // Log the date range of received transactions
-    if (addedTransactions.length > 0) {
-      const dates = addedTransactions.map((t) => new Date(t.date));
-      const oldestDate = new Date(Math.min(...dates.map((d) => d.getTime())));
-      const newestDate = new Date(Math.max(...dates.map((d) => d.getTime())));
-      console.log("Received transactions date range:", {
-        oldest: oldestDate.toISOString().split("T")[0],
-        newest: newestDate.toISOString().split("T")[0],
-        count: addedTransactions.length,
       });
     }
 
@@ -252,6 +222,7 @@ async function handleRegularTransactions(
             date: new Date(transaction.date),
             name: transaction.name,
             amount: account.invertTransactions ? -transaction.amount : transaction.amount,
+            category: transaction.category ? transaction.category[0] : null,
             merchantName: transaction.merchant_name,
             pending: transaction.pending,
             isoCurrencyCode: transaction.iso_currency_code,
@@ -294,9 +265,8 @@ async function handleRegularTransactions(
   });
 
   return {
-    message: "Transactions downloaded successfully",
     downloadLog,
-    numTransactions: allTransactions.length,
+    transactionsAdded: allTransactions.length,
   };
 }
 
@@ -306,8 +276,6 @@ async function handleInvestmentTransactions(
     plaidItem: PlaidItem;
   }
 ) {
-  console.log("Starting investment transaction sync for account:", account.id);
-
   const endDate = new Date().toISOString().split("T")[0];
   const startDate = new Date();
   startDate.setMonth(startDate.getMonth() - 24); // Get 24 months of history
@@ -322,8 +290,6 @@ async function handleInvestmentTransactions(
   try {
     // Keep fetching transactions until we get them all
     while (hasMore) {
-      console.log("Fetching investment transactions with offset:", offset);
-
       const response = await plaidClient.investmentsTransactionsGet({
         access_token: account.plaidItem.accessToken,
         start_date: startDateStr,
@@ -333,13 +299,6 @@ async function handleInvestmentTransactions(
           count: PAGE_SIZE,
           account_ids: [account.plaidId],
         },
-      });
-
-      console.log("Plaid API Response:", {
-        total_transactions: response.data.investment_transactions.length,
-        total_available: response.data.total_investment_transactions,
-        securities: response.data.securities.length,
-        offset,
       });
 
       // Add transactions and securities to our collections
@@ -353,11 +312,6 @@ async function handleInvestmentTransactions(
       offset += response.data.investment_transactions.length;
       hasMore = offset < response.data.total_investment_transactions;
     }
-
-    console.log("Finished fetching all investment transactions:", {
-      total_fetched: allInvestmentTransactions.length,
-      total_securities: allSecurities.length,
-    });
 
     // Delete existing transactions for this time period
     await prisma.transaction.deleteMany({

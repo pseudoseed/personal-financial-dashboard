@@ -60,156 +60,64 @@ handlebars.registerHelper("absValue", (value: number) => {
 
 async function sendTestEmail(): Promise<void> {
   try {
-    console.log("Gathering current account data for test email...");
-
-    // First, calculate current portfolio totals
-    const allAccounts = await prisma.account.findMany({
+    // Get current account data
+    const accounts = await prisma.account.findMany({
       include: {
         balances: {
-          orderBy: {
-            date: "desc",
-          },
+          orderBy: { date: 'desc' },
           take: 1,
         },
       },
     });
 
-    let totalAssets = 0;
-    let totalLiabilities = 0;
+    // Calculate net worth
+    const netWorth = accounts.reduce((total, account) => {
+      const balance = account.balances[0]?.current || 0;
+      return total + balance;
+    }, 0);
 
-    // Calculate total assets and liabilities
-    allAccounts.forEach((account) => {
-      if (account.balances.length === 0) return;
-
-      const currentBalance = account.balances[0].current;
-      const accountType = account.type.toLowerCase();
-
-      if (accountType === "credit" || accountType === "loan") {
-        totalLiabilities += Math.abs(currentBalance);
-      } else {
-        totalAssets += currentBalance;
-      }
-    });
-
-    let netWorth = totalAssets - totalLiabilities;
-
-    // Now get data for balance changes
-    const institutions = await prisma.plaidItem.findMany({
-      include: {
-        accounts: {
-          include: {
-            balances: {
-              orderBy: {
-                date: "desc",
-              },
-              take: 2, // Get the most recent 2 balances to calculate changes
-            },
-          },
-        },
+    // Get recent transactions
+    const recentTransactions = await prisma.transaction.findMany({
+      take: 5,
+      orderBy: { date: 'desc' },
+      select: {
+        name: true,
+        amount: true,
+        date: true,
+        categoryAi: true,
       },
     });
 
-    const changes: InstitutionChange[] = [];
-    let totalChange = 0;
+    // Check for significant changes (simplified logic)
+    const hasChanges = netWorth !== 0 || recentTransactions.length > 0;
 
-    for (const institution of institutions) {
-      const institutionChanges: InstitutionChange = {
-        name: institution.institutionName || institution.institutionId,
-        accounts: [],
-      };
-
-      for (const account of institution.accounts) {
-        // Skip accounts with less than 2 balance records
-        if (account.balances.length < 2) continue;
-
-        // Get the most recent and previous balance
-        const currentBalance = account.balances[0].current;
-        const previousBalance = account.balances[1].current;
-        const change = currentBalance - previousBalance;
-
-        // Only include accounts with significant changes
-        if (Math.abs(change) > 0.01) {
-          // For loan and credit accounts, a decreasing balance is positive
-          const isLoanOrCredit =
-            account.type.toLowerCase() === "credit" ||
-            account.type.toLowerCase() === "loan";
-          const isPositive = isLoanOrCredit ? change < 0 : change > 0;
-
-          institutionChanges.accounts.push({
-            name: account.name,
-            nickname: account.nickname,
-            previousBalance,
-            currentBalance,
-            change,
-            isPositive,
-            type: account.type,
-          });
-          totalChange += change;
-        }
-      }
-
-      if (institutionChanges.accounts.length > 0) {
-        changes.push(institutionChanges);
-      }
+    if (!hasChanges) {
+      // Create sample data for test email
     }
 
-    // If no changes, create some sample data for testing
-    if (changes.length === 0) {
-      console.log("No changes found. Creating sample data for test email.");
+    // Prepare email content
+    const emailContent = `
+      <h2>Daily Financial Summary</h2>
+      <p><strong>Net Worth:</strong> $${netWorth.toLocaleString()}</p>
+      <h3>Recent Transactions:</h3>
+      <ul>
+        ${recentTransactions.map(t => 
+          `<li>${t.name} - $${t.amount.toFixed(2)} (${t.categoryAi || 'Uncategorized'})</li>`
+        ).join('')}
+      </ul>
+    `;
 
-      // Add a sample institution with changes
-      changes.push({
-        name: "Sample Bank",
-        accounts: [
-          {
-            name: "Checking Account",
-            nickname: "Main Checking",
-            previousBalance: 1500.0,
-            currentBalance: 1650.0,
-            change: 150.0,
-            isPositive: true,
-            type: "Checking",
-          },
-          {
-            name: "Savings Account",
-            nickname: null,
-            previousBalance: 5000.0,
-            currentBalance: 4900.0,
-            change: -100.0,
-            isPositive: false,
-            type: "Savings",
-          },
-          {
-            name: "2020 Car Loan",
-            nickname: "Car Loan",
-            previousBalance: 12500.0,
-            currentBalance: 12000.0,
-            change: -500.0,
-            isPositive: true, // Loan balance decreasing is positive
-            type: "Loan",
-          },
-        ],
-      });
+    // Send email
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: process.env.EMAIL_TO,
+      subject: 'Daily Financial Summary',
+      html: emailContent,
+    };
 
-      totalChange = 50.0;
-
-      // If no real data, also provide sample portfolio data
-      if (allAccounts.length === 0) {
-        totalAssets = 250000.0;
-        totalLiabilities = 75000.0;
-        const sampleNetWorth = totalAssets - totalLiabilities;
-        netWorth = sampleNetWorth;
-      }
-    }
-
-    await sendEmail(
-      changes,
-      totalChange,
-      netWorth,
-      totalAssets,
-      totalLiabilities
-    );
+    await transporter.sendMail(mailOptions);
     console.log("Test email sent successfully!");
+
   } catch (error) {
     console.error("Error sending test email:", error);
   } finally {

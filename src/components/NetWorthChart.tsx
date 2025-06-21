@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -11,10 +12,32 @@ import {
   Tooltip,
   Legend,
   ChartOptions,
+  TooltipItem,
 } from "chart.js";
 import { format, compareAsc } from "date-fns";
-import { Account } from "@/types/account";
+import { useState, useRef, useEffect } from "react";
+import {
+  PencilIcon,
+  CheckIcon,
+  XMarkIcon,
+  TrashIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  BuildingLibraryIcon,
+  ArrowDownTrayIcon,
+} from "@heroicons/react/24/solid";
+import { TransactionList } from "@/components/TransactionList";
+import {
+  Account,
+  PlaidItem,
+  Transaction,
+  TransactionDownloadLog,
+} from "@prisma/client";
 import { formatBalance } from "@/lib/formatters";
+import { useSensitiveData } from "@/app/providers";
+import { useTheme } from "@/app/providers";
+import { useMemo } from "react";
+import { Account as AccountType } from "@/types/account";
 
 // Register ChartJS components
 ChartJS.register(
@@ -28,216 +51,180 @@ ChartJS.register(
 );
 
 interface NetWorthChartProps {
-  accounts: Account[];
+  accounts: AccountType[];
   isMasked?: boolean;
 }
 
-export function NetWorthChart({
-  accounts,
-  isMasked = false,
-}: NetWorthChartProps) {
-  // Create a map to store net worth by month
-  const monthlyNetWorth = new Map<string, number>();
+export function NetWorthChart({ accounts, isMasked = false }: NetWorthChartProps) {
+  const { showSensitiveData } = useSensitiveData();
+  const { darkMode } = useTheme();
 
-  // Debug: List all accounts
-  console.log(`Processing ${accounts.length} accounts for NetWorthChart`);
+  const chartData = useMemo(() => {
+    if (!accounts.length) return { labels: [], datasets: [] };
 
-  // Keep track of account contributions to the latest month's net worth
-  const latestMonthContributions: Record<string, number> = {};
-  let latestMonth = "";
+    // Group balances by month
+    const monthlyData = new Map<string, { assets: number; liabilities: number }>();
 
-  // Process each account
-  accounts.forEach((account) => {
-    const isLiability =
-      account.type.toLowerCase() === "credit" ||
-      account.type.toLowerCase() === "loan";
-    const multiplier = isLiability ? -1 : 1;
+    accounts.forEach((account) => {
+      if (!account.balances) return;
 
-    if (account.balances && account.balances.length > 0) {
-      console.log(
-        `Account: ${account.name} (${account.type}) has ${account.balances.length} balance entries`
-      );
-
-      // Process historical balances
       account.balances.forEach((balance) => {
-        // Ensure we have a valid date and current balance
         if (!balance.date) {
           console.warn(`Missing date for account ${account.name}:`, balance);
           return;
         }
 
-        const current = balance.current;
-        if (current === null || current === undefined) {
-          console.warn(
-            `Missing current balance for account ${account.name} on ${balance.date}:`,
-            balance
-          );
-          return;
+        const monthKey = balance.date.substring(0, 7); // YYYY-MM format
+        const current = monthlyData.get(monthKey) || { assets: 0, liabilities: 0 };
+
+        if (account.type === "credit" || account.type === "loan") {
+          current.liabilities += Math.abs(balance.current);
+        } else {
+          current.assets += balance.current;
         }
 
-        if (!isFinite(current)) {
-          console.warn(
-            `Invalid balance value for account ${account.name} on ${balance.date}:`,
-            current
-          );
-          return;
-        }
-
-        const monthKey = format(new Date(balance.date), "yyyy-MM");
-        const currentValue = monthlyNetWorth.get(monthKey) || 0;
-        const newValue = currentValue + current * multiplier;
-
-        // Track the contribution to the latest month
-        if (!latestMonth || monthKey > latestMonth) {
-          latestMonth = monthKey;
-        }
-
-        if (monthKey === latestMonth) {
-          latestMonthContributions[account.name] = current * multiplier;
-        }
-
-        if (!isFinite(newValue)) {
-          console.warn(
-            `Invalid calculation result for ${account.name} on ${monthKey}:`,
-            {
-              currentValue,
-              current,
-              multiplier,
-              newValue,
-            }
-          );
-          return;
-        }
-
-        monthlyNetWorth.set(monthKey, newValue);
+        monthlyData.set(monthKey, current);
       });
-    } else {
-      console.log(
-        `Account: ${account.name} (${account.type}) has no balance history`
-      );
-    }
-  });
-
-  // Convert to array and sort by date
-  const sortedData = Array.from(monthlyNetWorth.entries())
-    .map(([monthKey, value]) => ({
-      date: new Date(monthKey + "-01"), // Convert YYYY-MM to date
-      netWorth: value,
-    }))
-    .sort((a, b) => compareAsc(a.date, b.date));
-
-  // Log detailed information about the latest month
-  if (latestMonth) {
-    const latestNetWorth = monthlyNetWorth.get(latestMonth) || 0;
-    console.log(
-      `Latest month: ${latestMonth}, Net Worth: ${latestNetWorth.toLocaleString()}`
-    );
-    console.log("Contributions to latest month's net worth:");
-
-    // Sort by absolute contribution value (highest first)
-    const sortedContributions = Object.entries(latestMonthContributions).sort(
-      (a, b) => Math.abs(b[1]) - Math.abs(a[1])
-    );
-
-    sortedContributions.forEach(([account, value]) => {
-      console.log(
-        `  ${account}: ${value.toLocaleString()} (${(
-          (value / latestNetWorth) *
-          100
-        ).toFixed(1)}%)`
-      );
     });
-  }
 
-  const chartData = {
-    labels: sortedData.map((item) => format(item.date, "MMM yyyy")),
-    datasets: [
-      {
-        label: "Net Worth",
-        data: sortedData.map((item) => item.netWorth),
-        borderColor: "rgb(16, 185, 129)",
-        backgroundColor: "rgba(16, 185, 129, 0.5)",
-        tension: 0.1,
-      },
-    ],
-  };
+    // Convert to sorted array
+    const sortedMonths = Array.from(monthlyData.keys()).sort();
+    
+    if (sortedMonths.length === 0) {
+      console.warn("No balance data found for any accounts");
+      return { labels: [], datasets: [] };
+    }
 
-  // Debug: Log the chart data points
-  console.log("Net Worth Chart Data Points:");
-  sortedData.forEach((item, index) => {
-    if (index === 0 || index === sortedData.length - 1 || index % 3 === 0) {
+    const labels = sortedMonths.map((month) => {
+      const [year, monthNum] = month.split("-");
+      return new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      });
+    });
+
+    const assetsData = sortedMonths.map((month) => {
+      const data = monthlyData.get(month)!;
+      return showSensitiveData ? data.assets : 0;
+    });
+
+    const liabilitiesData = sortedMonths.map((month) => {
+      const data = monthlyData.get(month)!;
+      return showSensitiveData ? data.liabilities : 0;
+    });
+
+    const netWorthData = sortedMonths.map((month) => {
+      const data = monthlyData.get(month)!;
+      return showSensitiveData ? data.assets - data.liabilities : 0;
+    });
+
+    // Log detailed information about the latest month
+    if (sortedMonths.length > 0 && showSensitiveData) {
+      const latestMonth = sortedMonths[sortedMonths.length - 1];
+      const latestData = monthlyData.get(latestMonth)!;
       console.log(
-        `  ${format(item.date, "MMM yyyy")}: ${item.netWorth.toLocaleString()}`
+        `Latest month (${latestMonth}): Assets: $${latestData.assets.toLocaleString()}, Liabilities: $${latestData.liabilities.toLocaleString()}, Net Worth: $${(latestData.assets - latestData.liabilities).toLocaleString()}`
       );
     }
-  });
 
-  // Determine if dark mode is active
-  const isDarkMode = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Assets",
+          data: assetsData,
+          borderColor: "rgb(34, 197, 94)",
+          backgroundColor: "rgba(34, 197, 94, 0.1)",
+          tension: 0.1,
+        },
+        {
+          label: "Liabilities",
+          data: liabilitiesData,
+          borderColor: "rgb(239, 68, 68)",
+          backgroundColor: "rgba(239, 68, 68, 0.1)",
+          tension: 0.1,
+        },
+        {
+          label: "Net Worth",
+          data: netWorthData,
+          borderColor: "rgb(59, 130, 246)",
+          backgroundColor: "rgba(59, 130, 246, 0.1)",
+          tension: 0.1,
+        },
+      ],
+    };
+  }, [accounts, showSensitiveData]);
 
-  const labelColor = isDarkMode ? '#b0b0b0' : '#181818';
-  const gridColor = isDarkMode ? '#444' : '#e5e7eb';
-  const chartBg = isDarkMode ? '#181818' : '#fff';
-
-  const chartOptions: ChartOptions<'line'> = {
+  const options: ChartOptions<"line"> = {
     responsive: true,
-    maintainAspectRatio: false,
     plugins: {
       legend: {
-        display: false,
+        position: "top" as const,
+        labels: {
+          color: darkMode ? "#9ca3af" : "#374151",
+          usePointStyle: true,
+        },
       },
       title: {
         display: true,
-        text: 'Net Worth Over Time',
-        color: labelColor,
+        text: "Net Worth Over Time",
+        color: darkMode ? "#9ca3af" : "#374151",
       },
       tooltip: {
         callbacks: {
-          label: (context) => {
-            const value = context.raw as number;
-            return `Net Worth: ${!isMasked ? formatBalance(value) : "••••••"}`;
+          label: function (tooltipItem: TooltipItem<"line">) {
+            if (!showSensitiveData) return "••••••";
+            const label = tooltipItem.dataset.label || "";
+            const value = tooltipItem.raw as number;
+            return `${label}: $${value.toLocaleString()}`;
           },
         },
-        backgroundColor: chartBg,
-        titleColor: labelColor,
-        bodyColor: labelColor,
       },
     },
     scales: {
       y: {
-        type: 'linear',
         beginAtZero: false,
-        grace: '5%',
         ticks: {
-          callback: (value) => !isMasked ? formatBalance(value as number) : "••••••",
-          maxTicksLimit: 10,
-          color: labelColor,
+          callback: function (value) {
+            if (!showSensitiveData) return "••••••";
+            return `$${value.toLocaleString()}`;
+          },
+          color: darkMode ? "#9ca3af" : "#374151",
         },
         grid: {
-          color: gridColor,
+          color: darkMode ? "#374151" : "#e5e7eb",
         },
       },
       x: {
-        grid: {
-          color: gridColor,
-        },
         ticks: {
-          maxRotation: 45,
-          minRotation: 45,
-          color: labelColor,
+          color: darkMode ? "#9ca3af" : "#374151",
+        },
+        grid: {
+          color: darkMode ? "#374151" : "#e5e7eb",
         },
       },
     },
-    backgroundColor: chartBg,
-    color: labelColor,
   };
 
-  return (
-    <div className="card h-[400px] flex flex-col">
-      <h2 className="text-xl font-semibold text-surface-600 dark:text-gray-200 mb-4">Net Worth Over Time</h2>
-      <div className="flex-1">
-        <Line options={chartOptions} data={chartData} />
+  if (!accounts.length) {
+    return (
+      <div className="card">
+        <h3 className="text-lg font-semibold text-surface-600 dark:text-gray-200 mb-4">
+          Net Worth Over Time
+        </h3>
+        <div className="text-center py-8 text-surface-500 dark:text-gray-400">
+          No account data available
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <h3 className="text-lg font-semibold text-surface-600 dark:text-gray-200 mb-4">
+        Net Worth Over Time
+      </h3>
+      <Line options={options} data={chartData} />
     </div>
   );
 }

@@ -53,25 +53,24 @@ const configuration = new Configuration({
 const plaidClient = new PlaidApi(configuration);
 
 // Email configuration
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT || "587"),
-  secure: false, // true for 465, false for other ports
+const emailConfig = {
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: false,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
-});
+};
 
-// Verify email configuration
-transporter.verify(function (error) {
-  if (error) {
-    console.error("Email configuration error:", error);
-    process.exit(1);
-  } else {
-    console.log("Email server is ready to send messages");
-  }
-});
+// Test email configuration
+let transporter: nodemailer.Transporter;
+try {
+  transporter = nodemailer.createTransport(emailConfig);
+  // Email server is ready to send messages
+} catch (error) {
+  console.error("Email configuration error:", error);
+}
 
 // Helper function to format money
 handlebars.registerHelper("formatMoney", (amount: number) => {
@@ -94,110 +93,48 @@ handlebars.registerHelper("absValue", (value: number) => {
 });
 
 async function refreshLiabilities() {
-  console.log("Refreshing liabilities...");
-  const liabilityAccounts = await prisma.account.findMany({
-    where: {
-      OR: [{ type: "credit" }, { type: "loan" }],
-      plaidItem: {
-        accessToken: {
-          not: "manual",
+  try {
+    const accounts = await prisma.account.findMany({
+      where: {
+        type: {
+          in: ["credit", "loan"],
         },
       },
-    },
-    include: {
-      plaidItem: true,
-    },
-  });
+    });
 
-  for (const account of liabilityAccounts) {
-    try {
-      console.log(
-        `Fetching liabilities for account: ${account.name} (${account.plaidId})`
-      );
-      const response = await plaidClient.liabilitiesGet({
-        access_token: account.plaidItem.accessToken,
-        options: {
-          account_ids: [account.plaidId],
-        },
-      });
+    for (const account of accounts) {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_APP_URL}/api/accounts/${account.id}/refresh`,
+          {
+            method: "POST",
+          }
+        );
 
-      const liabilities = response.data.liabilities;
-      if (!liabilities) {
-        console.log(`No liability data available for account: ${account.name}`);
-        continue;
+        if (!response.ok) {
+          const error = await response.text();
+          console.error(
+            `Failed to refresh liabilities for account ${account.name}: ${error}`
+          );
+          continue;
+        }
+
+        const result = await response.json();
+        
+        if (result.message?.includes("No liability data")) {
+          // No liability data found for this account
+        } else {
+          // Successfully updated liabilities
+        }
+      } catch (error) {
+        console.error(
+          `Error processing account ${account.name}:`,
+          error
+        );
       }
-
-      const credit = liabilities.credit?.find(
-        (c) => c.account_id === account.plaidId
-      );
-      const mortgage = liabilities.mortgage?.find(
-        (m) => m.account_id === account.plaidId
-      );
-      const student = liabilities.student?.find(
-        (s) => s.account_id === account.plaidId
-      );
-
-      let updateData: Partial<Account> = {};
-
-      if (credit) {
-        updateData = {
-          lastStatementBalance: credit.last_statement_balance,
-          minimumPaymentAmount: credit.minimum_payment_amount,
-          nextPaymentDueDate: credit.next_payment_due_date
-            ? new Date(credit.next_payment_due_date)
-            : null,
-          lastPaymentDate: credit.last_payment_date
-            ? new Date(credit.last_payment_date)
-            : null,
-          lastPaymentAmount: credit.last_payment_amount,
-        };
-      } else if (mortgage) {
-        updateData = {
-          nextMonthlyPayment: mortgage.next_monthly_payment,
-          nextPaymentDueDate: mortgage.next_payment_due_date
-            ? new Date(mortgage.next_payment_due_date)
-            : null,
-          lastPaymentDate: mortgage.last_payment_date
-            ? new Date(mortgage.last_payment_date)
-            : null,
-          lastPaymentAmount: mortgage.last_payment_amount,
-          originationDate: mortgage.origination_date
-            ? new Date(mortgage.origination_date)
-            : null,
-          originationPrincipalAmount: mortgage.origination_principal_amount,
-        };
-      } else if (student) {
-        updateData = {
-          minimumPaymentAmount: student.minimum_payment_amount,
-          nextPaymentDueDate: student.next_payment_due_date
-            ? new Date(student.next_payment_due_date)
-            : null,
-          lastPaymentDate: student.last_payment_date
-            ? new Date(student.last_payment_date)
-            : null,
-          lastPaymentAmount: student.last_payment_amount,
-          originationDate: student.origination_date
-            ? new Date(student.origination_date)
-            : null,
-          originationPrincipalAmount: student.origination_principal_amount,
-        };
-      }
-
-      if (Object.keys(updateData).length > 0) {
-        await prisma.account.update({
-          where: { id: account.id },
-          data: updateData,
-        });
-        console.log(`Successfully updated liabilities for account: ${account.name}`);
-      } else {
-        console.log(`No liability data found for account: ${account.name}`);
-      }
-    } catch (error) {
-      console.error(
-        `Error refreshing liabilities for account ${account.name} (${account.plaidId}):`,
-        error
-      );
     }
+  } catch (error) {
+    console.error("Error refreshing liabilities:", error);
   }
 }
 

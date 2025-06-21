@@ -70,11 +70,15 @@ export default function TopVendorsCard() {
   }, [limit, period]);
 
   // Save settings to localStorage whenever they change
-  useEffect(() => {
-    console.log('Saving to localStorage:', { limit, period });
-    localStorage.setItem('topVendorsLimit', String(limit));
-    localStorage.setItem('topVendorsPeriod', period);
-  }, [limit, period]);
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    localStorage.setItem('topVendorsLimit', newLimit.toString());
+  };
+
+  const handlePeriodChange = (newPeriod: string) => {
+    setPeriod(newPeriod);
+    localStorage.setItem('topVendorsPeriod', newPeriod);
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -111,7 +115,7 @@ export default function TopVendorsCard() {
                   <select
                     id="period-select"
                     value={period}
-                    onChange={(e) => setPeriod(e.target.value)}
+                    onChange={(e) => handlePeriodChange(e.target.value)}
                     className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:bg-zinc-700 dark:border-zinc-600 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
                   >
                     {periodOptions.map(option => (
@@ -127,7 +131,7 @@ export default function TopVendorsCard() {
                     min="2"
                     max="30"
                     value={limit}
-                    onChange={(e) => setLimit(Number(e.target.value))}
+                    onChange={(e) => handleLimitChange(Number(e.target.value))}
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
                   />
                 </div>

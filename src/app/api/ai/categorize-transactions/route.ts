@@ -10,19 +10,16 @@ const STANDARD_CATEGORIES = [
 
 export async function POST(req: NextRequest) {
   try {
-    console.log('[DEBUG] Request received');
     const body = await req.json();
-    console.log('[DEBUG] Request body:', body);
     const { transactions } = body;
-    
-    if (Array.isArray(transactions) && transactions.length > 0) {
-      console.log('[CATEGORIZE API INCOMING SAMPLE]', transactions.slice(0, 3));
+
+    if (!transactions || !Array.isArray(transactions)) {
+      return NextResponse.json(
+        { error: "Invalid request: transactions array required" },
+        { status: 400 }
+      );
     }
-    
-    if (!Array.isArray(transactions) || transactions.length === 0) {
-      return NextResponse.json({ error: 'No transactions provided' }, { status: 400 });
-    }
-    
+
     if (!OPENAI_API_KEY) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
     }
@@ -46,10 +43,6 @@ export async function POST(req: NextRequest) {
 
     // Step 2: Filter out transactions that already have categories
     const uncategorizedTransactions = transactions.filter(t => !existingCategories.has(t.id));
-    
-    if (TEST_MODE) {
-      console.log(`[CATEGORIZATION STATS] Total: ${transactions.length}, Already categorized: ${existingCategories.size}, Need AI: ${uncategorizedTransactions.length}`);
-    }
 
     // If all transactions are already categorized, return existing categories
     if (uncategorizedTransactions.length === 0) {
@@ -187,147 +180,98 @@ export async function POST(req: NextRequest) {
 
       if (!response.ok) {
         const error = await response.text();
-        return NextResponse.json({ error: 'OpenAI API error', details: error }, { status: 500 });
+        throw new Error(`OpenAI API error: ${response.status} ${error}`);
       }
 
       const data = await response.json();
+      const content = data.choices[0]?.message?.content?.trim();
 
-      // Optional: Estimate cost
-      if (TEST_MODE && data.usage) {
-        const { prompt_tokens, completion_tokens } = data.usage;
-        const total = (prompt_tokens + completion_tokens) / 1000 * 0.005;
-        costTrackers.push({
-          input_tokens: prompt_tokens,
-          output_tokens: completion_tokens,
-          estimated_cost: `${total.toFixed(4)} USD`
-        });
-        console.log(costTrackers.at(-1));
+      if (!content) {
+        throw new Error('Empty response from OpenAI API');
       }
 
-      let content = data.choices?.[0]?.message?.content ?? '';
-      if (TEST_MODE) {
-        console.log('Raw AI response:', content);
-      }
-      
-      content = content.replace(/```json|```/gi, '').trim();
-      const firstBracket = content.indexOf('[');
-      const lastBracket = content.lastIndexOf(']');
-      
-      if (firstBracket === -1 || lastBracket === -1) {
-        if (TEST_MODE) {
-          console.error('Malformed AI response (no brackets):', content);
-        }
-        return NextResponse.json({ error: 'Malformed AI response', raw: content }, { status: 500 });
-      }
-      
+      // Parse the JSON response
       let parsed;
       try {
-        parsed = JSON.parse(content.slice(firstBracket, lastBracket + 1));
-      } catch (parseError) {
-        if (TEST_MODE) {
-          console.error('JSON parse error:', parseError, 'Content:', content.slice(firstBracket, lastBracket + 1));
+        // Find the first and last brackets to extract JSON
+        const firstBracket = content.indexOf('[');
+        const lastBracket = content.lastIndexOf(']');
+        
+        if (firstBracket === -1 || lastBracket === -1) {
+          console.error('Malformed AI response (no brackets):', content);
+          continue;
         }
-        return NextResponse.json({ error: 'Failed to parse AI response', details: parseError instanceof Error ? parseError.message : parseError, raw: content }, { status: 500 });
-      }
-      
-      if (!Array.isArray(parsed)) {
-        if (TEST_MODE) {
+        
+        const jsonContent = content.slice(firstBracket, lastBracket + 1);
+        parsed = JSON.parse(jsonContent);
+        
+        if (!Array.isArray(parsed)) {
           console.error('AI response is not an array:', parsed);
+          continue;
         }
-        return NextResponse.json({ error: 'AI response is not an array', raw: parsed }, { status: 500 });
+      } catch (parseError) {
+        const firstBracket = content.indexOf('[');
+        const lastBracket = content.lastIndexOf(']');
+        console.error('JSON parse error:', parseError, 'Content:', content.slice(firstBracket, lastBracket + 1));
+        continue;
       }
-      
-      const aiResults = parsed.map((t: any) => t.category);
-      
-      // Store new categories for database update
-      batch.forEach((transaction, idx) => {
-        const category = aiResults[idx] || 'Miscellaneous';
-        if (transaction.id) {
-          newCategories.set(transaction.id, category);
-        }
-      });
-      
-      categorized.push(...aiResults);
 
-      // Log transactions categorized as 'Miscellaneous' for review
-      batch.forEach((transaction, idx) => {
-        if (aiResults[idx] === 'Miscellaneous') {
-          console.log('[MISC TRANSACTION]', {
-            name: transaction.name || transaction.merchantName || '',
-            amount: transaction.amount
-          });
+      // Process the categorized transactions
+      parsed.forEach((item: any) => {
+        if (item.name && item.category) {
+          const category = item.category.trim();
+          if (STANDARD_CATEGORIES.includes(category)) {
+            newCategories.set(item.name, category);
+            categorized.push(category);
+          } else {
+            // If AI returned a non-standard category, map it to Miscellaneous
+            newCategories.set(item.name, 'Miscellaneous');
+            categorized.push('Miscellaneous');
+          }
         }
       });
     }
 
-    // Step 5: Store new categories in database
+    // Step 5: Update database with new categories
     if (newCategories.size > 0) {
       try {
-        if (TEST_MODE) {
-          console.log('[DATABASE UPDATE] Attempting to store categories for:', Array.from(newCategories.entries()).slice(0, 3));
-        }
+        // Get transaction IDs that match the categorized names
+        const categorizedNames = Array.from(newCategories.keys());
+        const dbTransactions = await prisma.$queryRawUnsafe(`
+          SELECT id, name, "merchantName" FROM "Transaction" 
+          WHERE name IN (${categorizedNames.map(name => `'${name.replace(/'/g, "''")}'`).join(',')})
+          OR "merchantName" IN (${categorizedNames.map(name => `'${name.replace(/'/g, "''")}'`).join(',')})
+        `);
+
+        const dbIds = (dbTransactions as any[]).map(t => t.id);
         
-        const dbIds = (await prisma.transaction.findMany({
-          where: { id: { in: Array.from(newCategories.keys()) } },
-          select: { id: true }
-        })).map(t => t.id);
-
-        if (TEST_MODE) {
-          console.log('[DATABASE UPDATE] Found existing transaction IDs:', dbIds.slice(0, 3));
-        }
-
         if (dbIds.length > 0) {
-          const updatePromises = Array.from(newCategories.entries())
-            .filter(([transactionId]) => dbIds.includes(transactionId))
-            .map(([transactionId, category]) => {
-              const sql = `
-                UPDATE "Transaction" 
-                SET "categoryAi" = '${category.replace(/'/g, "''")}'
-                WHERE id = '${transactionId}'
-              `;
-              if (TEST_MODE) {
-                console.log('[DATABASE UPDATE] Executing SQL:', sql);
-              }
-              return prisma.$executeRawUnsafe(sql);
-            });
-
-          await Promise.all(updatePromises);
-
-          if (TEST_MODE) {
-            console.log(`[DATABASE UPDATE] Stored ${updatePromises.length} new categories`);
-          }
-        } else {
-          if (TEST_MODE) {
-            console.log('[DATABASE UPDATE] No valid transaction IDs found for update');
-          }
+          // Build SQL update statement
+          const updateCases = dbIds.map(id => `WHEN '${id}' THEN '${newCategories.get((dbTransactions as any[]).find(t => t.id === id)?.name || (dbTransactions as any[]).find(t => t.id === id)?.merchantName) || 'Miscellaneous'}'`).join(' ');
+          const sql = `
+            UPDATE "Transaction" 
+            SET "categoryAi" = CASE id ${updateCases} END
+            WHERE id IN (${dbIds.map(id => `'${id}'`).join(',')})
+          `;
+          
+          await prisma.$executeRawUnsafe(sql);
         }
       } catch (dbError) {
         console.error('[DATABASE ERROR] Failed to store categories:', dbError);
-        // Continue with response even if database update fails
       }
     }
 
-    // Step 6: Return complete category list (existing + new)
-    const finalCategories = transactions.map(t => {
-      if (newCategories.has(t.id)) {
-        return newCategories.get(t.id);
-      }
-      if (existingCategories.has(t.id)) {
-        return existingCategories.get(t.id);
-      }
-      return 'Miscellaneous';
-    });
-
-    return NextResponse.json({ 
-      categories: finalCategories,
+    return NextResponse.json({
+      totalProcessed: transactions.length,
       fromCache: existingCategories.size,
       newlyCategorized: newCategories.size,
-      totalProcessed: transactions.length
+      categories: [...new Set([...Array.from(existingCategories.values()), ...categorized])],
     });
   } catch (error) {
-    if (TEST_MODE) {
-      console.error('Server error in categorize-transactions:', error);
-    }
-    return NextResponse.json({ error: 'Server error', details: error instanceof Error ? error.message : error }, { status: 500 });
+    console.error('Server error in categorize-transactions:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
