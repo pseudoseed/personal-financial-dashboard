@@ -12,46 +12,57 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get("period") || "this_month";
     const accountIds = searchParams.get("accountIds")?.split(",") || [];
     const limit = Math.min(parseInt(searchParams.get("limit") || "11", 10), 30);
+    const startDateStr = searchParams.get("startDate");
+    const endDateStr = searchParams.get("endDate");
 
     let startDate, endDate;
     const now = new Date();
 
-    switch (period) {
-      case 'this_week':
-        startDate = startOfWeek(now);
-        endDate = endOfWeek(now);
-        break;
-      case 'last_30_days':
-        startDate = subDays(now, 30);
-        endDate = now;
-        break;
-      case 'this_quarter':
-        startDate = startOfQuarter(now);
-        endDate = endOfQuarter(now);
-        break;
-      case 'last_quarter':
-        const lastQuarterStart = startOfQuarter(subQuarters(now, 1));
-        startDate = lastQuarterStart;
-        endDate = endOfQuarter(lastQuarterStart);
-        break;
-      case 'this_year':
-        startDate = startOfYear(now);
-        endDate = endOfYear(now);
-        break;
-      case 'this_month':
-      default:
-        startDate = startOfMonth(now);
-        endDate = endOfMonth(now);
-        break;
+    // If explicit date range is provided, use it; otherwise use period-based calculation
+    if (startDateStr || endDateStr) {
+      if (startDateStr) startDate = new Date(startDateStr);
+      if (endDateStr) endDate = new Date(endDateStr);
+    } else {
+      // Fall back to period-based date calculation
+      switch (period) {
+        case 'this_week':
+          startDate = startOfWeek(now);
+          endDate = endOfWeek(now);
+          break;
+        case 'last_30_days':
+          startDate = subDays(now, 30);
+          endDate = now;
+          break;
+        case 'this_quarter':
+          startDate = startOfQuarter(now);
+          endDate = endOfQuarter(now);
+          break;
+        case 'last_quarter':
+          const lastQuarterStart = startOfQuarter(subQuarters(now, 1));
+          startDate = lastQuarterStart;
+          endDate = endOfQuarter(lastQuarterStart);
+          break;
+        case 'this_year':
+          startDate = startOfYear(now);
+          endDate = endOfYear(now);
+          break;
+        case 'this_month':
+        default:
+          startDate = startOfMonth(now);
+          endDate = endOfMonth(now);
+          break;
+      }
     }
 
     // Build where clause for transactions
-    const whereClause: any = {
-      date: {
-        gte: startDate,
-        lte: endDate,
-      }
-    };
+    const whereClause: any = {};
+    
+    // Add date filtering
+    if (startDate || endDate) {
+      whereClause.date = {};
+      if (startDate) whereClause.date.gte = startDate;
+      if (endDate) whereClause.date.lte = endDate;
+    }
     
     // Filter by account type - only include depository and credit accounts
     if (accountIds.length > 0) {
@@ -67,15 +78,6 @@ export async function GET(request: NextRequest) {
       whereClause.accountId = { in: relevantAccounts.map(a => a.id) };
     }
     
-    // Filter by amount based on account type
-    // For credit cards: positive amounts are charges (spending)
-    // For depository: negative amounts are spending
-    // We'll handle this in the query by joining with accounts
-    if (startDate || endDate) {
-      whereClause.date = {};
-      if (startDate) whereClause.date.gte = new Date(startDate);
-      if (endDate) whereClause.date.lte = new Date(endDate);
-    }
     const categories = searchParams.get("categories")?.split(",") || [];
     if (categories.length > 0) {
       whereClause.category = { in: categories };

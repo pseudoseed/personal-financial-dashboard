@@ -7,9 +7,22 @@ import { defaultSettings } from "@/lib/transactionChartSettings";
 import { 
   Cog6ToothIcon, 
   XMarkIcon,
-  XMarkIcon as XMarkIconSolid 
+  XMarkIcon as XMarkIconSolid,
+  CalendarIcon
 } from "@heroicons/react/24/outline";
 import { useTheme } from "@/app/providers";
+import {
+  getThisWeek,
+  getThisMonth,
+  getThisQuarter,
+  getLastQuarter,
+  getFiscalYear,
+  getYearToDate,
+  formatDateForInput,
+  formatDateRange,
+  isValidDateRange,
+  type DateRange
+} from "@/lib/dateUtils";
 
 interface TransactionChartSettingsProps {
   isOpen: boolean;
@@ -40,9 +53,22 @@ export function TransactionChartSettings({
   const [searchTerm, setSearchTerm] = useState("");
   const { darkMode, setDarkMode } = useTheme();
   const [accessibleColors, setAccessibleColorsState] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
 
   useEffect(() => {
     setLocalSettings(settings);
+    // Initialize custom date inputs from settings
+    if (settings.startDate) {
+      setCustomStartDate(formatDateForInput(settings.startDate));
+    } else {
+      setCustomStartDate("");
+    }
+    if (settings.endDate) {
+      setCustomEndDate(formatDateForInput(settings.endDate));
+    } else {
+      setCustomEndDate("");
+    }
   }, [settings]);
 
   useEffect(() => {
@@ -61,7 +87,62 @@ export function TransactionChartSettings({
 
   const handleReset = () => {
     setLocalSettings(defaultSettings);
+    setCustomStartDate("");
+    setCustomEndDate("");
   };
+
+  // Date range functions
+  const applyDateRange = (dateRange: DateRange) => {
+    setLocalSettings(prev => ({
+      ...prev,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+    }));
+    setCustomStartDate(formatDateForInput(dateRange.startDate));
+    setCustomEndDate(formatDateForInput(dateRange.endDate));
+  };
+
+  const clearDateRange = () => {
+    setLocalSettings(prev => ({
+      ...prev,
+      startDate: undefined,
+      endDate: undefined,
+    }));
+    setCustomStartDate("");
+    setCustomEndDate("");
+  };
+
+  const handleCustomDateChange = () => {
+    if (customStartDate && customEndDate) {
+      const startDate = new Date(customStartDate);
+      const endDate = new Date(customEndDate);
+      
+      if (isValidDateRange(startDate, endDate)) {
+        setLocalSettings(prev => ({
+          ...prev,
+          startDate,
+          endDate,
+        }));
+      }
+    } else {
+      // Clear dates if either is empty
+      setLocalSettings(prev => ({
+        ...prev,
+        startDate: undefined,
+        endDate: undefined,
+      }));
+    }
+  };
+
+  // Prebuilt date filters
+  const dateFilters = [
+    { label: "This Week", action: () => applyDateRange(getThisWeek()) },
+    { label: "This Month", action: () => applyDateRange(getThisMonth()) },
+    { label: "This Quarter", action: () => applyDateRange(getThisQuarter()) },
+    { label: "Last Quarter", action: () => applyDateRange(getLastQuarter()) },
+    { label: "Fiscal Year", action: () => applyDateRange(getFiscalYear()) },
+    { label: "Year to Date", action: () => applyDateRange(getYearToDate()) },
+  ];
 
   function getInstitutionName(account: Account): string {
     if (account.plaidItem && typeof (account.plaidItem as any).institutionName === 'string') {
@@ -203,22 +284,96 @@ export function TransactionChartSettings({
 
         {/* Content */}
         <div className="p-6 space-y-8">
-          {/* Period Selection */}
+          {/* Date Range Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Time Period
-            </label>
-            <select
-              value={localSettings.period}
-              onChange={(e) =>
-                setLocalSettings(prev => ({ ...prev, period: e.target.value as 'daily' | 'weekly' | 'monthly' }))
-              }
-              className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100"
-            >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
+            <div className="flex items-center gap-2 mb-2">
+              <CalendarIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                Date Range
+              </label>
+            </div>
+            
+            {/* Prebuilt Filters */}
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-2 mb-3">
+                {dateFilters.map((filter, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={filter.action}
+                    className="px-3 py-1 text-xs rounded-full border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={clearDateRange}
+                  className="px-3 py-1 text-xs rounded-full border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+              
+              {/* Current Date Range Display */}
+              {localSettings.startDate && localSettings.endDate && (
+                <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-zinc-800 rounded-md p-2 border border-gray-200 dark:border-zinc-700">
+                  <span className="font-medium">Current Range:</span> {formatDateRange({ startDate: localSettings.startDate, endDate: localSettings.endDate })}
+                </div>
+              )}
+            </div>
+
+            {/* Custom Date Inputs */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => {
+                    setCustomStartDate(e.target.value);
+                    if (e.target.value && customEndDate) {
+                      const startDate = new Date(e.target.value);
+                      const endDate = new Date(customEndDate);
+                      if (isValidDateRange(startDate, endDate)) {
+                        setLocalSettings(prev => ({
+                          ...prev,
+                          startDate,
+                          endDate,
+                        }));
+                      }
+                    }
+                  }}
+                  className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => {
+                    setCustomEndDate(e.target.value);
+                    if (customStartDate && e.target.value) {
+                      const startDate = new Date(customStartDate);
+                      const endDate = new Date(e.target.value);
+                      if (isValidDateRange(startDate, endDate)) {
+                        setLocalSettings(prev => ({
+                          ...prev,
+                          startDate,
+                          endDate,
+                        }));
+                      }
+                    }
+                  }}
+                  className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-sm"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Transaction Type Filters */}

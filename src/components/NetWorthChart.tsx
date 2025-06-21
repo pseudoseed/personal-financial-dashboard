@@ -233,8 +233,8 @@ export function NetWorthChart({
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md h-[400px] flex flex-col">
-      <h2 className="text-lg font-semibold mb-4">Net Worth Over Time</h2>
+    <div className="card h-[400px] flex flex-col">
+      <h2 className="text-xl font-semibold text-surface-600 dark:text-gray-200 mb-4">Net Worth Over Time</h2>
       <div className="flex-1">
         <Line options={chartOptions} data={chartData} />
       </div>

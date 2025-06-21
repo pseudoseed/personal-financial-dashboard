@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,126 +9,121 @@ datasource db {
 
 model PlaidItem {
   id              String    @id @default(cuid())
-  itemId          String    @unique // Plaid's item_id
+  itemId          String    @unique
   accessToken     String
-  refreshToken    String? // For Coinbase OAuth refresh token
-  provider        String    @default("plaid") // "plaid" or "coinbase"
+  refreshToken    String?
+  provider        String    @default("plaid")
   institutionId   String
   institutionName String?
   institutionLogo String?
-  accounts        Account[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  accounts        Account[]
 }
 
 model Account {
-  id           String                   @id @default(cuid())
-  plaidId      String                   @unique // Plaid's account_id
-  name         String
-  nickname     String?
-  type         String
-  subtype      String?
-  mask         String?
-  hidden       Boolean                  @default(false)
-  metadata     String? // JSON string for additional data like real estate details
-  url          String? // External reference URL
-  invertTransactions Boolean          @default(false)
-  plaidItem    PlaidItem                @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  itemId       String
-  balances     AccountBalance[]
-  transactions Transaction[]
-  downloadLogs TransactionDownloadLog[]
-  plaidSyncCursor String? // Plaid sync cursor for incremental sync
-  lastSyncTime   DateTime? // Last time transactions were synced
-
-  // Liability specific fields
-  lastStatementBalance      Float?
-  minimumPaymentAmount      Float?
-  nextPaymentDueDate        DateTime?
-  lastPaymentDate           DateTime?
-  lastPaymentAmount         Float?
-  nextMonthlyPayment        Float?
-  originationDate           DateTime?
+  id                         String                   @id @default(cuid())
+  userId                     String                   @default("default")
+  plaidId                    String                   @unique
+  name                       String
+  nickname                   String?
+  type                       String
+  subtype                    String?
+  mask                       String?
+  hidden                     Boolean                  @default(false)
+  metadata                   String?
+  url                        String?
+  invertTransactions         Boolean                  @default(false)
+  itemId                     String
+  plaidSyncCursor            String?
+  lastSyncTime               DateTime?
+  lastStatementBalance       Float?
+  minimumPaymentAmount       Float?
+  nextPaymentDueDate         DateTime?
+  lastPaymentDate            DateTime?
+  lastPaymentAmount          Float?
+  nextMonthlyPayment         Float?
+  originationDate            DateTime?
   originationPrincipalAmount Float?
-
-  createdAt    DateTime                 @default(now())
-  updatedAt    DateTime                 @updatedAt
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+  user                       User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plaidItem                  PlaidItem                @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  balances                   AccountBalance[]
+  transactions               Transaction[]
+  downloadLogs               TransactionDownloadLog[]
 }
 
 model AccountBalance {
   id        String   @id @default(cuid())
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId String
   current   Float
   available Float?
   limit     Float?
   date      DateTime @default(now())
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([date])
 }
 
 model Transaction {
-  id                      String    @id @default(cuid())
-  account                 Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id                      String                   @id @default(cuid())
   accountId               String
-  plaidId                 String // Plaid's transaction_id or investment_transaction_id
+  plaidId                 String
   date                    DateTime
   name                    String
   amount                  Float
   category                String?
   merchantName            String?
-  pending                 Boolean   @default(false)
-  // Investment specific fields
+  pending                 Boolean                  @default(false)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
   fees                    Float?
+  isoCurrencyCode         String?
   price                   Float?
   quantity                Float?
-  // Security fields
-  securityId              String? // Plaid's security_id
-  tickerSymbol            String? // Trading symbol
-  isin                    String? // ISIN identifier
-  cusip                   String? // CUSIP identifier
-  sedol                   String? // SEDOL identifier
-  institutionSecurityId   String? // Institution's security identifier
-  securityName            String? // Descriptive name for the security
-  securityType            String? // e.g., 'equity', 'mutual fund', etc.
-  closePrice              Float? // Price at close of previous trading session
-  closePriceAsOf          DateTime? // Date for which close_price is accurate
-  isCashEquivalent        Boolean? // Whether security can be treated like cash
-  type                    String? // investment transaction type: 'buy', 'sell', 'cash', etc.
-  subtype                 String? // investment transaction subtype: 'buy', 'sell', 'dividend', etc.
-  isoCurrencyCode         String?
-  unofficialCurrencyCode  String? // For cryptocurrencies and unofficial currencies
-  marketIdentifierCode    String? // e.g., 'XNAS' for NASDAQ
-  sector                  String? // Industry sector
-  industry                String? // Specific industry
-  // Regular transaction fields
-  authorizedDate          DateTime? // Date the transaction was authorized
-  authorizedDatetime      DateTime? // Timestamp when transaction was authorized
-  datetime                DateTime? // Timestamp when transaction was posted
-  paymentChannel          String? // 'online', 'in store', etc.
-  transactionCode         String? // Additional transaction metadata
-  personalFinanceCategory String? // Enhanced categorization
-  merchantEntityId        String? // Stable ID for the merchant
-  // Location data
+  securityId              String?
+  subtype                 String?
+  tickerSymbol            String?
+  type                    String?
+  authorizedDate          DateTime?
+  authorizedDatetime      DateTime?
+  byOrderOf               String?
+  closePrice              Float?
+  closePriceAsOf          DateTime?
+  cusip                   String?
+  datetime                DateTime?
+  industry                String?
+  institutionSecurityId   String?
+  isCashEquivalent        Boolean?
+  isin                    String?
   locationAddress         String?
   locationCity            String?
-  locationRegion          String?
-  locationPostalCode      String?
   locationCountry         String?
   locationLat             Float?
   locationLon             Float?
-  // Payment metadata
-  byOrderOf               String?
+  locationPostalCode      String?
+  locationRegion          String?
+  marketIdentifierCode    String?
+  merchantEntityId        String?
   payee                   String?
   payer                   String?
+  paymentChannel          String?
   paymentMethod           String?
   paymentProcessor        String?
+  personalFinanceCategory String?
   ppd_id                  String?
   reason                  String?
   referenceNumber         String?
+  sector                  String?
+  securityName            String?
+  securityType            String?
+  sedol                   String?
+  transactionCode         String?
+  unofficialCurrencyCode  String?
   categoryAi              String?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  anomalies               AnomalyDetectionResult[]
+  account                 Account                  @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, plaidId])
   @@index([date])
@@ -139,14 +131,103 @@ model Transaction {
 
 model TransactionDownloadLog {
   id              String   @id @default(cuid())
-  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId       String
   startDate       DateTime
   endDate         DateTime
   numTransactions Int
-  status          String // 'success' or 'error'
+  status          String
   errorMessage    String?
   createdAt       DateTime @default(now())
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, createdAt])
+}
+
+model User {
+  id                 String                    @id @default(cuid())
+  email              String                    @unique
+  name               String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  accounts           Account[]
+  anomalySettings    AnomalyDetectionSettings?
+  emailNotifications EmailNotification[]
+  dismissalRules     AnomalyDismissalRule[]
+
+  @@map("users")
+}
+
+model AnomalyDetectionSettings {
+  id                   String                   @id @default(cuid())
+  userId               String                   @unique
+  minAmount            Float                    @default(50)
+  maxAmount            Float                    @default(10000)
+  timeWindow           Int                      @default(30)
+  zScoreThreshold      Float                    @default(2.5)
+  newMerchantThreshold Float                    @default(100)
+  geographicThreshold  Float                    @default(50)
+  hoursWindow          Int                      @default(24)
+  enabled              Boolean                  @default(true)
+  emailNotifications   Boolean                  @default(true)
+  emailFrequency       String                   @default("daily")
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  anomalies            AnomalyDetectionResult[]
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AnomalyDetectionResult {
+  id            String                   @id @default(cuid())
+  settingsId    String
+  transactionId String
+  type          String
+  severity      String
+  reason        String
+  metadata      Json?
+  isResolved    Boolean                  @default(false)
+  isHidden      Boolean                  @default(false)
+  resolvedAt    DateTime?
+  resolvedBy    String?
+  createdAt     DateTime                 @default(now())
+  transaction   Transaction              @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  settings      AnomalyDetectionSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+
+  @@index([settingsId])
+  @@index([transactionId])
+  @@index([severity])
+  @@index([isResolved])
+  @@index([isHidden])
+  @@index([createdAt])
+}
+
+model EmailNotification {
+  id           String    @id @default(cuid())
+  userId       String
+  type         String
+  subject      String
+  content      String
+  status       String    @default("pending")
+  sentAt       DateTime?
+  errorMessage String?
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AnomalyDismissalRule {
+  id          String   @id @default(cuid())
+  userId      String
+  pattern     String   // The pattern to match (transaction name, merchant, etc.)
+  patternType String   // exact_name, merchant_name, category, amount_range
+  reason      String?  // Optional reason for dismissal
+  dismissedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([patternType])
+  @@index([dismissedAt])
 }

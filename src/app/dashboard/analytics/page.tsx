@@ -4,18 +4,23 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NetWorthChart } from "@/components/NetWorthChart";
 import { FinancialGroupChart } from "@/components/FinancialGroupChart";
-import { TransactionChart } from "@/components/TransactionChart";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
+import { AccountTypeDistribution } from "@/components/AccountTypeDistribution";
+import { InstitutionBreakdown } from "@/components/InstitutionBreakdown";
+import { MonthOverMonthChart } from "@/components/MonthOverMonthChart";
+import { AnomalyAlert } from "@/components/AnomalyAlert";
 import { Account } from "@/types/account";
 import { useTheme } from "../../providers";
 import {
   ChartBarIcon,
   CurrencyDollarIcon,
   CalendarIcon,
+  ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
 
 export default function AnalyticsPage() {
   const [isMasked, setIsMasked] = useState(false);
+  const [showAnomalyAlert, setShowAnomalyAlert] = useState(true);
   const { darkMode } = useTheme();
 
   const { data: accountsData, isLoading: isLoadingAccounts } = useQuery<Account[]>({
@@ -52,6 +57,11 @@ export default function AnalyticsPage() {
                 <div key={i} className="h-[400px] bg-gray-100 rounded"></div>
               ))}
             </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="h-[200px] bg-gray-100 rounded"></div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -67,70 +77,71 @@ export default function AnalyticsPage() {
 
         {accountsData?.length ? (
           <>
+          <div className="mb-6">
             <DashboardMetrics accounts={accountsData || []} />
+          </div>
+
+            {/* Anomaly Detection */}
+            {showAnomalyAlert ? (
+              <div className="mb-6">
+                <AnomalyAlert 
+                  isMasked={isMasked} 
+                  limit={5} 
+                  onHide={() => setShowAnomalyAlert(false)}
+                />
+              </div>
+            ) : (
+              <div className="mb-6">
+                <div className="bg-gray-50 dark:bg-zinc-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <ShieldExclamationIcon className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Anomaly Detection Hidden
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Click to restore anomaly monitoring
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowAnomalyAlert(true)}
+                      className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Show
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <NetWorthChart
-                accounts={accountsWithHistory || []}
-                isMasked={isMasked}
-              />
-              <FinancialGroupChart accounts={accountsData} isMasked={isMasked} />
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 mb-6">
-              <TransactionChart isMasked={isMasked} />
-            </div>
-
-            {/* Additional Analytics Insights */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                <h3 className="text-lg font-semibold mb-4">Account Type Distribution</h3>
-                <div className="space-y-3">
-                  {(() => {
-                    const typeCounts = accountsData.reduce((acc, account) => {
-                      const type = account.type.toLowerCase();
-                      acc[type] = (acc[type] || 0) + 1;
-                      return acc;
-                    }, {} as Record<string, number>);
-
-                    return Object.entries(typeCounts).map(([type, count]) => (
-                      <div key={type} className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-600 capitalize">
-                          {type.replace(/([A-Z])/g, ' $1').trim()}
-                        </span>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {isMasked ? '••' : count}
-                        </span>
-                      </div>
-                    ));
-                  })()}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-start">
+              <div className="lg:col-span-1">
+                <NetWorthChart
+                  accounts={accountsWithHistory || []}
+                  isMasked={isMasked}
+                />
+              </div>
+              <div className="lg:col-span-1 grid gap-6">
+                <FinancialGroupChart accounts={accountsData} isMasked={isMasked} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <AccountTypeDistribution
+                    accounts={accountsData}
+                    isMasked={isMasked}
+                  />
+                  <InstitutionBreakdown
+                    accounts={accountsData}
+                    isMasked={isMasked}
+                  />
                 </div>
               </div>
+            </div>
 
-              <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                <h3 className="text-lg font-semibold mb-4">Institution Breakdown</h3>
-                <div className="space-y-3">
-                  {(() => {
-                    const institutionCounts = accountsData.reduce((acc, account) => {
-                      const institution = account.institution || 'Manual';
-                      acc[institution] = (acc[institution] || 0) + 1;
-                      return acc;
-                    }, {} as Record<string, number>);
-
-                    return Object.entries(institutionCounts).map(([institution, count]) => (
-                      <div key={institution} className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-600">
-                          {institution}
-                        </span>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {isMasked ? '••' : count}
-                        </span>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              </div>
+            {/* Month-over-Month Comparison */}
+            <div className="mb-6">
+              <MonthOverMonthChart isMasked={isMasked} />
             </div>
           </>
         ) : (

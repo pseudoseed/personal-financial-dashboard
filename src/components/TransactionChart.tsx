@@ -14,7 +14,7 @@ import {
   ChartOptions,
   ArcElement,
 } from "chart.js";
-import { Cog6ToothIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon, ArrowPathIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { TransactionChartSettings } from "./TransactionChartSettings";
 import type {
   TransactionChartSettings as Settings,
@@ -27,6 +27,7 @@ import {
 } from "@/lib/transactionChartSettings";
 import type { ChartData } from "chart.js";
 import { useTheme } from "next-themes";
+import { CategoryTransactionsList } from "./CategoryTransactionsList";
 
 // Register ChartJS components
 ChartJS.register(
@@ -46,6 +47,7 @@ interface TransactionChartProps {
 export function TransactionChart({ isMasked = false }: TransactionChartProps) {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const { resolvedTheme, theme } = useTheme();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [textColor, setTextColor] = useState('#18181b');
@@ -96,6 +98,12 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
       if (settings.selectedAccountIds.length > 0) {
         params.set("accountIds", settings.selectedAccountIds.join(","));
       }
+      if (settings.startDate) {
+        params.set("startDate", settings.startDate.toISOString().split('T')[0]);
+      }
+      if (settings.endDate) {
+        params.set("endDate", settings.endDate.toISOString().split('T')[0]);
+      }
       params.set("limit", "25");
       const url = `/api/transactions/vendors?${params.toString()}`;
       const response = await fetch(url);
@@ -112,9 +120,36 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
     isLoading: isAllTxLoading,
     error: allTxError,
   } = useQuery({
-    queryKey: ["allTransactionsForAI"],
-    queryFn: () =>
-      fetch(`/api/transactions/for-ai?limit=1000`).then((res) => res.json()),
+    queryKey: ["allTransactionsForAI", settings],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("limit", "1000");
+      if (settings.selectedAccountIds.length > 0) {
+        params.set("accountIds", settings.selectedAccountIds.join(","));
+      }
+      if (settings.startDate) {
+        params.set("startDate", settings.startDate.toISOString().split('T')[0]);
+      }
+      if (settings.endDate) {
+        params.set("endDate", settings.endDate.toISOString().split('T')[0]);
+      }
+      if (settings.categories.length > 0) {
+        params.set("categories", settings.categories.join(","));
+      }
+      if (settings.minAmount !== undefined) {
+        params.set("minAmount", settings.minAmount.toString());
+      }
+      if (settings.maxAmount !== undefined) {
+        params.set("maxAmount", settings.maxAmount.toString());
+      }
+      const url = `/api/transactions/for-ai?${params.toString()}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Failed to fetch transactions for AI");
+      }
+      return response.json();
+    },
+    enabled: true,
   });
 
   const [aiCategoryTotals, setAiCategoryTotals] = useState<
@@ -306,6 +341,15 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
   const pieChartOptions: ChartOptions<"pie"> = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
+    onClick: (event, elements) => {
+      if (elements.length > 0 && aiPieData.labels) {
+        const index = elements[0].index;
+        const category = aiPieData.labels[index];
+        if (typeof category === 'string') {
+          setSelectedCategory(category);
+        }
+      }
+    },
     plugins: {
       legend: {
         position: 'right' as const,
@@ -339,7 +383,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
         }
       }
     }
-  }), [isDarkMode, isMasked, textColor, tooltipBackgroundColor, resolvedTheme]);
+  }), [isDarkMode, isMasked, textColor, tooltipBackgroundColor, resolvedTheme, aiPieData.labels]);
   
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error loading transaction data.</div>;
@@ -390,9 +434,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
           <div>
             <h2 className="text-lg font-semibold dark:text-gray-100">Transaction Overview</h2>
             <p className="text-sm dark:text-gray-100">
-              {settings.period.charAt(0).toUpperCase() +
-                settings.period.slice(1)}{" "}
-              view
+              Transaction analytics
               {selectedAccountsCount > 0 && (
                 <span>
                   {" "}
@@ -436,7 +478,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
           <Bar key={resolvedTheme} options={barChartOptions} data={chartData} />
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+      <div className="grid grid-cols-1 gap-6 mt-6">
         <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 flex flex-col items-center h-[400px] dark:text-gray-100">
           <h3 className="text-md font-semibold mb-2 dark:text-gray-100">Top Vendors (by Spend)</h3>
           {isVendorsLoading ? (
@@ -447,7 +489,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
             <div className="w-full flex-1 min-h-0">
               <Bar
                 key={resolvedTheme + '-vendors'}
-                options={{ ...barChartOptions, indexAxis: "y" as const }}
+                options={barChartOptions}
                 data={vendorBarData}
               />
             </div>
@@ -467,6 +509,7 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
               />
             </button>
           </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Click any slice to view transactions below</p>
           {aiLoading && !aiCompleted ? (
             <div className="dark:text-gray-100">Categorizing...</div>
           ) : aiError ? (
@@ -474,8 +517,44 @@ export function TransactionChart({ isMasked = false }: TransactionChartProps) {
           ) : Object.keys(aiCategoryTotals).length === 0 ? (
             <div className="dark:text-gray-100">No spend data available for categorization.</div>
           ) : (
-            <div className="w-full flex-1 min-h-0">
+            <div className="w-full flex-1 min-h-0 cursor-pointer">
               <Pie key={resolvedTheme} data={aiPieData} options={pieChartOptions} />
+            </div>
+          )}
+        </div>
+        
+        {/* Category Transactions Card */}
+        <div
+          className={`transition-all duration-500 ease-in-out overflow-hidden ${
+            selectedCategory
+              ? "max-h-[1000px] opacity-100"
+              : "max-h-0 opacity-0"
+          }`}
+        >
+          {selectedCategory && (
+            <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 mt-6 dark:text-gray-100">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold dark:text-gray-100">
+                  {selectedCategory} Transactions
+                </h3>
+                <button
+                  onClick={() => setSelectedCategory("")}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  aria-label="Close transactions view"
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              </div>
+
+              <CategoryTransactionsList
+                category={selectedCategory}
+                dateRange={{
+                  startDate: settings.startDate,
+                  endDate: settings.endDate,
+                }}
+                accountIds={settings.selectedAccountIds}
+                isMasked={isMasked}
+              />
             </div>
           )}
         </div>

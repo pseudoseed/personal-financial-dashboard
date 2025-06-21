@@ -6,6 +6,7 @@ import { Account } from "@/types/account";
 import { BillsVsCashCard } from "@/components/BillsVsCashCard";
 import TopVendorsCard from '@/components/TopVendorsCard';
 import DashboardSidebarCards from '@/components/DashboardSidebarCards';
+import { QuickInsights } from "@/components/QuickInsights";
 
 async function getAccounts(): Promise<Account[]> {
   try {
@@ -51,6 +52,7 @@ async function getAccounts(): Promise<Account[]> {
         url: account.url,
         lastSyncTime: account.lastSyncTime,
         plaidItem: account.plaidItem ? { institutionId: account.plaidItem.institutionId } : undefined,
+        invertTransactions: account.invertTransactions,
       };
     });
   } catch (error) {
@@ -96,8 +98,11 @@ export default async function DashboardPage() {
           <TopVendorsCard />
         </div>
 
-        {/* Right Column - Quick Actions */}
-        <DashboardSidebarCards accountStatusStats={accountStatusStats} />
+        {/* Right Column - Quick Actions and Insights */}
+        <div className="space-y-6">
+          <DashboardSidebarCards accountStatusStats={accountStatusStats} />
+          <QuickInsights />
+        </div>
       </div>
     </>
   );

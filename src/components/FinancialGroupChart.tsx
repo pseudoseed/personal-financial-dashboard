@@ -60,51 +60,49 @@ export function FinancialGroupChart({
   };
 
   return (
-    <div className="w-full h-64 md:h-80 lg:h-96">
-      <div className="bg-white p-4 rounded-lg shadow-md">
-        <h2 className="text-lg font-semibold mb-4">Financial Groups</h2>
-        <div className="space-y-4">
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm font-medium">Assets</span>
-              <span className="text-sm font-medium text-green-600">
-                {formatBalance(groupData.assets)}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="h-2 rounded-full bg-green-500"
-                style={{
-                  width: `${Math.min(
-                    (groupData.assets /
-                      Math.max(groupData.assets, groupData.liabilities)) *
-                      100,
-                    100
-                  )}%`,
-                }}
-              ></div>
-            </div>
+    <div className="card">
+      <h2 className="text-xl font-semibold text-surface-600 dark:text-gray-200 mb-4">Financial Groups</h2>
+      <div className="space-y-4">
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-sm font-medium text-surface-600 dark:text-gray-400">Assets</span>
+            <span className="text-sm font-medium text-green-600">
+              {formatBalance(groupData.assets)}
+            </span>
           </div>
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm font-medium">Liabilities</span>
-              <span className="text-sm font-medium text-pink-500 dark:text-pink-400">
-                {formatBalance(groupData.liabilities)}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="h-2 rounded-full bg-pink-500 dark:bg-pink-400"
-                style={{
-                  width: `${Math.min(
-                    (groupData.liabilities /
-                      Math.max(groupData.assets, groupData.liabilities)) *
-                      100,
-                    100
-                  )}%`,
-                }}
-              ></div>
-            </div>
+          <div className="w-full bg-surface-200 dark:bg-surface-300 rounded-full h-2">
+            <div
+              className="h-2 rounded-full bg-green-500"
+              style={{
+                width: `${Math.min(
+                  (groupData.assets /
+                    Math.max(groupData.assets, groupData.liabilities)) *
+                    100,
+                  100
+                )}%`,
+              }}
+            ></div>
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-sm font-medium text-surface-600 dark:text-gray-400">Liabilities</span>
+            <span className="text-sm font-medium text-pink-500 dark:text-pink-400">
+              {formatBalance(groupData.liabilities)}
+            </span>
+          </div>
+          <div className="w-full bg-surface-200 dark:bg-surface-300 rounded-full h-2">
+            <div
+              className="h-2 rounded-full bg-pink-500 dark:bg-pink-400"
+              style={{
+                width: `${Math.min(
+                  (groupData.liabilities /
+                    Math.max(groupData.assets, groupData.liabilities)) *
+                    100,
+                  100
+                )}%`,
+              }}
+            ></div>
           </div>
         </div>
       </div>

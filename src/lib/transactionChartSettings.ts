@@ -64,7 +64,7 @@ export function resetSettings(): void {
 export function buildApiUrl(settings: TransactionChartSettings): string {
   const params = new URLSearchParams();
   
-  params.set('period', settings.period);
+  params.set('period', settings.period || 'monthly');
   
   if (settings.selectedAccountIds.length > 0) {
     params.set('accountIds', settings.selectedAccountIds.join(','));

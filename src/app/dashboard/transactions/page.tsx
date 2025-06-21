@@ -4,8 +4,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TransactionChart } from "@/components/TransactionChart";
 import { Account } from "@/types/account";
-import { AccountTypeDistribution } from "@/components/AccountTypeDistribution";
-import { InstitutionBreakdown } from "@/components/InstitutionBreakdown";
 
 export default function TransactionsPage() {
   const [isMasked, setIsMasked] = useState(false);
@@ -26,13 +24,8 @@ export default function TransactionsPage() {
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
           <div className="animate-pulse space-y-6">
-            {/* Top chart skeleton */}
+            {/* Transaction chart skeleton */}
             <div className="h-[400px] bg-gray-200 dark:bg-zinc-800 rounded-lg"></div>
-            {/* Bottom grid skeleton */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="h-[200px] bg-gray-200 dark:bg-zinc-800 rounded-lg"></div>
-              <div className="h-[200px] bg-gray-200 dark:bg-zinc-800 rounded-lg"></div>
-            </div>
           </div>
         </div>
       </div>
@@ -43,19 +36,7 @@ export default function TransactionsPage() {
     <div className="p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         {accountsData?.length ? (
-          <>
-            <TransactionChart isMasked={isMasked} />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <AccountTypeDistribution
-                accounts={accountsData}
-                isMasked={isMasked}
-              />
-              <InstitutionBreakdown
-                accounts={accountsData}
-                isMasked={isMasked}
-              />
-            </div>
-          </>
+          <TransactionChart isMasked={isMasked} />
         ) : (
           <div className="text-center py-12">
             <h2 className="text-2xl font-semibold text-gray-600 mb-4">

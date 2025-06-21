@@ -1,6 +1,19 @@
 # Active Context
 
 ## Current Focus
+- **Month-over-Month Chart Dark Mode Fixes**: Addressed dark mode styling issues for chart labels and summary backgrounds
+- **Analytics Page Card Styling Standardization**: Updated all Analytics page chart components to use consistent styling with the reusable card system
+- **Time Period Filter Removal**: Removed redundant Time Period filter from Transaction Chart Settings
+- **Vendor Chart Layout**: Modified vendor chart to vertical orientation and moved to separate row
+- **Time Filter Extension**: Extended date range filtering to all charts on the transactions page
+- **Vendor Chart Integration**: Updated vendor data query to include date filtering parameters
+- **AI Categories Integration**: Updated AI categories query to use settings and support filtering
+- **API Enhancement**: Enhanced AI categories API to support comprehensive filtering
+- **Time Filter Implementation**: Added comprehensive date range filtering to Transaction Chart Settings
+- **Date Utility Functions**: Created date utility functions for common time periods
+- **Prebuilt Filters**: Added quick access buttons for common date ranges (This Week, This Month, This Quarter, Last Quarter, Fiscal Year, Year to Date)
+- **Custom Date Inputs**: Added manual date range selection with start and end date inputs
+- **UI/UX Enhancements**: Improved Transaction Chart Settings with date filtering capabilities
 - **Theme/Styling**: Improved the styling of the `MetricCard` header.
 - **Responsive Layout**: Improved the responsive grid layout for the dashboard metric cards.
 - **Theme/Styling**: Fixed dark mode text color issues in the settings dialog.
@@ -18,6 +31,57 @@
 - **Mobile Responsiveness**: Improving mobile responsiveness and device compatibility across all pages
 
 ## Recent Changes
+
+### Month-over-Month Chart Dark Mode Fixes (Latest)
+- **Chart Label Colors**: Updated chart labels to use a lighter color in dark mode (`#9ca3af`) for better readability
+- **Summary Backgrounds**: Corrected the background color for summary metrics and category changes to use the proper dark mode color (`dark:bg-zinc-800`) instead of a bright one
+
+### Analytics Page Card Styling Standardization (Latest)
+- **AccountTypeDistribution Component**: Updated to use standardized `.card` class and proper text colors (`text-surface-600 dark:text-gray-200` for headers, `text-surface-600 dark:text-gray-400` for labels, `text-surface-900 dark:text-surface-dark-900` for values)
+- **InstitutionBreakdown Component**: Updated to use standardized `.card` class and consistent text color system
+- **NetWorthChart Component**: Updated container to use `.card` class with proper header styling and maintained chart functionality
+- **MonthOverMonthChart Component**: Updated to use `.card` class for loading, error, and main states with consistent text colors and background styling
+- **FinancialGroupChart Component**: Updated to use `.card` class and standardized text colors for labels and progress bars
+- **Consistent Design System**: All Analytics page cards now follow the same styling patterns as `MetricCard` and other reusable components
+- **Dark Mode Support**: All components now have proper dark mode support with consistent color variables
+- **Hover Effects**: All cards now have consistent hover effects and transitions from the `.card` class
+
+### Time Period Filter Removal (Latest)
+- **Removed Time Period Dropdown**: Eliminated the redundant Time Period filter (daily/weekly/monthly) from TransactionChartSettings
+- **Simplified Settings UI**: Removed the period selection dropdown since comprehensive date range filtering makes it redundant
+- **Updated Display Text**: Changed "Transaction Overview" subtitle from period-specific text to generic "Transaction analytics"
+- **Maintained API Compatibility**: API still accepts period parameter but defaults to 'monthly' for consistency
+- **Enhanced buildApiUrl**: Added fallback to 'monthly' period in case settings don't include period value
+
+### Time Filter Extension to All Charts (Latest)
+- **Vendor Chart Integration**: Updated vendor data query in `TransactionChart.tsx` to include `startDate` and `endDate` parameters
+- **AI Categories Integration**: Updated AI categories query to use settings and include all filtering parameters
+- **Query Key Updates**: Updated query keys to include settings so all charts refresh when date filters change
+- **AI Categories API Enhancement**: Enhanced `/api/transactions/for-ai` endpoint to support:
+  - Date range filtering (`startDate`, `endDate`)
+  - Account filtering (`accountIds`)
+  - Category filtering (`categories`)
+  - Amount range filtering (`minAmount`, `maxAmount`)
+- **Vendor API Fix**: Fixed vendor API to properly handle explicit date parameters from frontend
+- **Consistent Filtering**: All three charts now respond to the same date range settings
+- **Performance Optimization**: Proper query key dependencies ensure efficient cache invalidation
+
+### Time Filter Implementation (Previous)
+- **Date Utility Functions**: Created `src/lib/dateUtils.ts` with comprehensive date range calculation functions
+- **Prebuilt Filters**: Added quick access buttons for common time periods:
+  - This Week (Sunday to Saturday)
+  - This Month (1st to last day of current month)
+  - This Quarter (current quarter start to end)
+  - Last Quarter (previous quarter)
+  - Fiscal Year (July 1 to June 30)
+  - Year to Date (January 1 to current date)
+- **Custom Date Inputs**: Added manual date range selection with HTML5 date inputs
+- **Date Range Display**: Shows current selected date range in a formatted display
+- **Clear Functionality**: Added "Clear" button to reset date filters
+- **Validation**: Implemented date range validation to ensure start date <= end date
+- **Integration**: Seamlessly integrated with existing Transaction Chart Settings
+- **Persistence**: Date filters persist in localStorage with existing settings
+- **API Integration**: Existing API already supports date parameters via `buildApiUrl` function
 
 ### UI Consistency
 - **Grouped Stat Cards**: Created a `ListStatCard` component to restore the grouped list format for the "Account Status" section, ensuring a consistent design while improving code reusability.
@@ -141,7 +205,26 @@
 - **API Response**: Enhanced response format to include caching statistics
 - **Database Schema**: Fixed `categoryAi` field in Prisma schema (removed unsupported `@db.String` annotation)
 
+### Vendor Chart Layout Changes (Previous)
+- **Vertical Orientation**: Changed vendor chart from horizontal to vertical bars for better readability
+- **Separate Row Layout**: Moved vendor chart to its own full-width row for better visibility and interaction
+- **Improved UX**: Vendor names now display on x-axis and dollar amounts on y-axis for more intuitive viewing
+
 ## Current Status
+- ✅ Time filter functionality extended to all charts (main transaction chart, vendor chart, AI categories chart)
+- ✅ Vendor chart now responds to date range settings
+- ✅ AI categories chart now responds to date range settings
+- ✅ All charts use consistent filtering parameters
+- ✅ Query keys updated to ensure proper cache invalidation
+- ✅ AI categories API enhanced with comprehensive filtering support
+- ✅ Vendor API fixed to properly handle explicit date parameters
+- ✅ Time filter functionality implemented with prebuilt and custom date ranges
+- ✅ Date utility functions created for common time period calculations
+- ✅ Transaction Chart Settings enhanced with date filtering capabilities
+- ✅ Prebuilt filters for This Week, This Month, This Quarter, Last Quarter, Fiscal Year, Year to Date
+- ✅ Custom date inputs for manual date range selection
+- ✅ Date range validation and display
+- ✅ Integration with existing settings persistence
 - ✅ Comprehensive settings dialog restored with all original features
 - ✅ Portal rendering implemented for proper full-page dialog display
 - ✅ Plaid sync functionality working with new and all accounts sync
@@ -156,72 +239,4 @@
 - ✅ AI transaction categorization now persists in database
 - ✅ Dramatically reduced OpenAI API usage through intelligent caching
 - ✅ Enhanced logging shows cost savings and caching benefits
-- ✅ Database schema properly configured for `categoryAi` field
-- ✅ Dark mode persists between page refreshes
-- ✅ Sensitive data setting persists between page refreshes
-- ✅ Sensitive data defaults to visible (not hidden)
-- ✅ Sensitive data toggle works globally across all components
-- ✅ Account page buttons have clear purposes with tooltips
-- ✅ Disconnect confirmation provides clear warning about consequences
-- ✅ Credit utilization bars display correctly based on sensitive data toggle
-- ✅ All components properly respect dark mode and sensitive data settings
-- ✅ Removed redundant controls and simplified interfaces
-
-## Next Steps
-1. **Test Settings Dialog Functionality**: Verify that all sync features work correctly
-2. **Test Portal Rendering**: Ensure dialog displays properly on all screen sizes
-3. **Add User Feedback**: Consider adding toast notifications for sync success/failure
-4. **Test All Utility Button Functionality**: Verify that all buttons work correctly in both desktop and mobile views
-5. **Enhance Settings Dialog**: Add more advanced settings as needed
-6. **Test AI Categorization Persistence**: Verify that categories are properly stored and retrieved
-7. **Monitor API Usage**: Track cost savings from reduced OpenAI API calls
-8. **User Interface for Category Management**: Add UI for users to manually edit categories
-9. **Bulk Category Operations**: Implement bulk editing and recategorization features
-10. **Category Analytics**: Add analytics to track categorization accuracy and user corrections
-
-## Key Decisions
-- Using existing theme context instead of next-themes for simplicity
-- Global sensitive data state for consistent behavior with localStorage persistence
-- Default to showing sensitive data (more user-friendly)
-- Detailed confirmation dialogs for destructive actions
-- Tooltips for better UX on action buttons
-- Simplified component interfaces by removing redundant props
-- Comprehensive settings dialog for centralized user preferences
-- Proper loading states and error handling for all API operations
-- Portal rendering for proper dialog display outside header constraints
-- Restored original settings dialog functionality over simplified version
-
-## Active Decisions
-- Considering SimpleFIN as an alternative to Plaid for bank connections
-- Evaluating the best approach for displaying investment transactions
-- Determining the optimal strategy for Coinbase transaction retrieval and display
-- Using Headless UI's Menu component for mobile dropdown
-- Keeping account-specific actions (refresh, disconnect) on individual pages
-- Using consistent button styling across all header components
-- Keep "Connect Bank" button always visible as primary action
-- Use dropdown menus for secondary actions on mobile
-- Maintain consistent touch targets (44px minimum)
-- Preserve dark mode experience across devices
-- Use toolbox icon for mobile utility dropdown (more intuitive than ellipsis)
-- Keep all utility buttons in the header for easy access
-- Centralized settings dialog for better user experience
-- Portal rendering for proper dialog display
-
-## Current Challenges
-1. **API Limitations**: Working within the constraints of Plaid and Coinbase APIs
-2. **Data Consistency**: Ensuring consistent data representation across different financial institutions
-3. **Error Handling**: Improving resilience when external APIs have issues
-4. **User Experience**: Balancing comprehensive information with a clean, intuitive interface
-
-## Technical Decisions
-1. **Database Choice**: Continuing with SQLite for simplicity in self-hosted environment
-2. **Authentication Approach**: Using provider-specific OAuth flows rather than implementing custom auth
-3. **Data Update Strategy**: Cron-based polling rather than webhooks for simplicity
-4. **UI Framework**: Continuing with shadcn/ui components based on TailwindCSS
-5. **Dialog Rendering**: Using React portals for proper full-page dialog display
-
-## Current Questions
-1. Is SimpleFIN a viable alternative to Plaid for bank connections?
-2. What's the best way to handle investment transaction display given their complexity?
-3. How to optimize the data refresh mechanism to be both reliable and efficient?
-4. What additional security measures should be implemented to protect financial data? 
+- ✅ Database schema properly configured for `categoryAi`
