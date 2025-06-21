@@ -77,7 +77,7 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'echo "Initializing database..."' >> /app/start.sh && \
     echo 'cd /app' >> /app/start.sh && \
     echo 'export DATABASE_URL="file:/app/data/dev.db"' >> /app/start.sh && \
-    echo 'npx prisma db push --accept-data-loss' >> /app/start.sh && \
+    echo './scripts/init-db.sh' >> /app/start.sh && \
     echo 'echo "Starting Next.js application..."' >> /app/start.sh && \
     echo 'exec node server.js' >> /app/start.sh && \
     chmod +x /app/start.sh
