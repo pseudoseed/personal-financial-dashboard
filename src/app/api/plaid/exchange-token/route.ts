@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     });
 
     const accessToken = response.data.access_token;
-    const itemId = response.data.item_id;
+    const plaidItemId = response.data.item_id;
 
     // Get item information
     const itemResponse = await plaidClient.itemGet({
@@ -66,14 +66,14 @@ export async function POST(request: Request) {
     // Get institution information
     const institutionResponse = await plaidClient.institutionsGetById({
       institution_id: institutionId,
-      country_codes: ["US"],
+      country_codes: [CountryCode.Us],
     });
 
     const institution = institutionResponse.data.institution;
 
     // Check if institution already exists
     const existingInstitution = await prisma.plaidItem.findFirst({
-      where: { institutionId },
+      where: { itemId: plaidItemId },
     });
 
     if (existingInstitution) {
@@ -82,15 +82,14 @@ export async function POST(request: Request) {
         where: { id: existingInstitution.id },
         data: {
           accessToken,
-          institutionName: institution.name,
-          institutionLogo: institution.logo,
-          lastSyncTime: new Date(),
+          institutionName: institution.name || null,
+          institutionLogo: institution.logo || null,
         },
       });
 
       // Get existing accounts for this institution
       const existingAccounts = await prisma.account.findMany({
-        where: { plaidItemId: existingInstitution.id },
+        where: { itemId: existingInstitution.id },
       });
 
       // Get accounts from Plaid
@@ -113,8 +112,8 @@ export async function POST(request: Request) {
             data: {
               name: plaidAccount.name,
               type: plaidAccount.type,
-              subtype: plaidAccount.subtype,
-              mask: plaidAccount.mask,
+              subtype: plaidAccount.subtype || null,
+              mask: plaidAccount.mask || null,
             },
           });
         } else {
@@ -124,9 +123,10 @@ export async function POST(request: Request) {
               plaidId: plaidAccount.account_id,
               name: plaidAccount.name,
               type: plaidAccount.type,
-              subtype: plaidAccount.subtype,
-              mask: plaidAccount.mask,
-              plaidItemId: existingInstitution.id,
+              subtype: plaidAccount.subtype || null,
+              mask: plaidAccount.mask || null,
+              itemId: existingInstitution.id,
+              userId: "default", // Use default user for now
             },
           });
         }
@@ -140,11 +140,11 @@ export async function POST(request: Request) {
       // Create new institution
       const newInstitution = await prisma.plaidItem.create({
         data: {
-          institutionId,
+          itemId: plaidItemId,
           accessToken,
-          institutionName: institution.name,
-          institutionLogo: institution.logo,
-          lastSyncTime: new Date(),
+          institutionId,
+          institutionName: institution.name || null,
+          institutionLogo: institution.logo || null,
         },
       });
 
@@ -162,9 +162,10 @@ export async function POST(request: Request) {
             plaidId: plaidAccount.account_id,
             name: plaidAccount.name,
             type: plaidAccount.type,
-            subtype: plaidAccount.subtype,
-            mask: plaidAccount.mask,
-            plaidItemId: newInstitution.id,
+            subtype: plaidAccount.subtype || null,
+            mask: plaidAccount.mask || null,
+            itemId: newInstitution.id,
+            userId: "default", // Use default user for now
           },
         });
       }
