@@ -58,6 +58,11 @@ setup_directories() {
     print_status "Creating necessary directories..."
     mkdir -p data logs backups
     print_success "Directories created"
+    
+    # Set proper permissions for Docker container (user 1001:1001)
+    print_status "Setting directory permissions..."
+    chmod 755 data logs backups
+    print_success "Directory permissions set"
 }
 
 # Build and start the application
