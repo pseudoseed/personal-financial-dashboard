@@ -65,11 +65,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy scripts and compile TypeScript
 COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/node_modules ./node_modules
 RUN chmod +x scripts/refresh-data-docker.sh scripts/init-db.sh
-# Compile TypeScript scripts to JavaScript using the builder's TypeScript
-RUN npx tsc scripts/refresh-data.ts --outDir scripts --target es2020 --module commonjs --esModuleInterop --skipLibCheck
 
 # Create cron configuration (daily at 6 AM) - run as root
 RUN echo "0 6 * * * /app/scripts/refresh-data-docker.sh >> /app/logs/cron.log 2>&1" > /var/spool/cron/crontabs/root
