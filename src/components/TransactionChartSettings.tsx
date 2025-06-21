@@ -496,15 +496,16 @@ export function TransactionChartSettings({
                     key={category}
                     type="button"
                     onClick={() => toggleCategory(category)}
-                    className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                    className={`px-3 py-2 text-sm rounded-full border transition-colors touch-manipulation ${
                       localSettings.categories.includes(category)
                         ? 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700'
                         : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:border-zinc-700 dark:hover:bg-zinc-700'
                     }`}
+                    style={{ minHeight: '44px' }}
                   >
                     {category}
                     {localSettings.categories.includes(category) && (
-                      <XMarkIconSolid className="w-3 h-3 ml-1 inline" />
+                      <XMarkIconSolid className="w-4 h-4 ml-1 inline" />
                     )}
                   </button>
                 ))}
@@ -558,7 +559,8 @@ export function TransactionChartSettings({
           <button
             type="button"
             onClick={handleReset}
-            className="px-4 py-2 text-sm border border-gray-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
+            className="px-4 py-3 text-sm border border-gray-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors touch-manipulation"
+            style={{ minHeight: '44px' }}
           >
             Reset to Defaults
           </button>
@@ -566,14 +568,16 @@ export function TransactionChartSettings({
             <button
               type="button"
               onClick={handleCancel}
-              className="px-4 py-2 text-sm border border-gray-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
+              className="px-4 py-3 text-sm border border-gray-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors touch-manipulation"
+              style={{ minHeight: '44px' }}
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 text-sm bg-purple-600 dark:bg-purple-500 text-white rounded hover:bg-purple-700 dark:hover:bg-purple-400 transition-colors"
+              className="px-4 py-3 text-sm bg-purple-600 dark:bg-purple-500 text-white rounded hover:bg-purple-700 dark:hover:bg-purple-400 transition-colors touch-manipulation"
+              style={{ minHeight: '44px' }}
             >
               Save Settings
             </button>

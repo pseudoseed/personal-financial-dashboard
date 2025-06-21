@@ -3,16 +3,38 @@
 import { useState, useEffect } from "react";
 import { formatBalance } from "@/lib/formatters";
 import { useSensitiveData } from "@/app/providers";
+import { CalculationDetailsDialog } from "./CalculationDetailsDialog";
 
 interface BillsData {
   totalBillsDueThisMonth: number;
   availableCash: number;
+  accounts: Array<{
+    id: string;
+    name: string;
+    type: string;
+    balances: Array<{
+      available: number;
+      current: number;
+    }>;
+    lastStatementBalance?: number;
+    minimumPaymentAmount?: number;
+    nextPaymentDueDate?: string;
+    pendingTransactions?: Array<{
+      id: string;
+      name: string;
+      amount: number;
+      date: string;
+      merchantName?: string;
+    }>;
+  }>;
 }
 
 export function BillsVsCashCard() {
   const { showSensitiveData } = useSensitiveData();
   const [data, setData] = useState<BillsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState<"bills" | "cash" | "net">("bills");
 
   useEffect(() => {
     async function fetchData() {
@@ -31,6 +53,11 @@ export function BillsVsCashCard() {
 
   const ratio = data && data.availableCash > 0 ? data.totalBillsDueThisMonth / data.availableCash : 0;
   const isHealthy = ratio < 0.5; // Example: healthy if bills are less than 50% of cash
+
+  const handleMetricClick = (metric: "bills" | "cash" | "net") => {
+    setSelectedMetric(metric);
+    setDialogOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -62,38 +89,83 @@ export function BillsVsCashCard() {
   const isNetPositive = netPosition >= 0;
 
   return (
-    <div className="card p-4 bg-white dark:bg-black border border-gray-200 dark:border-gray-800">
-      <h3 className="text-xl font-semibold text-surface-600 dark:text-gray-200 mb-3">
-        This Month at a Glance
-      </h3>
-      <div className="space-y-3">
-        <div className={`p-3 rounded-lg ${isHealthy ? 'bg-green-50 dark:bg-green-900/20' : 'bg-pink-50 dark:bg-pink-900/20'}`}>
-          <p className={`text-xs font-medium ${isHealthy ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'} mb-1`}>
-            Upcoming Bills
-          </p>
-          <p className={`text-lg font-bold ${isHealthy ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'}`}>
-            {showSensitiveData ? formatBalance(data.totalBillsDueThisMonth) : "••••••"}
-          </p>
-        </div>
-        
-        <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-          <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">
-            Available Cash
-          </p>
-          <p className="text-lg font-bold text-purple-700 dark:text-purple-300">
-            {showSensitiveData ? formatBalance(data.availableCash) : "••••••"}
-          </p>
-        </div>
+    <>
+      <div className="card p-4 bg-white dark:bg-black border border-gray-200 dark:border-gray-800">
+        <h3 className="text-xl font-semibold text-surface-600 dark:text-gray-200 mb-3">
+          This Month at a Glance
+        </h3>
+        <div className="space-y-3">
+          <div 
+            className={`p-3 rounded-lg cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md ${isHealthy ? 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30' : 'bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30'}`}
+            onClick={() => handleMetricClick("bills")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleMetricClick("bills");
+              }
+            }}
+          >
+            <p className={`text-xs font-medium ${isHealthy ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'} mb-1`}>
+              Upcoming Bills
+            </p>
+            <p className={`text-lg font-bold ${isHealthy ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'}`}>
+              {showSensitiveData ? formatBalance(data.totalBillsDueThisMonth) : "••••••"}
+            </p>
+          </div>
+          
+          <div 
+            className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md hover:bg-purple-100 dark:hover:bg-purple-900/30"
+            onClick={() => handleMetricClick("cash")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleMetricClick("cash");
+              }
+            }}
+          >
+            <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">
+              Available Cash
+            </p>
+            <p className="text-lg font-bold text-purple-700 dark:text-purple-300">
+              {showSensitiveData ? formatBalance(data.availableCash) : "••••••"}
+            </p>
+          </div>
 
-        <div className={`p-3 rounded-lg ${isNetPositive ? 'bg-green-50 dark:bg-green-900/20' : 'bg-pink-50 dark:bg-pink-900/20'}`}>
-          <p className={`text-xs font-medium ${isNetPositive ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'} mb-1`}>
-            Net Position
-          </p>
-          <p className={`text-lg font-bold ${isNetPositive ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'}`}>
-            {showSensitiveData ? formatBalance(netPosition) : "••••••"}
-          </p>
+          <div 
+            className={`p-3 rounded-lg cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md ${isNetPositive ? 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30' : 'bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30'}`}
+            onClick={() => handleMetricClick("net")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleMetricClick("net");
+              }
+            }}
+          >
+            <p className={`text-xs font-medium ${isNetPositive ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'} mb-1`}>
+              Net Position
+            </p>
+            <p className={`text-lg font-bold ${isNetPositive ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'}`}>
+              {showSensitiveData ? formatBalance(netPosition) : "••••••"}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Calculation Details Dialog */}
+      {data && (
+        <CalculationDetailsDialog
+          isOpen={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          metricType={selectedMetric}
+          data={data}
+        />
+      )}
+    </>
   );
 } 

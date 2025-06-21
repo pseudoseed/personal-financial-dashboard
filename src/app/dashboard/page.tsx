@@ -9,6 +9,8 @@ import TopVendorsCard from '@/components/TopVendorsCard';
 import DashboardSidebarCards from '@/components/DashboardSidebarCards';
 import { QuickInsights } from "@/components/QuickInsights";
 import { useSensitiveData } from "@/app/providers";
+import { DashboardSummary } from "@/components/DashboardSummary";
+import { AuthenticationAlerts } from "@/components/AuthenticationAlerts";
 
 async function getAccounts(): Promise<Account[]> {
   try {
@@ -59,31 +61,23 @@ export default function DashboardPage() {
   ];
 
   return (
-    <>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-          Financial Dashboard
-        </h1>
-        <p className="text-secondary-500 dark:text-secondary-400">
-          Track your accounts, transactions, and financial health
-        </p>
-      </div>
-
-      {/* Main Dashboard Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left Column - Metrics and Summary */}
-        <div className="lg:col-span-3 space-y-6">
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
+        Dashboard
+      </h1>
+      
+      {/* Authentication Alerts */}
+      <AuthenticationAlerts />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <DashboardSummary accounts={accounts} />
           <DashboardMetrics accounts={accounts} />
-          <TopVendorsCard />
         </div>
-
-        {/* Right Column - Quick Actions and Insights */}
-        <div className="space-y-6">
+        <div className="space-y-8">
           <DashboardSidebarCards accountStatusStats={accountStatusStats} />
-          <QuickInsights />
         </div>
       </div>
-    </>
+    </div>
   );
 } 

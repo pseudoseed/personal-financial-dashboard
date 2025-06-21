@@ -15,6 +15,8 @@ import {
 } from "@heroicons/react/24/solid";
 import { Account } from "@/types/account";
 import { useTheme } from "../../providers";
+import { AccountConnectionButtons } from "@/components/AccountConnectionButtons";
+import { AuthenticationAlerts } from "@/components/AuthenticationAlerts";
 
 export default function AccountsPage() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
@@ -163,100 +165,112 @@ export default function AccountsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold">Accounts</h1>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={refreshBalances}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            disabled={isRefreshing}
-          >
-            <ArrowPathIcon
-              className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-            Refresh All
-          </button>
-          <button
-            onClick={() => setShowHidden(!showHidden)}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            {showHidden ? (
-              <LockOpenIcon className="h-4 w-4 mr-2" />
-            ) : (
-              <LockClosedIcon className="h-4 w-4 mr-2" />
-            )}
-            {showHidden ? "Hide Hidden" : "Show Hidden"}
-          </button>
-        </div>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          Accounts
+        </h1>
+        <AccountConnectionButtons />
       </div>
 
-      <div className="space-y-6">
-        {Object.entries(accountsByInstitution).map(([institution, accounts]) => {
-          const visibleAccounts = accounts.filter((account) => !account.hidden);
-          const hiddenAccountsForInstitution = accounts.filter(
-            (account) => account.hidden
-          );
-          const showHiddenForInstitution = institutionShowHidden[institution];
+      {/* Authentication Alerts */}
+      <AuthenticationAlerts />
 
-          return (
-            <div key={institution} className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-medium">{institution}</h2>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => refreshInstitution(institution)}
-                    className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    disabled={refreshingInstitutions[institution]}
-                  >
-                    <ArrowPathIcon
-                      className={`h-4 w-4 ${
-                        refreshingInstitutions[institution] ? "animate-spin" : ""
-                      }`}
-                    />
-                  </button>
-                  <button
-                    onClick={() => disconnectInstitution(institution)}
-                    className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    disabled={disconnectingInstitutions[institution]}
-                    title="Disconnect institution and remove all associated accounts"
-                  >
-                    <XCircleIcon className="h-4 w-4" />
-                  </button>
-                  {hiddenAccountsForInstitution.length > 0 && (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Account Management</h2>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={refreshBalances}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={isRefreshing}
+            >
+              <ArrowPathIcon
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              Refresh All
+            </button>
+            <button
+              onClick={() => setShowHidden(!showHidden)}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              {showHidden ? (
+                <LockOpenIcon className="h-4 w-4 mr-2" />
+              ) : (
+                <LockClosedIcon className="h-4 w-4 mr-2" />
+              )}
+              {showHidden ? "Hide Hidden" : "Show Hidden"}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {Object.entries(accountsByInstitution).map(([institution, accounts]) => {
+            const visibleAccounts = accounts.filter((account) => !account.hidden);
+            const hiddenAccountsForInstitution = accounts.filter(
+              (account) => account.hidden
+            );
+            const showHiddenForInstitution = institutionShowHidden[institution];
+
+            return (
+              <div key={institution} className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-medium text-gray-900 dark:text-white">{institution}</h3>
+                  <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => toggleInstitutionHidden(institution)}
+                      onClick={() => refreshInstitution(institution)}
                       className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      disabled={refreshingInstitutions[institution]}
                     >
-                      {showHiddenForInstitution ? (
-                        <LockOpenIcon className="h-4 w-4" />
-                      ) : (
-                        <LockClosedIcon className="h-4 w-4" />
-                      )}
+                      <ArrowPathIcon
+                        className={`h-4 w-4 ${
+                          refreshingInstitutions[institution] ? "animate-spin" : ""
+                        }`}
+                      />
                     </button>
-                  )}
+                    <button
+                      onClick={() => disconnectInstitution(institution)}
+                      className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      disabled={disconnectingInstitutions[institution]}
+                      title="Disconnect institution and remove all associated accounts"
+                    >
+                      <XCircleIcon className="h-4 w-4" />
+                    </button>
+                    {hiddenAccountsForInstitution.length > 0 && (
+                      <button
+                        onClick={() => toggleInstitutionHidden(institution)}
+                        className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        {showHiddenForInstitution ? (
+                          <LockOpenIcon className="h-4 w-4" />
+                        ) : (
+                          <LockClosedIcon className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {visibleAccounts.map((account) => (
-                  <AccountCard
-                    key={account.id}
-                    account={account}
-                    onRefresh={refetch}
-                  />
-                ))}
-                {showHiddenForInstitution &&
-                  hiddenAccountsForInstitution.map((account) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {visibleAccounts.map((account) => (
                     <AccountCard
                       key={account.id}
                       account={account}
                       onRefresh={refetch}
                     />
                   ))}
+                  {showHiddenForInstitution &&
+                    hiddenAccountsForInstitution.map((account) => (
+                      <AccountCard
+                        key={account.id}
+                        account={account}
+                        onRefresh={refetch}
+                      />
+                    ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );

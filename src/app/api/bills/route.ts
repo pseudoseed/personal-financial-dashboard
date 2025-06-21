@@ -12,6 +12,15 @@ export async function GET() {
           },
           take: 1,
         },
+        transactions: {
+          where: {
+            pending: true,
+          },
+          orderBy: {
+            date: "desc",
+          },
+          take: 10, // Get last 10 pending transactions
+        },
       },
     });
 
@@ -55,9 +64,30 @@ export async function GET() {
 
     console.log(`Final totals - Bills due: ${totalBillsDueThisMonth}, Available cash: ${availableCash}`);
 
+    const accountData = accounts.map(account => ({
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      balances: account.balances.map(balance => ({
+        available: balance.available,
+        current: balance.current,
+      })),
+      lastStatementBalance: account.lastStatementBalance,
+      minimumPaymentAmount: account.minimumPaymentAmount,
+      nextPaymentDueDate: account.nextPaymentDueDate?.toISOString(),
+      pendingTransactions: account.transactions.map(tx => ({
+        id: tx.id,
+        name: tx.name,
+        amount: tx.amount,
+        date: tx.date.toISOString(),
+        merchantName: tx.merchantName,
+      })),
+    }));
+
     return NextResponse.json({
       totalBillsDueThisMonth,
       availableCash,
+      accounts: accountData,
     });
   } catch (error) {
     console.error("Error fetching bills data:", error);
