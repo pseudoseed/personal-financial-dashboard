@@ -38,6 +38,21 @@ check_env() {
     print_success ".env file found"
 }
 
+# Check if docker compose is available
+check_docker_compose() {
+    if docker compose version >/dev/null 2>&1; then
+        DOCKER_COMPOSE="docker compose"
+        print_success "Using 'docker compose' (modern version)"
+    elif docker-compose --version >/dev/null 2>&1; then
+        DOCKER_COMPOSE="docker-compose"
+        print_success "Using 'docker-compose' (legacy version)"
+    else
+        print_error "Neither 'docker compose' nor 'docker-compose' is available"
+        print_error "Please install Docker Compose or ensure Docker is properly installed"
+        exit 1
+    fi
+}
+
 # Create necessary directories
 setup_directories() {
     print_status "Creating necessary directories..."
@@ -48,7 +63,7 @@ setup_directories() {
 # Build and start the application
 deploy() {
     print_status "Building and starting the application..."
-    docker-compose up -d --build
+    $DOCKER_COMPOSE up -d --build
     print_success "Application deployed successfully!"
     print_status "The dashboard should be available at http://localhost:3000"
     print_status "Cron job is scheduled to run daily at 6 AM"
@@ -57,14 +72,14 @@ deploy() {
 # Stop the application
 stop() {
     print_status "Stopping the application..."
-    docker-compose down
+    $DOCKER_COMPOSE down
     print_success "Application stopped"
 }
 
 # Restart the application
 restart() {
     print_status "Restarting the application..."
-    docker-compose restart
+    $DOCKER_COMPOSE restart
     print_success "Application restarted"
 }
 
@@ -72,15 +87,15 @@ restart() {
 update() {
     print_status "Pulling latest changes and rebuilding..."
     git pull
-    docker-compose down
-    docker-compose up -d --build
+    $DOCKER_COMPOSE down
+    $DOCKER_COMPOSE up -d --build
     print_success "Application updated successfully!"
 }
 
 # Show logs
 logs() {
     print_status "Showing application logs..."
-    docker-compose logs -f
+    $DOCKER_COMPOSE logs -f
 }
 
 # Show cron logs
@@ -96,10 +111,10 @@ cron_logs() {
 # Show status
 status() {
     print_status "Application status:"
-    docker-compose ps
+    $DOCKER_COMPOSE ps
     echo ""
     print_status "Container health:"
-    docker-compose exec financial-dashboard curl -s http://localhost:3000/api/health | jq . 2>/dev/null || echo "Health check not available"
+    $DOCKER_COMPOSE exec financial-dashboard curl -s http://localhost:3000/api/health | jq . 2>/dev/null || echo "Health check not available"
     echo ""
     print_status "Cron job status:"
     if [ -f "logs/cron.log" ]; then
@@ -121,7 +136,7 @@ backup() {
 # Manually run refresh
 refresh() {
     print_status "Manually running refresh script..."
-    docker-compose exec financial-dashboard /app/scripts/refresh-data-docker.sh
+    $DOCKER_COMPOSE exec financial-dashboard /app/scripts/refresh-data-docker.sh
     print_success "Refresh completed"
 }
 
@@ -166,32 +181,39 @@ show_help() {
 case "${1:-deploy}" in
     deploy)
         check_env
+        check_docker_compose
         setup_directories
         deploy
         ;;
     stop)
+        check_docker_compose
         stop
         ;;
     restart)
+        check_docker_compose
         restart
         ;;
     update)
         check_env
+        check_docker_compose
         update
         ;;
     logs)
+        check_docker_compose
         logs
         ;;
     cron_logs)
         cron_logs
         ;;
     status)
+        check_docker_compose
         status
         ;;
     backup)
         backup
         ;;
     refresh)
+        check_docker_compose
         refresh
         ;;
     cron_schedule)
