@@ -49,6 +49,16 @@ export async function GET() {
       plaidItem: {
         institutionId: account.plaidItem.institutionId,
       },
+      // Liability fields
+      lastStatementBalance: account.lastStatementBalance,
+      minimumPaymentAmount: account.minimumPaymentAmount,
+      nextPaymentDueDate: account.nextPaymentDueDate,
+      lastPaymentDate: account.lastPaymentDate,
+      lastPaymentAmount: account.lastPaymentAmount,
+      nextMonthlyPayment: account.nextMonthlyPayment,
+      originationDate: account.originationDate,
+      originationPrincipalAmount: account.originationPrincipalAmount,
+      invertTransactions: account.invertTransactions,
     }));
 
     return NextResponse.json(formattedAccounts);

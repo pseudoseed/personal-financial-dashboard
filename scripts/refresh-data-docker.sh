@@ -34,12 +34,9 @@ fi
 echo "Using Node.js version: $(node -v)"
 echo "Node.js path: $(which node)"
 
-# Run the TypeScript script
-echo "Running refresh-data.ts..."
-npx --no-install ts-node \
-  --project "$SCRIPT_DIR/tsconfig.json" \
-  --require tsconfig-paths/register \
-  "$SCRIPT_DIR/refresh-data.ts" 2>&1
+# Run the compiled JavaScript script
+echo "Running refresh-data.js..."
+node "$SCRIPT_DIR/refresh-data.js" 2>&1
 
 # Log completion
 echo "=== Refresh completed at $(date) ==="
