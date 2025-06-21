@@ -9,7 +9,9 @@ import {
   Title,
   Tooltip,
   Legend,
+  TooltipItem,
 } from "chart.js";
+import { formatBalance } from "@/lib/formatters";
 
 // Register ChartJS components
 ChartJS.register(
@@ -48,10 +50,6 @@ export function AccountTypeChart({
   accounts,
   isMasked = false,
 }: AccountTypeChartProps) {
-  const formatBalance = (amount: number) => {
-    return isMasked ? "••••••" : `$${amount.toLocaleString()}`;
-  };
-
   const accountTypes = accounts.reduce((acc, account) => {
     const type = account.type.toLowerCase();
     if (!acc[type]) {
@@ -88,19 +86,20 @@ export function AccountTypeChart({
         stacked: false,
         beginAtZero: true,
         ticks: {
-          callback: (value: number) => formatBalance(value),
+          callback: (value: string | number) =>
+            !isMasked ? formatBalance(Number(value)) : "••••••",
         },
       },
     },
     plugins: {
       tooltip: {
         callbacks: {
-          label: (context: { raw: number; dataset: { label: string } }) => {
-            const value = context.raw;
+          label: (tooltipItem: TooltipItem<"bar">) => {
+            const value = tooltipItem.raw as number;
             const percentage = ((value / totalBalance) * 100).toFixed(1);
-            return `${context.dataset.label}: ${formatBalance(
-              Math.abs(value)
-            )} (${percentage}%)`;
+            return `${tooltipItem.dataset.label}: ${
+              !isMasked ? formatBalance(Math.abs(value)) : "••••••"
+            } (${percentage}%)`;
           },
         },
       },

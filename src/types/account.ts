@@ -26,4 +26,17 @@ export interface Account {
   };
   url?: string | null;
   lastUpdated?: string | null;
+  plaidSyncCursor?: string | null;
+  lastSyncTime?: Date | null;
+  
+  // Liability specific fields
+  lastStatementBalance?: number | null;
+  minimumPaymentAmount?: number | null;
+  nextPaymentDueDate?: Date | null;
+  lastPaymentDate?: Date | null;
+  lastPaymentAmount?: number | null;
+  nextMonthlyPayment?: number | null;
+  originationDate?: Date | null;
+  originationPrincipalAmount?: number | null;
+  invertTransactions: boolean;
 }

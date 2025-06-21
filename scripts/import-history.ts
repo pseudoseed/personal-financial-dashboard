@@ -47,8 +47,6 @@ async function importBalances() {
     );
   });
 
-  console.log(`Found ${records.length} records in CSV`);
-
   // Process each record
   for (const record of records) {
     const month = record.Month;
@@ -64,14 +62,12 @@ async function importBalances() {
       // Get the account ID directly from the CSV column name (which should match nickname)
       const accountId = accountMap.get(csvName);
       if (!accountId) {
-        console.log(`No account found with nickname: ${csvName}`);
         continue;
       }
 
       // Parse the amount (remove "$" and "," and convert to number)
       const parsedAmount = parseFloat(amount.replace(/[$,]/g, ""));
       if (isNaN(parsedAmount)) {
-        console.log(`Invalid amount for ${csvName}: ${amount}`);
         continue;
       }
 
@@ -88,9 +84,6 @@ async function importBalances() {
       });
 
       if (existingBalance) {
-        console.log(
-          `Balance already exists for ${csvName} on ${month}: $${parsedAmount}`
-        );
         continue;
       }
 
@@ -104,9 +97,6 @@ async function importBalances() {
             available: parsedAmount,
           },
         });
-        console.log(
-          `Imported balance for ${csvName} on ${month}: $${parsedAmount}`
-        );
       } catch (error) {
         console.error(`Error importing balance for ${csvName}:`, error);
       }

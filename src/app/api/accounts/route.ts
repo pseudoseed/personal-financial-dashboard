@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { downloadTransactions } from '@/lib/transactions';
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
@@ -36,6 +39,8 @@ export async function GET() {
       lastUpdated: account.balances[0]?.date.toISOString() || null,
       url: account.url,
       metadata: account.metadata,
+      plaidSyncCursor: account.plaidSyncCursor,
+      lastSyncTime: account.lastSyncTime,
       plaidItem: {
         institutionId: account.plaidItem.institutionId,
       },
@@ -48,5 +53,34 @@ export async function GET() {
       { error: "Failed to fetch accounts" },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request: Request) {
+  const { firstTime } = await request.json().catch(() => ({ firstTime: false }));
+  try {
+    // Get all accounts with Plaid items
+    const accounts = await prisma.account.findMany({
+      where: {
+        plaidItem: { accessToken: { not: 'manual' } },
+        ...(firstTime ? { plaidSyncCursor: null } : {}),
+      },
+      include: { plaidItem: true },
+    });
+    if (!accounts.length) {
+      return NextResponse.json({ message: 'No eligible accounts to sync', synced: 0 });
+    }
+    const results = [];
+    for (const account of accounts) {
+      try {
+        const result = await downloadTransactions(prisma, account);
+        results.push({ accountId: account.id, status: 'success', ...result });
+      } catch (error) {
+        results.push({ accountId: account.id, status: 'error', error: error instanceof Error ? error.message : 'Unknown error' });
+      }
+    }
+    return NextResponse.json({ message: 'Batch sync complete', synced: results.length, results });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to sync all accounts', details: error instanceof Error ? error.message : error }, { status: 500 });
   }
 }

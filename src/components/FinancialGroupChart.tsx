@@ -7,6 +7,8 @@ import {
   Legend,
 } from "chart.js";
 import { getFinancialGroup } from "@/lib/accountTypes";
+import { formatBalance } from "@/lib/formatters";
+import { useSensitiveData } from "@/app/providers";
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -22,17 +24,13 @@ interface Account {
 
 interface FinancialGroupChartProps {
   accounts: Account[];
-  isMasked?: boolean;
 }
 
 export function FinancialGroupChart({
   accounts,
-  isMasked = false,
 }: FinancialGroupChartProps) {
-  const formatBalance = (amount: number) => {
-    return isMasked ? "••••••" : `$${amount.toLocaleString()}`;
-  };
-
+  const { showSensitiveData } = useSensitiveData();
+  
   const groupData = accounts.reduce(
     (acc, account) => {
       const group = getFinancialGroup(account.type);
@@ -46,18 +44,34 @@ export function FinancialGroupChart({
     { assets: 0, liabilities: 0 }
   );
 
+  const chartData = [
+    { name: "Assets", value: groupData.assets },
+    { name: "Liabilities", value: groupData.liabilities },
+  ];
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="p-2 bg-background border rounded-md shadow-md">
+          <p className="label">{`${label} : ${showSensitiveData ? formatBalance(payload[0].value) : "••••••"}`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md">
-      <h2 className="text-lg font-semibold mb-4">Financial Groups</h2>
+    <div className="card">
+      <h2 className="text-xl font-semibold text-surface-600 dark:text-gray-200 mb-4">Financial Groups</h2>
       <div className="space-y-4">
         <div>
           <div className="flex justify-between items-center mb-1">
-            <span className="text-sm font-medium">Assets</span>
+            <span className="text-sm font-medium text-surface-600 dark:text-gray-400">Assets</span>
             <span className="text-sm font-medium text-green-600">
-              {formatBalance(groupData.assets)}
+              {showSensitiveData ? formatBalance(groupData.assets) : "••••••"}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-surface-200 dark:bg-surface-300 rounded-full h-2">
             <div
               className="h-2 rounded-full bg-green-500"
               style={{
@@ -73,14 +87,14 @@ export function FinancialGroupChart({
         </div>
         <div>
           <div className="flex justify-between items-center mb-1">
-            <span className="text-sm font-medium">Liabilities</span>
-            <span className="text-sm font-medium text-red-600">
-              {formatBalance(groupData.liabilities)}
+            <span className="text-sm font-medium text-surface-600 dark:text-gray-400">Liabilities</span>
+            <span className="text-sm font-medium text-pink-500 dark:text-pink-400">
+              {showSensitiveData ? formatBalance(groupData.liabilities) : "••••••"}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-surface-200 dark:bg-surface-300 rounded-full h-2">
             <div
-              className="h-2 rounded-full bg-red-500"
+              className="h-2 rounded-full bg-pink-500 dark:bg-pink-400"
               style={{
                 width: `${Math.min(
                   (groupData.liabilities /

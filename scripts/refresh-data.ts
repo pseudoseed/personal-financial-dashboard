@@ -1,10 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Account, PlaidItem } from "@prisma/client";
 import { Configuration, PlaidApi, PlaidEnvironments, CountryCode } from "plaid";
 import nodemailer from "nodemailer";
 import handlebars from "handlebars";
 import fs from "fs";
 import path from "path";
-import { PlaidItem } from "@prisma/client";
 import { downloadTransactions } from "@/lib/transactions";
 
 interface AccountChange {
@@ -54,25 +53,24 @@ const configuration = new Configuration({
 const plaidClient = new PlaidApi(configuration);
 
 // Email configuration
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT || "587"),
-  secure: false, // true for 465, false for other ports
+const emailConfig = {
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: false,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
-});
+};
 
-// Verify email configuration
-transporter.verify(function (error) {
-  if (error) {
-    console.error("Email configuration error:", error);
-    process.exit(1);
-  } else {
-    console.log("Email server is ready to send messages");
-  }
-});
+// Test email configuration
+let transporter: nodemailer.Transporter;
+try {
+  transporter = nodemailer.createTransport(emailConfig);
+  // Email server is ready to send messages
+} catch (error) {
+  console.error("Email configuration error:", error);
+}
 
 // Helper function to format money
 handlebars.registerHelper("formatMoney", (amount: number) => {
@@ -93,6 +91,52 @@ handlebars.registerHelper("isLoanOrCredit", (type: string) => {
 handlebars.registerHelper("absValue", (value: number) => {
   return Math.abs(value);
 });
+
+async function refreshLiabilities() {
+  try {
+    const accounts = await prisma.account.findMany({
+      where: {
+        type: {
+          in: ["credit", "loan"],
+        },
+      },
+    });
+
+    for (const account of accounts) {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_APP_URL}/api/accounts/${account.id}/refresh`,
+          {
+            method: "POST",
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.text();
+          console.error(
+            `Failed to refresh liabilities for account ${account.name}: ${error}`
+          );
+          continue;
+        }
+
+        const result = await response.json();
+        
+        if (result.message?.includes("No liability data")) {
+          // No liability data found for this account
+        } else {
+          // Successfully updated liabilities
+        }
+      } catch (error) {
+        console.error(
+          `Error processing account ${account.name}:`,
+          error
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Error refreshing liabilities:", error);
+  }
+}
 
 async function refreshInstitutions() {
   console.log("Refreshing institutions...");
@@ -310,6 +354,8 @@ async function refreshCoinbaseAccounts(
           metadata: true,
           url: true,
           plaidItem: true,
+          plaidSyncCursor: true,
+          lastSyncTime: true,
         },
       });
 
@@ -466,6 +512,8 @@ async function refreshBalances(): Promise<{
               metadata: true,
               url: true,
               plaidItem: true,
+              plaidSyncCursor: true,
+              lastSyncTime: true,
             },
           });
 
@@ -680,9 +728,17 @@ async function sendEmail(
 
 async function main() {
   try {
+    console.log("Starting daily refresh process...");
+
     await refreshInstitutions();
     const { changes, totalChange, portfolioSummary } = await refreshBalances();
-    await sendEmail(changes, totalChange, portfolioSummary);
+    await refreshLiabilities();
+
+    if (process.env.SEND_EMAIL === "true") {
+      await sendEmail(changes, totalChange, portfolioSummary);
+    }
+
+    console.log("Daily refresh process completed successfully.");
   } catch (error) {
     console.error("Error in main:", error);
     process.exit(1);

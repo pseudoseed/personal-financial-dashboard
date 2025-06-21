@@ -70,6 +70,11 @@ async function handleRegularTransactions(
 
     // Process modified transactions (update existing ones)
     for (const modifiedTx of modifiedTransactions) {
+      if (typeof modifiedTx.amount !== 'number' || isNaN(modifiedTx.amount)) {
+        console.warn('[PLAID SYNC] Skipping modified transaction with invalid amount:', { transaction_id: modifiedTx.transaction_id, name: modifiedTx.name, amount: modifiedTx.amount });
+        continue;
+      }
+      
       await prisma.transaction.update({
         where: {
           accountId_plaidId: {
@@ -144,8 +149,8 @@ async function handleRegularTransactions(
   // Insert new transactions, skipping any that already exist
   if (allTransactions.length > 0) {
     await prisma.$transaction(
-      allTransactions.map((transaction) =>
-        prisma.transaction.upsert({
+      allTransactions.map((transaction) => {
+        return prisma.transaction.upsert({
           where: {
             accountId_plaidId: {
               accountId: account.id,
@@ -197,8 +202,8 @@ async function handleRegularTransactions(
             referenceNumber: transaction.payment_meta?.reference_number,
           },
           update: {}, // No update if transaction exists
-        })
-      )
+        });
+      })
     );
   }
 

@@ -33,10 +33,10 @@ export default async function AccountPage({ params }: PageProps) {
   return (
     <div className="container mx-auto px-4 py-8">
       <Link
-        href="/"
-        className="text-blue-600 hover:text-blue-800 mb-8 inline-block"
+        href="/dashboard/accounts"
+        className="text-surface-600 hover:text-surface-800 dark:text-gray-400 dark:hover:text-gray-200 mb-8 inline-block transition-colors"
       >
-        ← Back to Dashboard
+        ← Back to Accounts
       </Link>
 
       <AccountDetails account={account} />
