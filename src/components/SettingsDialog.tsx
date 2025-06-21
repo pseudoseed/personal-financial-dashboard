@@ -242,13 +242,13 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 aria-label="Toggle dark mode"
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors touch-manipulation ${
                   darkMode ? 'bg-purple-600 dark:bg-purple-500' : 'bg-gray-200'
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    darkMode ? 'translate-x-6' : 'translate-x-1'
+                  className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                    darkMode ? 'translate-x-5' : 'translate-x-1'
                   }`}
                 />
               </button>
@@ -387,13 +387,13 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
               <button
                 onClick={toggleSensitiveData}
                 aria-label="Toggle sensitive data visibility"
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors touch-manipulation ${
                   showSensitiveData ? 'bg-purple-600 dark:bg-purple-500' : 'bg-gray-200'
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    showSensitiveData ? 'translate-x-6' : 'translate-x-1'
+                  className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                    showSensitiveData ? 'translate-x-5' : 'translate-x-1'
                   }`}
                 />
               </button>

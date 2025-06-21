@@ -195,8 +195,10 @@ export async function POST(
   { params }: { params: { accountId: string } }
 ) {
   try {
+    const { accountId } = await Promise.resolve(params);
+    
     const account = await prisma.account.findUnique({
-      where: { id: params.accountId },
+      where: { id: accountId },
       include: {
         plaidItem: true,
         balances: {
@@ -257,11 +259,6 @@ export async function POST(
       try {
         const response = await plaidClient.accountsBalanceGet({
           access_token: account.plaidItem.accessToken,
-          options: {
-            min_last_updated_datetime: new Date(
-              Date.now() - 24 * 60 * 60 * 1000
-            ).toISOString(),
-          },
         });
 
         const plaidAccount = response.data.accounts.find(

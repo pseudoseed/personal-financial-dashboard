@@ -13,6 +13,7 @@ import {
 import { TransactionDetailModal } from "./TransactionDetailModal";
 import { AnomalyDismissalDialog } from "./AnomalyDismissalDialog";
 import { DuplicateTransactionModal } from "./DuplicateTransactionModal";
+import { useSensitiveData } from "@/app/providers";
 
 interface AnomalyAlertProps {
   isMasked?: boolean;
@@ -28,6 +29,12 @@ interface AnomalySettings {
   newMerchantThreshold: number;
   geographicThreshold: number;
   hoursWindow: number;
+}
+
+interface AuthenticationAlertProps {
+  institution: string;
+  error: string;
+  onReconnect: () => void;
 }
 
 export function AnomalyAlert({ isMasked = false, limit = 5, onHide }: AnomalyAlertProps) {
@@ -205,32 +212,36 @@ export function AnomalyAlert({ isMasked = false, limit = 5, onHide }: AnomalyAle
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowHidden(!showHidden)}
-              className="px-2 py-1 text-xs bg-yellow-100 dark:bg-yellow-800 text-yellow-700 dark:text-yellow-300 rounded hover:bg-yellow-200 dark:hover:bg-yellow-700 transition-colors"
+              className="px-3 py-2 text-sm bg-yellow-100 dark:bg-yellow-800 text-yellow-700 dark:text-yellow-300 rounded hover:bg-yellow-200 dark:hover:bg-yellow-700 transition-colors touch-manipulation"
+              style={{ minHeight: '44px' }}
             >
               {showHidden ? 'Hide Hidden' : 'Show Hidden'}
             </button>
             <button
               onClick={() => setShowTuning(!showTuning)}
-              className="px-2 py-1 text-xs bg-yellow-100 dark:bg-yellow-800 text-yellow-700 dark:text-yellow-300 rounded hover:bg-yellow-200 dark:hover:bg-yellow-700 transition-colors"
+              className="px-3 py-2 text-sm bg-yellow-100 dark:bg-yellow-800 text-yellow-700 dark:text-yellow-300 rounded hover:bg-yellow-200 dark:hover:bg-yellow-700 transition-colors touch-manipulation"
+              style={{ minHeight: '44px' }}
             >
               Tune
             </button>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="p-1 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-800 rounded transition-colors"
+              className="p-2 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-800 rounded transition-colors touch-manipulation"
+              style={{ minHeight: '44px', minWidth: '44px' }}
             >
               {isExpanded ? (
-                <ChevronUpIcon className="w-4 h-4" />
+                <ChevronUpIcon className="w-5 h-5" />
               ) : (
-                <ChevronDownIcon className="w-4 h-4" />
+                <ChevronDownIcon className="w-5 h-5" />
               )}
             </button>
             {onHide && (
               <button
                 onClick={onHide}
-                className="p-1 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-800 rounded transition-colors"
+                className="p-2 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-800 rounded transition-colors touch-manipulation"
+                style={{ minHeight: '44px', minWidth: '44px' }}
               >
-                <XMarkIcon className="w-4 h-4" />
+                <XMarkIcon className="w-5 h-5" />
               </button>
             )}
           </div>
@@ -471,6 +482,37 @@ export function AnomalyAlert({ isMasked = false, limit = 5, onHide }: AnomalyAle
         timeSpan={duplicateTimeSpan}
         isMasked={isMasked}
       />
+    </div>
+  );
+}
+
+export function AuthenticationAlert({ institution, error, onReconnect }: AuthenticationAlertProps) {
+  return (
+    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center">
+            <ExclamationTriangleIcon className="h-5 w-5 text-orange-600 dark:text-orange-400 mr-2" />
+            <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
+              Authentication Required
+            </h3>
+          </div>
+          <div className="mt-2 text-sm text-orange-700 dark:text-orange-300">
+            <p>
+              Your connection to <strong>{institution}</strong> has expired and needs to be re-authenticated.
+            </p>
+            <p className="text-xs mt-1">{error}</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={onReconnect}
+            className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-3 py-1 rounded-md transition-colors"
+          >
+            Reconnect
+          </button>
+        </div>
+      </div>
     </div>
   );
 } 

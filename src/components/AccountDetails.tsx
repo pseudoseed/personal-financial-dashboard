@@ -494,6 +494,12 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                 </span>
               </p>
               <p>
+                Statement Balance:{" "}
+                <span className="font-semibold text-surface-900 dark:text-surface-dark-900">
+                  {displayBalance(account.lastStatementBalance || 0)}
+                </span>
+              </p>
+              <p>
                 Available Balance:{" "}
                 <span className="font-semibold text-surface-900 dark:text-surface-dark-900">
                   {displayBalance(history?.[0]?.available)}
@@ -528,16 +534,16 @@ export function AccountDetails({ account }: AccountDetailsProps) {
               <button
                 onClick={handleToggleInversion}
                 disabled={isInverting}
-                className={`relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
+                className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 touch-manipulation ${
                   account.invertTransactions ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
                 }`}
               >
                 <span
                   aria-hidden="true"
-                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200 ${
+                  className={`inline-block h-6 w-6 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200 ${
                     account.invertTransactions
                       ? "translate-x-5"
-                      : "translate-x-0"
+                      : "translate-x-1"
                   }`}
                 />
               </button>
@@ -550,7 +556,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
               <button
                 onClick={handleDownload}
                 disabled={isDownloading}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-primary-600 dark:bg-primary-500 text-white rounded-md hover:bg-primary-700 dark:hover:bg-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-primary-600 dark:bg-primary-500 text-white rounded-md hover:bg-primary-700 dark:hover:bg-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
               >
                 <ArrowDownTrayIcon className="w-4 h-4" />
                 {isDownloading ? "Syncing..." : "Sync"}
@@ -566,24 +572,27 @@ export function AccountDetails({ account }: AccountDetailsProps) {
           <h2 className="text-xl font-semibold text-surface-600 dark:text-gray-200">
             Balance History
           </h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={handleBackfill}
-              className="px-4 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded hover:bg-primary-700 dark:hover:bg-primary-400 transition-colors"
+              className="px-4 py-3 bg-primary-600 dark:bg-primary-500 text-white rounded hover:bg-primary-700 dark:hover:bg-primary-400 transition-colors touch-manipulation"
+              style={{ minHeight: '44px' }}
               title="Fill in missing monthly data points"
             >
               Backfill Data
             </button>
             <button
               onClick={handleCleanDailyRecords}
-              className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-surface-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="px-4 py-3 text-sm bg-gray-100 dark:bg-gray-700 text-surface-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors touch-manipulation"
+              style={{ minHeight: '44px' }}
               title="Keep only the most recent record for each day"
             >
               Clean Daily
             </button>
             <button
               onClick={handleCleanMonthlyRecords}
-              className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-surface-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="px-4 py-3 text-sm bg-gray-100 dark:bg-gray-700 text-surface-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors touch-manipulation"
+              style={{ minHeight: '44px' }}
               title="Keep only the most recent record for each month"
             >
               Clean Monthly
@@ -595,16 +604,17 @@ export function AccountDetails({ account }: AccountDetailsProps) {
 
         <div className="mt-6">
           <div
-            className="flex justify-between items-center px-6 py-3 bg-gray-50 dark:bg-[rgb(46,46,46)] border-y border-gray-200 dark:border-zinc-700 cursor-pointer"
+            className="flex justify-between items-center px-6 py-4 bg-gray-50 dark:bg-[rgb(46,46,46)] border-y border-gray-200 dark:border-zinc-700 cursor-pointer touch-manipulation hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
             onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+            style={{ minHeight: '44px' }}
           >
             <h3 className="text-sm font-medium text-surface-600 dark:text-gray-400">
               Balance History Records
             </h3>
             {isHistoryExpanded ? (
-              <ChevronUpIcon className="w-5 h-5 text-surface-600 dark:text-gray-400" />
+              <ChevronUpIcon className="w-6 h-6 text-surface-600 dark:text-gray-400" />
             ) : (
-              <ChevronDownIcon className="w-5 h-5 text-surface-600 dark:text-gray-400" />
+              <ChevronDownIcon className="w-6 h-6 text-surface-600 dark:text-gray-400" />
             )}
           </div>
 
@@ -651,10 +661,11 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                             e.stopPropagation();
                             handleDeleteBalance(item.id);
                           }}
-                          className="text-pink-500 hover:text-pink-600 dark:text-pink-400 dark:hover:text-pink-300 transition-colors"
+                          className="text-pink-500 hover:text-pink-600 dark:text-pink-400 dark:hover:text-pink-300 transition-colors touch-manipulation p-2 rounded"
+                          style={{ minHeight: '44px', minWidth: '44px' }}
                           title="Delete record"
                         >
-                          <TrashIcon className="w-4 h-4" />
+                          <TrashIcon className="w-5 h-5" />
                         </button>
                       </td>
                     </tr>

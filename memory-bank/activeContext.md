@@ -1,6 +1,8 @@
 # Active Context
 
 ## Current Focus
+- **Statement Balance Display**: Added statement balance display to Accounts page for better financial overview
+- **Mobile Touch Interaction Improvements**: Enhanced touch targets and interaction feedback for better iPad and mobile device experience
 - **Month-over-Month Chart Dark Mode Fixes**: Addressed dark mode styling issues for chart labels and summary backgrounds
 - **Analytics Page Card Styling Standardization**: Updated all Analytics page chart components to use consistent styling with the reusable card system
 - **Time Period Filter Removal**: Removed redundant Time Period filter from Transaction Chart Settings
@@ -32,11 +34,49 @@
 
 ## Recent Changes
 
-### Month-over-Month Chart Dark Mode Fixes (Latest)
+### Statement Balance Display (Latest)
+- **AccountCard Component**: Added statement balance display to the balance section
+- **AccountDetails Component**: Added statement balance to the account information section
+- **Display Logic**: 
+  - Shows actual statement balance for credit cards and loans (from `lastStatementBalance` field)
+  - Shows $0 for accounts without statement balance (checking, savings, etc.)
+  - Respects sensitive data masking settings
+- **Styling**: Consistent with existing balance display styling
+- **Positioning**: Placed between current balance and available balance for logical flow
+- **Data Source**: Uses existing `lastStatementBalance` field that's already populated from Plaid data
+
+### Mobile Touch Interaction Improvements (Previous)
+- **Toggle Switch Enhancement**: Increased account inversion toggle size from h-6 w-11 to h-8 w-14 with larger touch target (44px minimum)
+- **Button Touch Targets**: Enhanced all buttons to meet 44px minimum touch target requirement for mobile devices
+- **Table Action Buttons**: Improved table delete buttons with larger touch targets and better visual feedback
+- **Expandable Sections**: Enhanced expandable section headers with larger touch targets and hover feedback
+- **Global Touch CSS**: Added comprehensive touch-specific CSS improvements:
+  - `touch-manipulation` class for better touch handling
+  - Mobile-specific media queries for improved touch targets
+  - Enhanced touch feedback with scale transforms
+  - Better focus states for touch devices
+  - Reduced hover effects on touch devices with active state alternatives
+- **Component Updates**: Updated all interactive components:
+  - AccountDetails: Larger toggle switches and action buttons
+  - TransactionList: Improved expandable section touch targets
+  - SettingsDialog: Enhanced toggle switches for mobile
+  - TransactionChartSettings: Better category filter and action buttons
+  - AnomalyAlert: Improved action button touch targets
+  - AccountCard: Enhanced button touch targets and feedback
+- **Button Variants**: Updated button component to include:
+  - `touch-manipulation` class for better touch handling
+  - `active:scale-95` for touch feedback
+  - Minimum height requirements for all button sizes
+- **Visual Feedback**: Added touch-specific visual feedback:
+  - Scale transforms on active states
+  - Better transition timing for touch interactions
+  - Improved focus states for accessibility
+
+### Month-over-Month Chart Dark Mode Fixes (Previous)
 - **Chart Label Colors**: Updated chart labels to use a lighter color in dark mode (`#9ca3af`) for better readability
 - **Summary Backgrounds**: Corrected the background color for summary metrics and category changes to use the proper dark mode color (`dark:bg-zinc-800`) instead of a bright one
 
-### Analytics Page Card Styling Standardization (Latest)
+### Analytics Page Card Styling Standardization (Previous)
 - **AccountTypeDistribution Component**: Updated to use standardized `.card` class and proper text colors (`text-surface-600 dark:text-gray-200` for headers, `text-surface-600 dark:text-gray-400` for labels, `text-surface-900 dark:text-surface-dark-900` for values)
 - **InstitutionBreakdown Component**: Updated to use standardized `.card` class and consistent text color system
 - **NetWorthChart Component**: Updated container to use `.card` class with proper header styling and maintained chart functionality
@@ -46,14 +86,14 @@
 - **Dark Mode Support**: All components now have proper dark mode support with consistent color variables
 - **Hover Effects**: All cards now have consistent hover effects and transitions from the `.card` class
 
-### Time Period Filter Removal (Latest)
+### Time Period Filter Removal (Previous)
 - **Removed Time Period Dropdown**: Eliminated the redundant Time Period filter (daily/weekly/monthly) from TransactionChartSettings
 - **Simplified Settings UI**: Removed the period selection dropdown since comprehensive date range filtering makes it redundant
 - **Updated Display Text**: Changed "Transaction Overview" subtitle from period-specific text to generic "Transaction analytics"
 - **Maintained API Compatibility**: API still accepts period parameter but defaults to 'monthly' for consistency
 - **Enhanced buildApiUrl**: Added fallback to 'monthly' period in case settings don't include period value
 
-### Time Filter Extension to All Charts (Latest)
+### Time Filter Extension to All Charts (Previous)
 - **Vendor Chart Integration**: Updated vendor data query in `TransactionChart.tsx` to include `startDate` and `endDate` parameters
 - **AI Categories Integration**: Updated AI categories query to use settings and include all filtering parameters
 - **Query Key Updates**: Updated query keys to include settings so all charts refresh when date filters change
@@ -198,17 +238,6 @@
 
 ### AI Transaction Categorization Persistence (Previous)
 - **Database Storage**: Updated AI categorization API to store results in the `categoryAi` field
-- **Caching Logic**: Added logic to check for existing categories before calling OpenAI API
-- **Cost Reduction**: Dramatically reduced API usage by only categorizing new transactions
-- **Performance**: Faster response times for previously categorized transactions
-- **Enhanced Logging**: Added detailed logging to track caching benefits and cost savings
-- **API Response**: Enhanced response format to include caching statistics
-- **Database Schema**: Fixed `categoryAi` field in Prisma schema (removed unsupported `@db.String` annotation)
-
-### Vendor Chart Layout Changes (Previous)
-- **Vertical Orientation**: Changed vendor chart from horizontal to vertical bars for better readability
-- **Separate Row Layout**: Moved vendor chart to its own full-width row for better visibility and interaction
-- **Improved UX**: Vendor names now display on x-axis and dollar amounts on y-axis for more intuitive viewing
 
 ## Current Status
 - ✅ Time filter functionality extended to all charts (main transaction chart, vendor chart, AI categories chart)

@@ -42,16 +42,17 @@ export function TransactionList({
 
       <div>
         <div
-          className="flex justify-between items-center px-6 py-3 bg-gray-50 dark:bg-[rgb(46,46,46)] border-y border-gray-200 dark:border-zinc-700 cursor-pointer"
+          className="flex justify-between items-center px-6 py-4 bg-gray-50 dark:bg-[rgb(46,46,46)] border-y border-gray-200 dark:border-zinc-700 cursor-pointer touch-manipulation hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
           onClick={() => setIsTableExpanded(!isTableExpanded)}
+          style={{ minHeight: '44px' }}
         >
           <h3 className="text-sm font-medium text-surface-600 dark:text-gray-400">
             Transaction Records
           </h3>
           {isTableExpanded ? (
-            <ChevronUpIcon className="w-5 h-5 text-surface-600 dark:text-gray-400" />
+            <ChevronUpIcon className="w-6 h-6 text-surface-600 dark:text-gray-400" />
           ) : (
-            <ChevronDownIcon className="w-5 h-5 text-surface-600 dark:text-gray-400" />
+            <ChevronDownIcon className="w-6 h-6 text-surface-600 dark:text-gray-400" />
           )}
         </div>
 

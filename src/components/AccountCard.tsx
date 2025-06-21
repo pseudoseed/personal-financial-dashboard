@@ -146,7 +146,16 @@ export function AccountCard({
 
   return (
     <Link href={`/accounts/${account.id}`} passHref>
-      <div className="card flex flex-col justify-between min-h-[210px]">
+      <div
+        className="card flex flex-col justify-between min-h-[210px]"
+        onClick={(e) => {
+          // Prevent navigation if editing nickname
+          if (isEditing) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+      >
         {/* Card Header */}
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-2 min-w-0">
@@ -187,14 +196,13 @@ export function AccountCard({
         {/* Account Name and Edit */}
         <div className="my-1">
           {isEditing ? (
-            <form onSubmit={handleSaveNickname} className="flex items-center gap-1">
+            <form onSubmit={handleSaveNickname} className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
               <input
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 className="w-full px-2 py-1 text-sm border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
                 autoFocus
-                onClick={(e) => e.stopPropagation()}
               />
               <Button type="submit" size="sm" variant="primary" className="px-2 py-1 text-xs">Save</Button>
               <Button type="button" size="sm" variant="ghost" onClick={handleCancelEdit} className="px-2 py-1 text-xs">Cancel</Button>
@@ -219,6 +227,15 @@ export function AccountCard({
               {displayBalance(account.balance.current)}
             </span>
           </div>
+
+          {isCredit && account.lastStatementBalance !== undefined && account.lastStatementBalance !== null && (
+            <div className="flex justify-between items-baseline">
+              <span className="text-secondary-500 dark:text-secondary-400 text-xs">Statement Balance</span>
+              <span className="font-medium text-secondary-600 dark:text-secondary-400 text-sm">
+                {displayBalance(account.lastStatementBalance)}
+              </span>
+            </div>
+          )}
 
           {isCredit ? (
             <>
@@ -246,9 +263,10 @@ export function AccountCard({
         </div>
 
         {/* Footer - Last Updated and Utilization */}
-        <div className="mt-auto pt-2">
+        <div className="mt-4 pt-3 border-t border-gray-200 dark:border-zinc-700">
+          {/* Credit Utilization */}
           {utilizationPercentage !== null && (
-            <div>
+            <div className="mb-3">
               <div className="flex justify-between text-xs text-secondary-500 dark:text-secondary-400 mb-1">
                 <span>Credit Utilization</span>
                 <span>{utilizationPercentage}%</span>
@@ -267,13 +285,41 @@ export function AccountCard({
               </div>
             </div>
           )}
-
-          {lastUpdatedInfo && (
-            <div className="flex items-center gap-1 text-xs text-secondary-500 dark:text-secondary-400 mt-2">
-              <ClockIcon className="h-3 w-3" />
-              <span>Updated {lastUpdatedInfo.text}</span>
-            </div>
-          )}
+          
+          {/* Last Updated Info */}
+          <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+            <span>
+              Last updated: {account.lastUpdated 
+                ? new Date(account.lastUpdated).toLocaleDateString() 
+                : "Never"}
+            </span>
+            {account.lastUpdated && (
+              <span>
+                {new Date(account.lastUpdated).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+          
+          {/* Show warning if data is stale (more than 24 hours old) */}
+          {account.lastUpdated && (() => {
+            const lastUpdate = new Date(account.lastUpdated);
+            const now = new Date();
+            const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+            
+            if (hoursSinceUpdate > 24) {
+              return (
+                <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-md">
+                  <div className="flex items-center text-xs text-orange-700 dark:text-orange-300">
+                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    Data may be outdated - refresh to update
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
       </div>
     </Link>
