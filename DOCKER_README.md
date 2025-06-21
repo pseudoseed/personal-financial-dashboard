@@ -50,15 +50,67 @@ The `deploy.sh` script provides easy management commands:
 # View logs
 ./deploy.sh logs
 
+# View cron job logs
+./deploy.sh cron_logs
+
 # Check status
 ./deploy.sh status
 
-# Backup database
-./deploy.sh backup
+# Manually run refresh
+./deploy.sh refresh
+
+# Show cron schedule
+./deploy.sh cron_schedule
 
 # Show help
 ./deploy.sh help
 ```
+
+## Automated Transaction Syncing
+
+The Docker setup includes automated cron jobs that run daily at 6:00 AM to:
+
+- **Refresh account balances** from all connected financial institutions
+- **Sync new transactions** from Plaid and Coinbase
+- **Update liability information** for credit accounts and loans
+- **Send email notifications** (if configured) with balance changes
+
+### Cron Job Features
+
+- **Automatic scheduling**: Runs daily at 6:00 AM UTC
+- **Comprehensive logging**: All activity logged to `logs/cron.log`
+- **Error handling**: Failed syncs are logged with details
+- **Email notifications**: Optional daily summary emails
+- **Manual execution**: Can be run manually anytime
+
+### Monitoring Cron Jobs
+
+```bash
+# View cron logs
+./deploy.sh cron_logs
+
+# Check last run time
+./deploy.sh status
+
+# Manually trigger a refresh
+./deploy.sh refresh
+```
+
+### Customizing Cron Schedule
+
+To change the sync frequency, edit the Dockerfile and rebuild:
+
+1. **Edit the cron schedule** in `Dockerfile` (line with `0 6 * * *`)
+2. **Rebuild the container**:
+   ```bash
+   ./deploy.sh update
+   ```
+
+**Common cron patterns**:
+- `0 6 * * *` - Daily at 6 AM (current)
+- `0 */6 * * *` - Every 6 hours
+- `0 6,18 * * *` - Twice daily at 6 AM and 6 PM
+- `0 6 * * 1-5` - Weekdays only at 6 AM
 
 ## Manual Docker Commands
 
@@ -76,6 +128,9 @@ docker-compose down
 
 # Restart
 docker-compose restart
+
+# Execute refresh manually
+docker-compose exec financial-dashboard /app/scripts/refresh-data-docker.sh
 ```
 
 ## Configuration
@@ -92,7 +147,7 @@ The application uses the following environment variables (configured in `.env`):
 - `COINBASE_CLIENT_SECRET` - Your Coinbase client secret
 - `COINBASE_REDIRECT_URI` - Coinbase OAuth redirect URI
 - `OPENAI_API_KEY` - OpenAI API key for transaction categorization
-- Email configuration (SMTP settings)
+- Email configuration (SMTP settings) for notifications
 
 ### Port Configuration
 
@@ -107,7 +162,8 @@ ports:
 
 The application data is stored in:
 - `./data/` - SQLite database and other persistent data
-- `./logs/` - Application logs
+- `./logs/` - Application logs and cron job logs
+- `./backups/` - Database backups (created automatically)
 
 These directories are mounted as volumes and persist across container restarts.
 
@@ -202,6 +258,18 @@ cp backups/your_backup_file.db data/dev.db
    docker-compose exec financial-dashboard env | grep DATABASE
    ```
 
+5. **Cron job not running**:
+   ```bash
+   # Check cron logs
+   ./deploy.sh cron_logs
+   
+   # Manually test refresh
+   ./deploy.sh refresh
+   
+   # Check cron service status
+   docker-compose exec financial-dashboard ps aux | grep cron
+   ```
+
 ### Logs
 
 View application logs:
@@ -209,9 +277,15 @@ View application logs:
 ./deploy.sh logs
 ```
 
+View cron job logs:
+```bash
+./deploy.sh cron_logs
+```
+
 Or directly:
 ```bash
 docker-compose logs -f financial-dashboard
+tail -f logs/cron.log
 ```
 
 ### Container Shell Access
@@ -227,6 +301,7 @@ docker-compose exec financial-dashboard sh
 2. **Database**: The SQLite database contains sensitive financial data - ensure proper backups
 3. **Network**: Consider using a reverse proxy (nginx) for production deployments
 4. **Updates**: Regularly update the application and dependencies
+5. **Cron Jobs**: Monitor cron logs for any sync failures or errors
 
 ## Production Recommendations
 
@@ -237,6 +312,7 @@ For production deployment, consider:
 3. **Monitoring**: Add monitoring with Prometheus/Grafana
 4. **Backup Strategy**: Automated database backups
 5. **Resource Limits**: Set memory and CPU limits in docker-compose.yml
+6. **Cron Monitoring**: Set up alerts for cron job failures
 
 Example nginx configuration:
 ```nginx

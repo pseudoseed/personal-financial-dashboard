@@ -27,6 +27,16 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
+# Install cron and other necessary packages
+RUN apk add --no-cache \
+    dcron \
+    curl \
+    bash \
+    tzdata
+
+# Set timezone
+ENV TZ=UTC
+
 ENV NODE_ENV production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 # ENV NEXT_TELEMETRY_DISABLED 1
@@ -50,6 +60,27 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
+# Copy scripts for cron jobs
+COPY --from=builder /app/scripts ./scripts
+RUN chmod +x scripts/refresh-data-docker.sh
+
+# Create cron directory and files
+RUN mkdir -p /var/spool/cron/crontabs
+
+# Create cron configuration (daily at 6 AM)
+RUN echo "0 6 * * * /app/scripts/refresh-data-docker.sh >> /app/logs/cron.log 2>&1" > /var/spool/cron/crontabs/root
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Create startup script that runs both Next.js and cron
+RUN echo '#!/bin/bash' > /app/start.sh && \
+    echo 'echo "Starting cron service..."' >> /app/start.sh && \
+    echo 'crond -f -l 2 &' >> /app/start.sh && \
+    echo 'echo "Starting Next.js application..."' >> /app/start.sh && \
+    echo 'exec node server.js' >> /app/start.sh && \
+    chmod +x /app/start.sh
+
 USER nextjs
 
 EXPOSE 3000
@@ -66,4 +97,4 @@ VOLUME ["/app/data"]
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
-CMD ["node", "server.js"] 
+CMD ["/app/start.sh"] 
