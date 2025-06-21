@@ -65,6 +65,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy scripts and compile TypeScript
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/src ./src
 COPY --from=builder /app/node_modules ./node_modules
 RUN chmod +x scripts/refresh-data-docker.sh scripts/init-db.sh
 # Compile TypeScript scripts to JavaScript using the builder's TypeScript
