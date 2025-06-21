@@ -13,8 +13,14 @@ export DATABASE_URL="file:/app/data/dev.db"
 # Create database directory if it doesn't exist
 mkdir -p /app/data
 
-# Initialize the database with Prisma
-echo "Running Prisma database push..."
-npx prisma db push --accept-data-loss
+# Run Prisma migrations
+npx prisma migrate deploy
+
+# Create default user if it doesn't exist
+echo "Creating default user..."
+npx prisma db execute --stdin <<< "
+INSERT OR IGNORE INTO users (id, email, name, createdAt, updatedAt) 
+VALUES ('default', 'default@example.com', 'Default User', datetime('now'), datetime('now'));
+"
 
 echo "Database initialization complete!" 

@@ -67,6 +67,7 @@ async function refreshCoinbaseAccounts(itemId: string, accessToken: string) {
         type: "investment",
         subtype: "crypto",
         itemId: itemId,
+        userId: "default",
       },
     });
 
