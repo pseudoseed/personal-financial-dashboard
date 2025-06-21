@@ -190,6 +190,7 @@ async function refreshCoinbaseAccounts(
             type: "investment",
             subtype: "crypto",
             itemId: item.id,
+            userId: "default",
           },
         });
 

@@ -26,6 +26,7 @@ export async function POST(request: Request) {
         metadata: metadata || null,
         url: url || null,
         itemId: plaidItem.id,
+        userId: "default", // Add the required userId field
       },
     });
 
