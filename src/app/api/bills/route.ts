@@ -1,22 +1,21 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/db";
 
 export async function GET() {
   try {
-    // Use raw SQL to get all account data including liability fields
-    const accounts = await prisma.$queryRaw`
-      SELECT * FROM Account
-    `;
+    // Get all accounts with their latest balance and liability data
+    const accounts = await prisma.account.findMany({
+      include: {
+        balances: {
+          orderBy: {
+            date: "desc",
+          },
+          take: 1,
+        },
+      },
+    });
 
-    // Get balances separately
-    const balances = await prisma.$queryRaw`
-      SELECT * FROM AccountBalance
-    `;
-
-    console.log("All accounts fetched for bills endpoint:", JSON.stringify(accounts, null, 2));
-    console.log("All balances fetched:", JSON.stringify(balances, null, 2));
+    console.log(`Found ${accounts.length} accounts for bills calculation`);
 
     const now = new Date();
     const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -25,22 +24,18 @@ export async function GET() {
     let totalBillsDueThisMonth = 0;
     let availableCash = 0;
 
-    for (const account of accounts as any[]) {
-      // Find balances for this account
-      const accountBalances = (balances as any[]).filter(b => b.accountId === account.id);
-      
-      // Calculate bills due
+    for (const account of accounts) {
+      // Calculate bills due for credit/loan accounts
       if (account.type === "credit" || account.type === "loan") {
         console.log(`Processing ${account.type} account: ${account.name}`);
         console.log(`  - lastStatementBalance: ${account.lastStatementBalance}`);
         console.log(`  - minimumPaymentAmount: ${account.minimumPaymentAmount}`);
-        console.log(`  - nextPaymentDueDate:`, account.nextPaymentDueDate, typeof account.nextPaymentDueDate);
-        console.log(`  - nextMonthlyPayment: ${account.nextMonthlyPayment}`);
+        console.log(`  - nextPaymentDueDate:`, account.nextPaymentDueDate);
         
         if (account.nextPaymentDueDate) {
-          // Ensure nextPaymentDueDate is a Date object
           const dueDate = new Date(account.nextPaymentDueDate);
-          console.log(`  - Parsed dueDate:`, dueDate, dueDate instanceof Date);
+          console.log(`  - Parsed dueDate:`, dueDate);
+          
           if (dueDate >= startDate && dueDate <= endDate) {
             // Use statement balance instead of minimum payment
             const paymentAmount = account.lastStatementBalance || 0;
@@ -50,9 +45,9 @@ export async function GET() {
         }
       }
 
-      // Calculate available cash
-      if (account.type === "depository" && accountBalances.length > 0) {
-        const cash = accountBalances[0]?.available || 0;
+      // Calculate available cash for depository accounts
+      if (account.type === "depository" && account.balances.length > 0) {
+        const cash = account.balances[0]?.available || 0;
         availableCash += cash;
         console.log(`Adding cash from ${account.name}: ${cash}`);
       }

@@ -4,7 +4,7 @@ import nodemailer from "nodemailer";
 import handlebars from "handlebars";
 import fs from "fs";
 import path from "path";
-import { downloadTransactions } from "@/lib/transactions";
+import { downloadTransactions } from "../src/lib/transactions";
 
 interface AccountChange {
   name: string;
@@ -92,54 +92,8 @@ handlebars.registerHelper("absValue", (value: number) => {
   return Math.abs(value);
 });
 
-async function refreshLiabilities() {
-  try {
-    const accounts = await prisma.account.findMany({
-      where: {
-        type: {
-          in: ["credit", "loan"],
-        },
-      },
-    });
-
-    for (const account of accounts) {
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_APP_URL}/api/accounts/${account.id}/refresh`,
-          {
-            method: "POST",
-          }
-        );
-
-        if (!response.ok) {
-          const error = await response.text();
-          console.error(
-            `Failed to refresh liabilities for account ${account.name}: ${error}`
-          );
-          continue;
-        }
-
-        const result = await response.json();
-        
-        if (result.message?.includes("No liability data")) {
-          // No liability data found for this account
-        } else {
-          // Successfully updated liabilities
-        }
-      } catch (error) {
-        console.error(
-          `Error processing account ${account.name}:`,
-          error
-        );
-      }
-    }
-  } catch (error) {
-    console.error("Error refreshing liabilities:", error);
-  }
-}
-
 async function refreshInstitutions() {
-  console.log("Refreshing institutions...");
+  console.log("Refreshing institution data...");
   const items = await prisma.plaidItem.findMany({
     where: {
       accessToken: {
@@ -150,40 +104,14 @@ async function refreshInstitutions() {
 
   for (const item of items) {
     try {
-      console.log(`Processing institution: ${item.institutionId}`);
-
-      // Skip Coinbase items as they don't need institution refresh
       if (item.provider === "coinbase") {
-        continue;
+        await refreshCoinbaseToken(item);
       }
-
-      const response = await plaidClient.institutionsGetById({
-        institution_id: item.institutionId,
-        country_codes: [CountryCode.Us],
-      });
-
-      const institution = response.data.institution;
-
-      await prisma.plaidItem.update({
-        where: { id: item.id },
-        data: {
-          institutionName: institution.name,
-        },
-      });
-
-      console.log(`Updated institution: ${institution.name}`);
     } catch (error) {
-      if (error instanceof Error) {
-        console.error(
-          `Error refreshing institution ${item.institutionId}:`,
-          error.message
-        );
-      } else {
-        console.error(
-          `Unknown error refreshing institution ${item.institutionId}:`,
-          error
-        );
-      }
+      console.error(
+        `Error refreshing institution ${item.institutionName || item.institutionId}:`,
+        error
+      );
     }
   }
 }
@@ -335,27 +263,12 @@ async function refreshCoinbaseAccounts(
       const usdValue = cryptoAmount * spotPrice;
       const existingAccount = await prisma.account.findUnique({
         where: { plaidId: `coinbase_${account.id}` },
-        select: {
-          id: true,
-          type: true,
+        include: {
+          plaidItem: true,
           balances: {
             orderBy: { date: "desc" },
             take: 1,
           },
-          nickname: true,
-          name: true,
-          plaidId: true,
-          itemId: true,
-          createdAt: true,
-          updatedAt: true,
-          subtype: true,
-          mask: true,
-          hidden: true,
-          metadata: true,
-          url: true,
-          plaidItem: true,
-          plaidSyncCursor: true,
-          lastSyncTime: true,
         },
       });
 
@@ -494,64 +407,17 @@ async function refreshBalances(): Promise<{
         for (const account of accounts) {
           const existingAccount = await prisma.account.findUnique({
             where: { plaidId: account.account_id },
-            select: {
-              id: true,
-              type: true,
+            include: {
+              plaidItem: true,
               balances: {
                 orderBy: { date: "desc" },
                 take: 1,
               },
-              nickname: true,
-              name: true,
-              plaidId: true,
-              itemId: true,
-              createdAt: true,
-              updatedAt: true,
-              subtype: true,
-              mask: true,
-              hidden: true,
-              metadata: true,
-              url: true,
-              plaidItem: true,
-              plaidSyncCursor: true,
-              lastSyncTime: true,
             },
           });
 
           if (existingAccount) {
-            const previousBalance = existingAccount.balances[0]?.current || 0;
-            const currentBalance = account.balances.current || 0;
-            const change = currentBalance - previousBalance;
-
-            // Track changes if they are significant
-            if (Math.abs(change) > 0.01) {
-              // For loan and credit accounts, a decreasing balance is positive
-              const isLoanOrCredit =
-                existingAccount.type.toLowerCase() === "credit" ||
-                existingAccount.type.toLowerCase() === "loan";
-              const isPositive = isLoanOrCredit ? change < 0 : change > 0;
-
-              institutionChanges.accounts.push({
-                name: account.name,
-                nickname: existingAccount.nickname,
-                previousBalance,
-                currentBalance,
-                change,
-                isPositive,
-                type: existingAccount.type,
-              });
-              totalChange += change;
-            }
-
-            await prisma.accountBalance.create({
-              data: {
-                accountId: existingAccount.id,
-                current: currentBalance,
-                available: account.balances.available || null,
-                limit: account.balances.limit || null,
-              },
-            });
-
+            // Update account details if needed
             await prisma.account.update({
               where: { id: existingAccount.id },
               data: {
@@ -561,6 +427,92 @@ async function refreshBalances(): Promise<{
                 subtype: account.subtype || null,
               },
             });
+
+            // Fetch liability data for credit/loan accounts
+            if ((account.type === "credit" || account.type === "loan") && item.provider === "plaid") {
+              try {
+                console.log(`Fetching liability data for ${account.name}...`);
+                const liabilityResponse = await plaidClient.liabilitiesGet({
+                  access_token: item.accessToken,
+                  options: {
+                    account_ids: [account.account_id],
+                  },
+                });
+
+                const liabilities = liabilityResponse.data.liabilities;
+                if (liabilities) {
+                  // Handle credit card liabilities
+                  const credit = liabilities.credit?.find(c => c.account_id === account.account_id);
+                  if (credit) {
+                    console.log(`Found credit liability data for ${account.name}:`, {
+                      lastStatementBalance: credit.last_statement_balance,
+                      minimumPaymentAmount: credit.minimum_payment_amount,
+                      nextPaymentDueDate: credit.next_payment_due_date,
+                    });
+
+                    await prisma.account.update({
+                      where: { id: existingAccount.id },
+                      data: {
+                        lastStatementBalance: credit.last_statement_balance || null,
+                        minimumPaymentAmount: credit.minimum_payment_amount || null,
+                        nextPaymentDueDate: credit.next_payment_due_date ? new Date(credit.next_payment_due_date) : null,
+                        lastPaymentDate: credit.last_payment_date ? new Date(credit.last_payment_date) : null,
+                        lastPaymentAmount: credit.last_payment_amount || null,
+                      },
+                    });
+                  }
+
+                  // Handle mortgage liabilities
+                  const mortgage = liabilities.mortgage?.find(m => m.account_id === account.account_id);
+                  if (mortgage) {
+                    console.log(`Found mortgage liability data for ${account.name}:`, {
+                      lastPaymentAmount: mortgage.last_payment_amount,
+                      nextMonthlyPayment: mortgage.next_monthly_payment,
+                      nextPaymentDueDate: mortgage.next_payment_due_date,
+                    });
+
+                    await prisma.account.update({
+                      where: { id: existingAccount.id },
+                      data: {
+                        lastStatementBalance: mortgage.last_payment_amount || null,
+                        minimumPaymentAmount: mortgage.next_monthly_payment || null,
+                        nextPaymentDueDate: mortgage.next_payment_due_date ? new Date(mortgage.next_payment_due_date) : null,
+                        lastPaymentDate: mortgage.last_payment_date ? new Date(mortgage.last_payment_date) : null,
+                        lastPaymentAmount: mortgage.last_payment_amount || null,
+                        nextMonthlyPayment: mortgage.next_monthly_payment || null,
+                        originationDate: mortgage.origination_date ? new Date(mortgage.origination_date) : null,
+                        originationPrincipalAmount: mortgage.origination_principal_amount || null,
+                      },
+                    });
+                  }
+
+                  // Handle student loan liabilities
+                  const student = liabilities.student?.find(s => s.account_id === account.account_id);
+                  if (student) {
+                    console.log(`Found student loan liability data for ${account.name}:`, {
+                      lastPaymentAmount: student.last_payment_amount,
+                      minimumPaymentAmount: student.minimum_payment_amount,
+                      nextPaymentDueDate: student.next_payment_due_date,
+                    });
+
+                    await prisma.account.update({
+                      where: { id: existingAccount.id },
+                      data: {
+                        lastStatementBalance: student.last_payment_amount || null,
+                        minimumPaymentAmount: student.minimum_payment_amount || null,
+                        nextPaymentDueDate: student.next_payment_due_date ? new Date(student.next_payment_due_date) : null,
+                        lastPaymentDate: student.last_payment_date ? new Date(student.last_payment_date) : null,
+                        lastPaymentAmount: student.last_payment_amount || null,
+                        originationDate: student.origination_date ? new Date(student.origination_date) : null,
+                        originationPrincipalAmount: student.origination_principal_amount || null,
+                      },
+                    });
+                  }
+                }
+              } catch (error) {
+                console.error(`Error fetching liability data for ${account.name}:`, error);
+              }
+            }
 
             // Download transactions for this account
             try {
@@ -572,7 +524,7 @@ async function refreshBalances(): Promise<{
                 existingAccount
               );
               console.log(
-                `Downloaded ${result.numTransactions} transactions for ${account.name}`
+                `Downloaded ${result.downloadLog.numTransactions} transactions for ${account.name}`
               );
             } catch (error) {
               console.error(
@@ -733,7 +685,6 @@ async function main() {
 
     await refreshInstitutions();
     const { changes, totalChange, portfolioSummary } = await refreshBalances();
-    await refreshLiabilities();
 
     if (process.env.SEND_EMAIL === "true") {
       await sendEmail(changes, totalChange, portfolioSummary);
