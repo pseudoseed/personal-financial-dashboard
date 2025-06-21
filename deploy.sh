@@ -145,6 +145,13 @@ refresh() {
     print_success "Refresh completed"
 }
 
+# Create default user
+create_default_user() {
+    print_status "Creating default user..."
+    $DOCKER_COMPOSE exec -T financial-dashboard npx prisma db execute --schema=/app/prisma/schema.prisma --stdin <<< "INSERT OR IGNORE INTO users (id, email, name, createdAt, updatedAt) VALUES ('default', 'default@example.com', 'Default User', datetime('now'), datetime('now'));"
+    print_success "Default user created (if it didn't exist)"
+}
+
 # Show cron schedule
 cron_schedule() {
     print_status "Current cron schedule:"
@@ -177,6 +184,7 @@ show_help() {
     echo "  status        - Show application status"
     echo "  backup        - Create database backup"
     echo "  refresh       - Manually run refresh script"
+    echo "  create_user   - Create default user manually"
     echo "  cron_schedule - Show cron schedule and options"
     echo "  help          - Show this help message"
     echo ""
@@ -220,6 +228,9 @@ case "${1:-deploy}" in
     refresh)
         check_docker_compose
         refresh
+        ;;
+    create_user)
+        create_default_user
         ;;
     cron_schedule)
         cron_schedule

@@ -59,6 +59,9 @@ The `deploy.sh` script provides easy management commands:
 # Manually run refresh
 ./deploy.sh refresh
 
+# Create default user manually (if needed)
+./deploy.sh create_user
+
 # Show cron schedule
 ./deploy.sh cron_schedule
 
@@ -134,6 +137,20 @@ docker-compose exec financial-dashboard /app/scripts/refresh-data-docker.sh
 ```
 
 ## Configuration
+
+### Database Initialization
+
+The application automatically initializes the database on startup:
+
+1. **Prisma migrations** are applied to set up the database schema
+2. **Default user** is created with ID "default" and email "default@example.com"
+3. **Database file** is created at `/app/data/dev.db` inside the container
+
+If you encounter foreign key constraint errors, you can manually create the default user:
+
+```bash
+./deploy.sh create_user
+```
 
 ### Environment Variables
 

@@ -35,7 +35,12 @@ export async function GET() {
       institution:
         account.plaidItem.institutionName || account.plaidItem.institutionId,
       institutionLogo: account.plaidItem.institutionLogo,
-      balance: account.balances[0],
+      balance: account.balances[0] || {
+        current: 0,
+        available: null,
+        limit: null,
+        date: new Date().toISOString(),
+      },
       lastUpdated: account.balances[0]?.date.toISOString() || null,
       url: account.url,
       metadata: account.metadata,
