@@ -68,16 +68,18 @@ COPY --from=builder /app/scripts ./scripts
 RUN chmod +x scripts/refresh-data-docker.sh scripts/init-db.sh
 
 # Create cron configuration (daily at 6 AM) - run as root
-RUN echo "0 6 * * * su nextjs -c '/app/scripts/refresh-data-docker.sh' >> /app/logs/cron.log 2>&1" > /var/spool/cron/crontabs/root
+RUN echo "0 6 * * * /app/scripts/refresh-data-docker.sh >> /app/logs/cron.log 2>&1" > /var/spool/cron/crontabs/root
 
 # Create startup script that runs both cron (as root) and Next.js (as nextjs)
 RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'echo "Starting cron service..."' >> /app/start.sh && \
     echo 'crond -f -l 2 &' >> /app/start.sh && \
     echo 'echo "Initializing database..."' >> /app/start.sh && \
-    echo 'su nextjs -c "/app/scripts/init-db.sh"' >> /app/start.sh && \
+    echo 'cd /app' >> /app/start.sh && \
+    echo 'export DATABASE_URL="file:/app/data/dev.db"' >> /app/start.sh && \
+    echo 'npx prisma db push --accept-data-loss' >> /app/start.sh && \
     echo 'echo "Starting Next.js application..."' >> /app/start.sh && \
-    echo 'exec su nextjs -c "node server.js"' >> /app/start.sh && \
+    echo 'exec node server.js' >> /app/start.sh && \
     chmod +x /app/start.sh
 
 # Set ownership of app directories
