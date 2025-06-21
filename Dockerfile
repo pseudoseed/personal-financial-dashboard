@@ -44,6 +44,9 @@ ENV NODE_ENV production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Create necessary directories before switching user
+RUN mkdir -p /app/data /app/logs /var/spool/cron/crontabs
+
 # Copy the public folder
 COPY --from=builder /app/public ./public
 
@@ -64,14 +67,8 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/scripts ./scripts
 RUN chmod +x scripts/refresh-data-docker.sh
 
-# Create cron directory and files
-RUN mkdir -p /var/spool/cron/crontabs
-
 # Create cron configuration (daily at 6 AM)
 RUN echo "0 6 * * * /app/scripts/refresh-data-docker.sh >> /app/logs/cron.log 2>&1" > /var/spool/cron/crontabs/root
-
-# Create logs directory
-RUN mkdir -p /app/logs
 
 # Create startup script that runs both Next.js and cron
 RUN echo '#!/bin/bash' > /app/start.sh && \
@@ -81,6 +78,9 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'exec node server.js' >> /app/start.sh && \
     chmod +x /app/start.sh
 
+# Set ownership of all app directories to nextjs user
+RUN chown -R nextjs:nodejs /app
+
 USER nextjs
 
 EXPOSE 3000
@@ -88,10 +88,6 @@ EXPOSE 3000
 ENV PORT 3000
 # set hostname to localhost
 ENV HOSTNAME "0.0.0.0"
-
-# Create a non-root user to run the application
-RUN mkdir -p /app/data
-VOLUME ["/app/data"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
