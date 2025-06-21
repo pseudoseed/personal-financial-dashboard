@@ -25,18 +25,21 @@ export DATABASE_URL="file:/app/data/dev.db"
 # Log start time
 echo "=== Starting refresh at $(date) ==="
 
-# Check if Node.js is available
-if ! command -v node &> /dev/null; then
-    echo "ERROR: Node.js is not available" >&2
+# Check if curl is available
+if ! command -v curl &> /dev/null; then
+    echo "ERROR: curl is not available" >&2
     exit 1
 fi
 
-echo "Using Node.js version: $(node -v)"
-echo "Node.js path: $(which node)"
+echo "Using curl to trigger refresh endpoints..."
 
-# Run the compiled JavaScript script
-echo "Running refresh-data.js..."
-node "$SCRIPT_DIR/refresh-data.js" 2>&1
+# Trigger account refresh via API
+echo "Triggering account refresh..."
+curl -X POST http://localhost:3000/api/accounts/refresh 2>/dev/null || echo "Account refresh endpoint not available"
+
+# Trigger transaction sync for all accounts
+echo "Triggering transaction sync..."
+curl -X POST http://localhost:3000/api/accounts/sync 2>/dev/null || echo "Transaction sync endpoint not available"
 
 # Log completion
 echo "=== Refresh completed at $(date) ==="

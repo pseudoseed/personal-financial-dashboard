@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { plaidClient } from "@/lib/plaid";
 import type { PlaidItem } from "@prisma/client";
+import { downloadTransactions } from "@/lib/transactions";
 
 interface InstitutionChange {
   name: string;
@@ -215,125 +216,166 @@ async function refreshCoinbaseAccounts(
   }
 }
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
-    // Check if we're refreshing a specific institution
-    const { institutionId } = await request.json().catch(() => ({}));
+    console.log("Starting full account refresh process...");
 
-    // Get items to refresh
-    const where = {
-      accessToken: { not: "manual" },
-      ...(institutionId ? { institutionId } : {}),
-    };
+    // Get all Plaid items
+    const items = await prisma.plaidItem.findMany({
+      where: {
+        accessToken: {
+          not: "manual",
+        },
+      },
+      include: {
+        accounts: true,
+      },
+    });
 
-    const items = await prisma.plaidItem.findMany({ where });
+    let totalAccountsRefreshed = 0;
+    let totalLiabilityAccountsUpdated = 0;
 
-    const changes: InstitutionChange[] = [];
-    let totalChange = 0;
-
-    // Refresh Plaid accounts
-    const plaidItems = items.filter(
-      (item: PlaidItem) => item.provider === "plaid"
-    );
-    for (const item of plaidItems) {
+    for (const item of items) {
       try {
-        console.log("Refreshing Plaid account:", item.institutionName);
-        const response = await plaidClient.accountsBalanceGet({
-          access_token: item.accessToken,
-        });
+        console.log(`Processing item: ${item.institutionName || item.institutionId}`);
 
-        for (const account of response.data.accounts) {
-          const existingAccount = await prisma.account.findFirst({
-            where: { plaidId: account.account_id },
-            include: {
-              balances: {
-                orderBy: {
-                  date: "desc",
-                },
-                take: 1,
-              },
+        if (item.provider === "plaid") {
+          // Get updated account balances from Plaid
+          const response = await plaidClient.accountsBalanceGet({
+            access_token: item.accessToken,
+            options: {
+              min_last_updated_datetime: new Date(
+                Date.now() - 24 * 60 * 60 * 1000
+              ).toISOString(),
             },
           });
 
-          if (existingAccount) {
-            const previousBalance = existingAccount.balances[0]?.current || 0;
-            const currentBalance = account.balances.current || 0;
-            const change = currentBalance - previousBalance;
-
-            await prisma.accountBalance.create({
-              data: {
-                accountId: existingAccount.id,
-                current: currentBalance,
-                available: account.balances.available || null,
-                limit: account.balances.limit || null,
+          for (const plaidAccount of response.data.accounts) {
+            const existingAccount = await prisma.account.findUnique({
+              where: { plaidId: plaidAccount.account_id },
+              include: {
+                plaidItem: true,
+                balances: {
+                  orderBy: { date: "desc" },
+                  take: 1,
+                },
               },
             });
 
-            if (Math.abs(change) > 0.01) {
-              const institutionName = item.institutionName || "Unknown Bank";
-              let institutionChange = changes.find(
-                (ic) => ic.name === institutionName
-              );
-
-              if (!institutionChange) {
-                institutionChange = {
-                  name: institutionName,
-                  accounts: [],
-                };
-                changes.push(institutionChange);
-              }
-
-              institutionChange.accounts.push({
-                name: existingAccount.name,
-                nickname: existingAccount.nickname,
-                previousBalance,
-                currentBalance,
-                change,
-                isPositive: change > 0,
+            if (existingAccount) {
+              // Update account details if needed
+              await prisma.account.update({
+                where: { id: existingAccount.id },
+                data: {
+                  name: plaidAccount.name,
+                  mask: plaidAccount.mask,
+                  type: plaidAccount.type,
+                  subtype: plaidAccount.subtype || null,
+                },
               });
 
-              totalChange += change;
+              // Create new balance record
+              await prisma.accountBalance.create({
+                data: {
+                  accountId: existingAccount.id,
+                  current: plaidAccount.balances.current || 0,
+                  available: plaidAccount.balances.available || null,
+                  limit: plaidAccount.balances.limit || null,
+                },
+              });
+
+              // Fetch liability data for credit/loan accounts
+              if ((plaidAccount.type === "credit" || plaidAccount.type === "loan")) {
+                try {
+                  console.log(`Fetching liability data for ${plaidAccount.name}...`);
+                  const liabilityResponse = await plaidClient.liabilitiesGet({
+                    access_token: item.accessToken,
+                    options: {
+                      account_ids: [plaidAccount.account_id],
+                    },
+                  });
+
+                  const liabilities = liabilityResponse.data.liabilities;
+                  if (liabilities) {
+                    // Handle credit card liabilities
+                    const credit = liabilities.credit?.find(c => c.account_id === plaidAccount.account_id);
+                    if (credit) {
+                      console.log(`Found credit liability data for ${plaidAccount.name}`);
+                      await prisma.account.update({
+                        where: { id: existingAccount.id },
+                        data: {
+                          lastStatementBalance: credit.last_statement_balance || null,
+                          minimumPaymentAmount: credit.minimum_payment_amount || null,
+                          nextPaymentDueDate: credit.next_payment_due_date ? new Date(credit.next_payment_due_date) : null,
+                          lastPaymentDate: credit.last_payment_date ? new Date(credit.last_payment_date) : null,
+                          lastPaymentAmount: credit.last_payment_amount || null,
+                        },
+                      });
+                      totalLiabilityAccountsUpdated++;
+                    }
+
+                    // Handle mortgage liabilities
+                    const mortgage = liabilities.mortgage?.find(m => m.account_id === plaidAccount.account_id);
+                    if (mortgage) {
+                      console.log(`Found mortgage liability data for ${plaidAccount.name}`);
+                      await prisma.account.update({
+                        where: { id: existingAccount.id },
+                        data: {
+                          lastStatementBalance: mortgage.last_payment_amount || null,
+                          minimumPaymentAmount: mortgage.next_monthly_payment || null,
+                          nextPaymentDueDate: mortgage.next_payment_due_date ? new Date(mortgage.next_payment_due_date) : null,
+                          lastPaymentDate: mortgage.last_payment_date ? new Date(mortgage.last_payment_date) : null,
+                          lastPaymentAmount: mortgage.last_payment_amount || null,
+                          nextMonthlyPayment: mortgage.next_monthly_payment || null,
+                          originationDate: mortgage.origination_date ? new Date(mortgage.origination_date) : null,
+                          originationPrincipalAmount: mortgage.origination_principal_amount || null,
+                        },
+                      });
+                      totalLiabilityAccountsUpdated++;
+                    }
+
+                    // Handle student loan liabilities
+                    const student = liabilities.student?.find(s => s.account_id === plaidAccount.account_id);
+                    if (student) {
+                      console.log(`Found student loan liability data for ${plaidAccount.name}`);
+                      await prisma.account.update({
+                        where: { id: existingAccount.id },
+                        data: {
+                          lastStatementBalance: student.last_payment_amount || null,
+                          minimumPaymentAmount: student.minimum_payment_amount || null,
+                          nextPaymentDueDate: student.next_payment_due_date ? new Date(student.next_payment_due_date) : null,
+                          lastPaymentDate: student.last_payment_date ? new Date(student.last_payment_date) : null,
+                          lastPaymentAmount: student.last_payment_amount || null,
+                          originationDate: student.origination_date ? new Date(student.origination_date) : null,
+                          originationPrincipalAmount: student.origination_principal_amount || null,
+                        },
+                      });
+                      totalLiabilityAccountsUpdated++;
+                    }
+                  }
+                } catch (error) {
+                  console.error(`Error fetching liability data for ${plaidAccount.name}:`, error);
+                }
+              }
+
+              totalAccountsRefreshed++;
             }
           }
         }
       } catch (error) {
-        console.error(
-          `Error refreshing Plaid item ${item.id} ${item.institutionName}:`,
-          error
-        );
+        console.error(`Error processing item ${item.institutionName || item.institutionId}:`, error);
       }
     }
 
-    // Refresh Coinbase accounts
-    const coinbaseItems = items.filter(
-      (item: PlaidItem) => item.provider === "coinbase"
-    );
-    for (const item of coinbaseItems) {
-      try {
-        const institutionChange: InstitutionChange = {
-          name: item.institutionName || "Coinbase",
-          accounts: [],
-        };
-        const change = await refreshCoinbaseAccounts(item, institutionChange);
-        if (institutionChange.accounts.length > 0) {
-          changes.push(institutionChange);
-          totalChange += change;
-        }
-      } catch (error) {
-        console.error(
-          `Error refreshing Coinbase item ${item.id} / ${item.institutionName}:`,
-          error
-        );
-      }
-    }
+    console.log(`Refresh completed: ${totalAccountsRefreshed} accounts refreshed, ${totalLiabilityAccountsUpdated} liability accounts updated`);
 
     return NextResponse.json({
       success: true,
-      changes,
-      totalChange,
+      accountsRefreshed: totalAccountsRefreshed,
+      liabilityAccountsUpdated: totalLiabilityAccountsUpdated,
     });
   } catch (error) {
-    console.error("Error refreshing accounts:", error);
+    console.error("Error in account refresh:", error);
     return NextResponse.json(
       { error: "Failed to refresh accounts" },
       { status: 500 }
