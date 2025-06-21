@@ -26,6 +26,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   BuildingLibraryIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/solid";
 import { TransactionList } from "@/components/TransactionList";
 import {
@@ -76,6 +77,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [isTransactionsExpanded, setIsTransactionsExpanded] = useState(false);
   const [isInverting, setIsInverting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const displayBalance = (amount: number | null) => {
@@ -284,6 +286,30 @@ export function AccountDetails({ account }: AccountDetailsProps) {
     }
   };
 
+  const handleDownload = async () => {
+    setIsDownloading(true);
+
+    try {
+      const response = await fetch(`/api/accounts/${account.id}/transactions`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to sync transactions");
+      }
+
+      // Refresh the page to show new transactions
+      window.location.reload();
+    } catch (err) {
+      // You might want to show an error to the user
+      console.error(err);
+      alert(err instanceof Error ? err.message : "An error occurred during sync.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto">
@@ -485,47 +511,41 @@ export function AccountDetails({ account }: AccountDetailsProps) {
         {/* Account Settings Section Card */}
         <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Account Settings</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="divide-y divide-gray-200 dark:divide-zinc-700">
+            <div className="flex justify-between items-center py-3">
               <div>
-                <label htmlFor={`invert-toggle-${account.id}`} className="font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                  Invert Transaction Signs
-                </label>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Invert Transaction Signs</span>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Flip positive/negative amounts for this account.</p>
               </div>
               <button
-                id={`invert-toggle-${account.id}`}
                 onClick={handleToggleInversion}
                 disabled={isInverting}
-                aria-pressed={!!account.invertTransactions}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 dark:focus:ring-offset-zinc-800 ${
-                  account.invertTransactions ? "bg-purple-600" : "bg-gray-300 dark:bg-zinc-600"
+                className={`relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                  account.invertTransactions ? "bg-purple-600" : "bg-gray-200"
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    account.invertTransactions ? "translate-x-6" : "translate-x-1"
+                  aria-hidden="true"
+                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200 ${
+                    account.invertTransactions
+                      ? "translate-x-5"
+                      : "translate-x-0"
                   }`}
                 />
               </button>
             </div>
-            {isInverting && (
-              <div className="text-right text-xs text-blue-600">
-                Updating transaction signs...
-              </div>
-            )}
-            <div className="flex items-center justify-between">
+            <div className="flex justify-between items-center py-3">
               <div>
-                <label className="font-medium text-gray-700 dark:text-gray-300">
-                  Download Transactions
-                </label>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Download a CSV file of all transactions for this account.</p>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Sync Transactions</span>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Pull the latest transactions for this account.</p>
               </div>
               <button
-                disabled
-                className="px-4 py-2 text-sm bg-gray-200 dark:bg-zinc-700 text-gray-500 dark:text-gray-400 rounded-lg cursor-not-allowed"
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-purple-600 dark:bg-purple-500 text-white rounded-md hover:bg-purple-700 dark:hover:bg-purple-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Download
+                <ArrowDownTrayIcon className="w-4 h-4" />
+                {isDownloading ? "Syncing..." : "Sync"}
               </button>
             </div>
           </div>
@@ -552,14 +572,14 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                 className="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-zinc-600 transition-colors"
                 title="Keep only the most recent record for each day"
               >
-                Clean Daily Records
+                Clean Daily
               </button>
               <button
                 onClick={handleCleanMonthlyRecords}
                 className="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-zinc-600 transition-colors"
                 title="Keep only the most recent record for each month"
               >
-                Clean Monthly Records
+                Clean Monthly
               </button>
             </div>
           </div>
