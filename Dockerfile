@@ -44,7 +44,7 @@ ENV NODE_ENV production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Create necessary directories before switching user
+# Create necessary directories
 RUN mkdir -p /app/data /app/logs /var/spool/cron/crontabs
 
 # Copy the public folder
@@ -65,23 +65,23 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy scripts for cron jobs
 COPY --from=builder /app/scripts ./scripts
-RUN chmod +x scripts/refresh-data-docker.sh
+RUN chmod +x scripts/refresh-data-docker.sh scripts/init-db.sh
 
-# Create cron configuration (daily at 6 AM)
-RUN echo "0 6 * * * /app/scripts/refresh-data-docker.sh >> /app/logs/cron.log 2>&1" > /var/spool/cron/crontabs/root
+# Create cron configuration (daily at 6 AM) - run as root
+RUN echo "0 6 * * * su nextjs -c '/app/scripts/refresh-data-docker.sh' >> /app/logs/cron.log 2>&1" > /var/spool/cron/crontabs/root
 
-# Create startup script that runs both Next.js and cron
+# Create startup script that runs both cron (as root) and Next.js (as nextjs)
 RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'echo "Starting cron service..."' >> /app/start.sh && \
     echo 'crond -f -l 2 &' >> /app/start.sh && \
+    echo 'echo "Initializing database..."' >> /app/start.sh && \
+    echo 'su nextjs -c "/app/scripts/init-db.sh"' >> /app/start.sh && \
     echo 'echo "Starting Next.js application..."' >> /app/start.sh && \
-    echo 'exec node server.js' >> /app/start.sh && \
+    echo 'exec su nextjs -c "node server.js"' >> /app/start.sh && \
     chmod +x /app/start.sh
 
-# Set ownership of all app directories to nextjs user
+# Set ownership of app directories
 RUN chown -R nextjs:nodejs /app
-
-USER nextjs
 
 EXPOSE 3000
 
