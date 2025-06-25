@@ -12,6 +12,30 @@ export async function POST(request: Request) {
       );
     }
 
+    // Handle manual accounts differently
+    if (institutionId === "manual") {
+      // Find and delete all manual PlaidItems (this will cascade delete all associated manual accounts)
+      const deletedItems = await prisma.plaidItem.deleteMany({
+        where: { 
+          accessToken: "manual",
+          institutionId: "manual"
+        },
+      });
+
+      if (deletedItems.count === 0) {
+        return NextResponse.json(
+          { error: "No manual accounts found" },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        message: `Deleted ${deletedItems.count} manual account(s)` 
+      });
+    }
+
+    // Handle regular institutions
     // Find and delete the PlaidItem (this will cascade delete all associated accounts)
     const deletedItem = await prisma.plaidItem.deleteMany({
       where: { institutionId },
@@ -24,7 +48,10 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ 
+      success: true, 
+      message: `Disconnected institution and deleted ${deletedItem.count} account(s)` 
+    });
   } catch (error) {
     console.error("Error disconnecting account:", error);
     return NextResponse.json(

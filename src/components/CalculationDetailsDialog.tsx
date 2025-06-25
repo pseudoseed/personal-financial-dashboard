@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { XMarkIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
 import { formatBalance } from "@/lib/formatters";
 import { useSensitiveData } from "@/app/providers";
+import { useDialogDismiss } from "@/lib/useDialogDismiss";
 
 interface CalculationDetailsDialogProps {
   isOpen: boolean;
@@ -42,7 +43,13 @@ export function CalculationDetailsDialog({
   data 
 }: CalculationDetailsDialogProps) {
   const { showSensitiveData } = useSensitiveData();
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useDialogDismiss({
+    isOpen,
+    onClose,
+    allowEscape: true,
+    allowClickOutside: true,
+    requireInput: false,
+  });
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -25,6 +26,7 @@ import {
   ChevronUpIcon,
   BuildingLibraryIcon,
   ArrowDownTrayIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/solid";
 import { TransactionList } from "@/components/TransactionList";
 import {
@@ -71,6 +73,7 @@ interface AccountDetailsProps {
 
 export function AccountDetails({ account }: AccountDetailsProps) {
   const { showSensitiveData } = useSensitiveData();
+  const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [newNickname, setNewNickname] = useState("");
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
@@ -275,8 +278,10 @@ export function AccountDetails({ account }: AccountDetailsProps) {
       if (!response.ok) {
         throw new Error('Failed to toggle inversion status');
       }
-      // Refresh the page to show updated data
-      window.location.reload();
+      // Invalidate relevant queries instead of reloading
+      await queryClient.invalidateQueries({ queryKey: ["account-history", account.id] });
+      await queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      await queryClient.invalidateQueries({ queryKey: ["accountsWithHistory"] });
     } catch (error) {
       console.error('Error toggling inversion status:', error);
       alert('Failed to toggle transaction sign inversion. Please try again.');
@@ -298,8 +303,11 @@ export function AccountDetails({ account }: AccountDetailsProps) {
         throw new Error(data.error || "Failed to sync transactions");
       }
 
-      // Refresh the page to show new transactions
-      window.location.reload();
+      // Invalidate relevant queries instead of reloading
+      await queryClient.invalidateQueries({ queryKey: ["account-history", account.id] });
+      await queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      await queryClient.invalidateQueries({ queryKey: ["accountsWithHistory"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
     } catch (err) {
       // You might want to show an error to the user
       console.error(err);
@@ -322,8 +330,124 @@ export function AccountDetails({ account }: AccountDetailsProps) {
 
   if (!history?.length) {
     return (
-      <div className="max-w-7xl mx-auto">
-        <p>No history found for this account.</p>
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Grid container for top cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          
+          {/* Institution and Account Info Card */}
+          <div className="card flex flex-col">
+            <div className="flex items-start gap-4">
+              {showSensitiveData && account.plaidItem.institutionLogo ? (
+                <img
+                  src={account.plaidItem.institutionLogo}
+                  alt={account.plaidItem.institutionName || "Bank logo"}
+                  className="w-12 h-12 object-contain"
+                />
+              ) : (
+                <BuildingLibraryIcon className="w-12 h-12 text-gray-400" />
+              )}
+              <div className="flex-grow">
+                <div className="text-sm text-surface-600 dark:text-gray-400">
+                  {showSensitiveData ? account.plaidItem.institutionName : "••••••••••"}
+                </div>
+                <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-dark-900">
+                  {showSensitiveData ? account.name : "••••••••••"}
+                </h1>
+                <div className="flex items-center text-surface-600 dark:text-gray-400">
+                  <span className="mr-2">{showSensitiveData ? (account.nickname || "No nickname") : "••••••••••"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Account Settings Card */}
+          <div className="card flex flex-col">
+            <h2 className="text-lg font-semibold text-surface-600 dark:text-gray-200 mb-4">
+              Account Settings
+            </h2>
+            <div className="space-y-3">
+              <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="w-full px-4 py-3 bg-primary-600 dark:bg-primary-500 text-white rounded hover:bg-primary-700 dark:hover:bg-primary-400 transition-colors touch-manipulation disabled:opacity-50"
+                style={{ minHeight: '44px' }}
+              >
+                {isDownloading ? (
+                  <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                ) : (
+                  <ArrowDownTrayIcon className="w-5 h-5" />
+                )}
+                <span className="ml-2">
+                  {isDownloading ? "Downloading..." : "Download Transactions"}
+                </span>
+              </button>
+              
+              <button
+                onClick={handleToggleInversion}
+                disabled={isInverting}
+                className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 text-surface-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors touch-manipulation disabled:opacity-50"
+                style={{ minHeight: '44px' }}
+              >
+                {isInverting ? (
+                  <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                ) : (
+                  <ArrowPathIcon className="w-5 h-5" />
+                )}
+                <span className="ml-2">
+                  {isInverting ? "Updating..." : `Toggle Transaction Sign (${account.invertTransactions ? "Inverted" : "Normal"})`}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* No History Message */}
+        <div className="card">
+          <div className="text-center py-12">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
+              <svg
+                className="h-6 w-6 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              No Balance History Found
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+              This account doesn't have any balance history yet. You can either refresh the account data or manually add an initial balance.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+              >
+                {isDownloading ? (
+                  <ArrowPathIcon className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
+                )}
+                {isDownloading ? "Downloading..." : "Download Transactions"}
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              >
+                <ArrowPathIcon className="w-4 h-4 mr-2" />
+                Refresh Page
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { formatBalance } from "@/lib/formatters";
 import { format } from "date-fns";
+import { useDialogDismiss } from "@/lib/useDialogDismiss";
 
 interface Transaction {
   id: string;
@@ -28,9 +29,17 @@ export function DuplicateTransactionModal({
   timeSpan,
   isMasked = false
 }: DuplicateTransactionModalProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const [sortField, setSortField] = useState<'date' | 'amount'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Use the dialog dismiss hook - Duplicate transaction modal doesn't require input
+  const dialogRef = useDialogDismiss({
+    isOpen,
+    onClose,
+    allowEscape: true,
+    allowClickOutside: true,
+    requireInput: false,
+  });
 
   // Sort transactions
   const sortedTransactions = [...duplicateTransactions].sort((a, b) => {
@@ -44,37 +53,6 @@ export function DuplicateTransactionModal({
     
     return sortDirection === 'asc' ? comparison : -comparison;
   });
-
-  // Handle ESC key and click outside
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dialogRef.current && !dialogRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    // Add event listeners
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('mousedown', handleClickOutside);
-
-    // Prevent body scroll when dialog is open
-    document.body.style.overflow = 'hidden';
-
-    // Cleanup
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
 
   const handleSort = (field: 'date' | 'amount') => {
     if (sortField === field) {

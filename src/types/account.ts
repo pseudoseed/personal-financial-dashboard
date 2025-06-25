@@ -23,6 +23,8 @@ export interface Account {
   balances?: AccountBalance[];
   plaidItem?: {
     institutionId: string;
+    accessToken?: string;
+    provider?: string;
   };
   url?: string | null;
   lastUpdated?: string | null;

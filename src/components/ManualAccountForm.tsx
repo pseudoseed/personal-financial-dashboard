@@ -103,7 +103,7 @@ export function ManualAccountForm({
           onChange={(e) =>
             setFormData((prev) => ({ ...prev, name: e.target.value }))
           }
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
           placeholder="e.g., Personal Checking"
         />
       </div>
@@ -118,7 +118,7 @@ export function ManualAccountForm({
           onChange={(e) =>
             setFormData((prev) => ({ ...prev, url: e.target.value }))
           }
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
           placeholder="e.g., https://www.zillow.com/homedetails/..."
         />
         <p className="mt-1 text-sm text-gray-500">
@@ -140,7 +140,7 @@ export function ManualAccountForm({
               subtype: subtypes[e.target.value as AccountType][0].value,
             }))
           }
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
         >
           {accountTypes.map((type) => (
             <option key={type.value} value={type.value}>
@@ -160,7 +160,7 @@ export function ManualAccountForm({
           onChange={(e) =>
             setFormData((prev) => ({ ...prev, subtype: e.target.value }))
           }
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
         >
           {subtypes[formData.type].map((subtype) => (
             <option key={subtype.value} value={subtype.value}>
@@ -186,7 +186,7 @@ export function ManualAccountForm({
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, balance: e.target.value }))
             }
-            className="pl-7 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            className="pl-7 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="0.00"
           />
         </div>
@@ -211,7 +211,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, address: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
 
@@ -229,7 +229,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, city: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
 
@@ -247,7 +247,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, state: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
 
@@ -265,7 +265,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, zipCode: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
 
@@ -285,7 +285,7 @@ export function ManualAccountForm({
                     },
                   }))
                 }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {propertyTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -309,7 +309,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, squareFeet: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
 
@@ -327,7 +327,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, yearBuilt: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
 
@@ -353,7 +353,7 @@ export function ManualAccountForm({
                       },
                     }))
                   }
-                  className="pl-7 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="pl-7 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -375,7 +375,7 @@ export function ManualAccountForm({
                     },
                   }))
                 }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
           </div>

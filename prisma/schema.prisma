@@ -124,6 +124,7 @@ model Transaction {
   categoryAi              String?
   anomalies               AnomalyDetectionResult[]
   account                 Account                  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  recurringExpenseTransactions RecurringExpenseTransaction[]
 
   @@unique([accountId, plaidId])
   @@index([date])
@@ -153,6 +154,7 @@ model User {
   anomalySettings    AnomalyDetectionSettings?
   emailNotifications EmailNotification[]
   dismissalRules     AnomalyDismissalRule[]
+  recurringExpenses  RecurringExpense[]
 
   @@map("users")
 }
@@ -221,13 +223,47 @@ model EmailNotification {
 model AnomalyDismissalRule {
   id          String   @id @default(cuid())
   userId      String
-  pattern     String   // The pattern to match (transaction name, merchant, etc.)
-  patternType String   // exact_name, merchant_name, category, amount_range
-  reason      String?  // Optional reason for dismissal
-  dismissedAt DateTime @default(now())
+  ruleType    String   // 'merchant', 'category', 'amount_range'
+  ruleValue   String   // JSON string containing rule criteria
+  createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([patternType])
-  @@index([dismissedAt])
+}
+
+model RecurringExpense {
+  id                    String                        @id @default(cuid())
+  userId                String                        @default("default")
+  name                  String                        // Human-readable name (e.g., "Netflix Subscription")
+  merchantName          String                        // Original merchant name from transactions
+  category              String?                       // Transaction category
+  amount                Float                         // Expected amount
+  frequency             String                        // 'monthly', 'weekly', 'quarterly', 'yearly'
+  nextDueDate           DateTime?                     // When the next payment is expected
+  lastTransactionDate   DateTime                      // Date of last occurrence
+  confidence            Int                           // Detection confidence score (0-100)
+  isActive              Boolean                       @default(true)
+  isConfirmed           Boolean                       @default(false)
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  user                  User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions          RecurringExpenseTransaction[]
+
+  @@index([userId])
+  @@index([merchantName])
+  @@index([isActive])
+  @@index([isConfirmed])
+}
+
+model RecurringExpenseTransaction {
+  id                  String           @id @default(cuid())
+  recurringExpenseId  String
+  transactionId       String
+  createdAt           DateTime         @default(now())
+  recurringExpense    RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
+  transaction         Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@unique([recurringExpenseId, transactionId])
+  @@index([recurringExpenseId])
+  @@index([transactionId])
 }

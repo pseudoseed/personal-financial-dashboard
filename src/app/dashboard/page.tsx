@@ -1,80 +1,217 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { DashboardMetrics } from "@/components/DashboardMetrics";
-import { ListStatCard } from "@/components/ListStatCard";
-import { Account } from "@/types/account";
-import { BillsVsCashCard } from "@/components/BillsVsCashCard";
-import TopVendorsCard from '@/components/TopVendorsCard';
-import DashboardSidebarCards from '@/components/DashboardSidebarCards';
-import { QuickInsights } from "@/components/QuickInsights";
-import { useSensitiveData } from "@/app/providers";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { DashboardSummary } from "@/components/DashboardSummary";
+import { DashboardMetrics } from "@/components/DashboardMetrics";
+import DashboardSidebarCards from "@/components/DashboardSidebarCards";
+import { AccountCard } from "@/components/AccountCard";
+import { Account } from "@/types/account";
+import { DashboardSkeleton } from "@/components/LoadingStates";
 import { AuthenticationAlerts } from "@/components/AuthenticationAlerts";
+import { RecurringExpensesCard } from '@/components/RecurringExpensesCard';
 
-async function getAccounts(): Promise<Account[]> {
+// Fetch accounts data
+async function fetchAccounts(): Promise<Account[]> {
+  const response = await fetch("/api/accounts");
+  if (!response.ok) {
+    throw new Error("Failed to fetch accounts");
+  }
+  return response.json();
+}
+
+// Check if data needs refresh
+function shouldAutoRefresh(accounts: Account[]): boolean {
+  if (!accounts || accounts.length === 0) return false;
+  
+  const now = Date.now();
+  const sixHoursAgo = now - (6 * 60 * 60 * 1000); // 6 hours
+  
+  return accounts.some(account => {
+    if (!account.balances || account.balances.length === 0) return true;
+    const lastBalance = account.balances[0];
+    const lastUpdateTime = new Date(lastBalance.date).getTime();
+    return lastUpdateTime < sixHoursAgo;
+  });
+}
+
+// Check if transactions need sync
+function shouldAutoSyncTransactions(accounts: Account[]): boolean {
+  if (!accounts || accounts.length === 0) return false;
+  
+  const now = Date.now();
+  const fourHoursAgo = now - (4 * 60 * 60 * 1000); // 4 hours
+  
+  return accounts.some(account => {
+    if (!account.lastSyncTime) return true;
+    const lastSyncTime = new Date(account.lastSyncTime).getTime();
+    return lastSyncTime < fourHoursAgo;
+  });
+}
+
+// Auto-refresh function
+async function performAutoRefresh(includeTransactions: boolean = false) {
   try {
-    const response = await fetch("/api/accounts");
-    if (!response.ok) throw new Error("Failed to fetch accounts");
-    return response.json();
+    console.log("Performing auto-refresh...");
+    const response = await fetch("/api/accounts/refresh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        manual: false,
+        userId: "default",
+        includeTransactions,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Auto-refresh failed:", response.statusText);
+      return;
+    }
+
+    const data = await response.json();
+    console.log("Auto-refresh completed:", {
+      refreshed: data.accountsRefreshed,
+      skipped: data.accountsSkipped,
+      errors: data.errors,
+      transactionSync: data.transactionSync,
+    });
   } catch (error) {
-    console.error("Error fetching accounts:", error);
-    return [];
+    console.error("Error during auto-refresh:", error);
   }
 }
 
 export default function DashboardPage() {
-  const { showSensitiveData } = useSensitiveData();
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [hasAutoRefreshed, setHasAutoRefreshed] = useState(false);
+  const [hasAutoSyncedTransactions, setHasAutoSyncedTransactions] = useState(false);
 
+  const {
+    data: accounts,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: fetchAccounts,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+
+  // Auto-refresh logic
   useEffect(() => {
-    const fetchAccounts = async () => {
-      setIsLoading(true);
-      const accountsData = await getAccounts();
-      setAccounts(accountsData);
-      setIsLoading(false);
-    };
-    fetchAccounts();
-  }, []);
+    if (accounts && !hasAutoRefreshed) {
+      const needsRefresh = shouldAutoRefresh(accounts);
+      const needsTransactionSync = shouldAutoSyncTransactions(accounts);
+      
+      if (needsRefresh) {
+        console.log("Data is stale, performing auto-refresh...");
+        performAutoRefresh(needsTransactionSync);
+        setHasAutoRefreshed(true);
+        setHasAutoSyncedTransactions(needsTransactionSync);
+      } else if (needsTransactionSync && !hasAutoSyncedTransactions) {
+        console.log("Transactions are stale, performing transaction sync...");
+        // Only sync transactions if balance data is fresh
+        fetch("/api/transactions/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            manual: false,
+            userId: "default",
+          }),
+        }).catch(error => {
+          console.error("Error during auto transaction sync:", error);
+        });
+        setHasAutoSyncedTransactions(true);
+      }
+    }
+  }, [accounts, hasAutoRefreshed, hasAutoSyncedTransactions]);
 
   if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (error) {
     return (
-      <div className="animate-pulse space-y-6">
-        <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="card min-h-[120px] animate-pulse" />
-          ))}
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <h2 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
+            Error Loading Dashboard
+          </h2>
+          <p className="text-red-700 dark:text-red-300">
+            {error instanceof Error ? error.message : "An unknown error occurred"}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
   }
 
-  const connectedAccounts = accounts.filter(a => a.institution);
-  const manualAccounts = accounts.filter(a => !a.institution);
+  if (!accounts || accounts.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-100 mb-4">
+            Welcome to Your Financial Dashboard
+          </h1>
+          <p className="text-surface-600 dark:text-surface-400 mb-8">
+            Get started by connecting your first account.
+          </p>
+          <AuthenticationAlerts />
+        </div>
+      </div>
+    );
+  }
 
+  const visibleAccounts = accounts.filter((account) => !account.hidden);
+  
+  // Prepare account status stats for sidebar
+  const connectedAccounts = visibleAccounts.filter(a => a.institution);
+  const manualAccounts = visibleAccounts.filter(a => !a.institution);
   const accountStatusStats = [
     { label: "Connected Accounts", value: connectedAccounts.length },
     { label: "Manual Accounts", value: manualAccounts.length },
-    { label: "Total Accounts", value: accounts.length },
+    { label: "Total Accounts", value: visibleAccounts.length },
   ];
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-        Dashboard
-      </h1>
-      
-      {/* Authentication Alerts */}
-      <AuthenticationAlerts />
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <DashboardSummary accounts={accounts} />
-          <DashboardMetrics accounts={accounts} />
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-surface-900 dark:text-surface-100 mb-2">
+          Financial Dashboard
+        </h1>
+        <p className="text-surface-600 dark:text-surface-400">
+          Your complete financial overview
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-3 space-y-8">
+          <DashboardSummary accounts={visibleAccounts} />
+          <DashboardMetrics accounts={visibleAccounts} />
+          <RecurringExpensesCard />
+          <div>
+            <h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-4">
+              Accounts
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {visibleAccounts.map((account) => (
+                <AccountCard key={account.id} account={account} />
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="space-y-8">
+
+        {/* Sidebar */}
+        <div className="lg:col-span-1">
           <DashboardSidebarCards accountStatusStats={accountStatusStats} />
         </div>
       </div>

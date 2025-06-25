@@ -27,9 +27,8 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-# Install cron and other necessary packages
+# Install necessary packages (removed cron)
 RUN apk add --no-cache \
-    dcron \
     curl \
     bash \
     tzdata
@@ -45,7 +44,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/logs /var/spool/cron/crontabs
+RUN mkdir -p /app/data /app/logs
 
 # Copy the public folder
 COPY --from=builder /app/public ./public
@@ -65,15 +64,10 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy scripts and compile TypeScript
 COPY --from=builder /app/scripts ./scripts
-RUN chmod +x scripts/refresh-data-docker.sh scripts/init-db.sh
+RUN chmod +x scripts/init-db.sh
 
-# Create cron configuration (daily at 6 AM) - run as root
-RUN echo "0 6 * * * /app/scripts/refresh-data-docker.sh >> /app/logs/cron.log 2>&1" > /var/spool/cron/crontabs/root
-
-# Create startup script that runs both cron (as root) and Next.js (as nextjs)
+# Create startup script (removed cron)
 RUN echo '#!/bin/bash' > /app/start.sh && \
-    echo 'echo "Starting cron service..."' >> /app/start.sh && \
-    echo 'crond -f -l 2 &' >> /app/start.sh && \
     echo 'echo "Initializing database..."' >> /app/start.sh && \
     echo 'cd /app' >> /app/start.sh && \
     echo 'export DATABASE_URL="file:/app/data/dev.db"' >> /app/start.sh && \

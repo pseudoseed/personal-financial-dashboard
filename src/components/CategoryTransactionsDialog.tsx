@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { 
   XMarkIcon,
@@ -10,6 +10,9 @@ import {
   FunnelIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
+import { useSensitiveData } from "@/app/providers";
+import { formatBalance } from "@/lib/formatters";
+import { useDialogDismiss } from "@/lib/useDialogDismiss";
 
 interface CategoryTransactionsDialogProps {
   isOpen: boolean;
@@ -56,11 +59,18 @@ export function CategoryTransactionsDialog({
   accountIds, 
   isMasked 
 }: CategoryTransactionsDialogProps) {
+  const { showSensitiveData } = useSensitiveData();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [isMounted, setIsMounted] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useDialogDismiss({
+    isOpen,
+    onClose,
+    allowEscape: true,
+    allowClickOutside: true,
+    requireInput: false,
+  });
 
   // Build API URL with filters
   const buildApiUrl = () => {
@@ -106,37 +116,6 @@ export function CategoryTransactionsDialog({
   useEffect(() => {
     setIsMounted(true);
   }, []);
-
-  // Handle ESC key and click outside
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dialogRef.current && !dialogRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    // Add event listeners
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('mousedown', handleClickOutside);
-
-    // Prevent body scroll when dialog is open
-    document.body.style.overflow = 'hidden';
-
-    // Cleanup
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
 
   const formatCurrency = (amount: number) => {
     return isMasked ? "••••••" : `$${Math.abs(amount).toLocaleString()}`;

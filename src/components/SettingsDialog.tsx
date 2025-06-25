@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
+import { useRouter } from "next/navigation";
 import { 
   Cog6ToothIcon, 
   XMarkIcon,
@@ -14,9 +15,12 @@ import {
   ChevronDownIcon,
   WrenchScrewdriverIcon,
   ExclamationTriangleIcon,
+  ArrowRightIcon,
+  ArrowLeftIcon,
 } from "@heroicons/react/24/outline";
 import { useTheme, useSensitiveData } from "@/app/providers";
 import { Button } from "@/components/ui/Button";
+import { useDialogDismiss } from "@/lib/useDialogDismiss";
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -44,6 +48,7 @@ interface SyncStatus {
 }
 
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
+  const router = useRouter();
   const { darkMode, setDarkMode } = useTheme();
   const { showSensitiveData, toggleSensitiveData } = useSensitiveData();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -56,6 +61,15 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [isFixingAmounts, setIsFixingAmounts] = useState(false);
   const [forceSyncStatus, setForceSyncStatus] = useState<string>("");
   const [isForceSyncing, setIsForceSyncing] = useState(false);
+
+  // Use the dialog dismiss hook - Settings dialog doesn't require input
+  const dialogRef = useDialogDismiss({
+    isOpen,
+    onClose,
+    allowEscape: true,
+    allowClickOutside: true,
+    requireInput: false,
+  });
 
   const allAccounts = accounts.filter(account => account.institution !== 'Coinbase');
   const newAccounts = allAccounts.filter(account => !account.lastSyncTime);
@@ -220,7 +234,10 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
 
   const dialogContent = (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-zinc-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div 
+        ref={dialogRef}
+        className="bg-white dark:bg-zinc-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-zinc-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Settings</h2>
@@ -407,7 +424,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
               <Button
                 onClick={() => {
                   onClose();
-                  window.location.href = '/dashboard/accounts';
+                  router.push('/dashboard/accounts');
                 }}
                 className="w-full justify-start"
                 variant="secondary"
@@ -418,7 +435,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
               <Button
                 onClick={() => {
                   onClose();
-                  window.location.href = '/dashboard/transactions';
+                  router.push('/dashboard/transactions');
                 }}
                 className="w-full justify-start"
                 variant="secondary"

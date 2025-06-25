@@ -1,6 +1,19 @@
 # Active Context
 
 ## Current Focus
+- **Smart Transaction Sync Optimization**: Implemented comprehensive transaction sync optimization for Plaid API usage
+- **Separate Transaction Sync Service**: Created dedicated service for efficient transaction syncing with cursors
+- **Rate Limiting for Transactions**: Added manual transaction sync limits (5 per day) separate from balance refresh
+- **Smart Caching for Transactions**: Implemented TTL-based caching (2-12 hours based on account activity)
+- **Batch Processing**: Grouped accounts by institution to minimize API calls
+- **Auto-sync Logic**: Transactions sync automatically when stale (>4 hours old)
+- **Integration with Balance Refresh**: Optional transaction sync during balance refresh (30% probability)
+- **Smart Refresh Optimization**: Implemented comprehensive cost optimization for Plaid API usage
+- **Cron Job Removal**: Replaced daily cron job with intelligent on-page-load refresh
+- **Rate Limiting**: Added manual refresh limits (3 per day) to control costs
+- **Smart Caching**: Implemented TTL-based caching (2-24 hours based on account activity)
+- **Batch Processing**: Grouped accounts by institution to minimize API calls
+- **Auto-refresh Logic**: Data refreshes automatically when stale (>6 hours old)
 - **Statement Balance Display**: Added statement balance display to Accounts page for better financial overview
 - **Mobile Touch Interaction Improvements**: Enhanced touch targets and interaction feedback for better iPad and mobile device experience
 - **Month-over-Month Chart Dark Mode Fixes**: Addressed dark mode styling issues for chart labels and summary backgrounds
@@ -34,238 +47,84 @@
 
 ## Recent Changes
 
-### Statement Balance Display (Latest)
-- **AccountCard Component**: Added statement balance display to the balance section
-- **AccountDetails Component**: Added statement balance to the account information section
-- **Display Logic**: 
-  - Shows actual statement balance for credit cards and loans (from `lastStatementBalance` field)
-  - Shows $0 for accounts without statement balance (checking, savings, etc.)
-  - Respects sensitive data masking settings
-- **Styling**: Consistent with existing balance display styling
-- **Positioning**: Placed between current balance and available balance for logical flow
-- **Data Source**: Uses existing `lastStatementBalance` field that's already populated from Plaid data
+### Smart Transaction Sync Optimization (Latest)
+- **Transaction Sync Service**: Created `src/lib/transactionSyncService.ts` with intelligent caching and rate limiting
+- **Cache TTL for Transactions**:
+  - High activity accounts (credit, checking): 2 hours
+  - Medium activity accounts (savings): 4 hours
+  - Low activity accounts (investment, loans): 12 hours
+- **Rate Limiting**: Manual transaction syncs limited to 5 per day with 24-hour rolling window
+- **Auto-sync Threshold**: Transactions sync automatically when >4 hours old
+- **Force Sync Threshold**: Full resync when >7 days old
+- **Batch Processing**: Accounts grouped by institution to minimize API calls
 
-### Mobile Touch Interaction Improvements (Previous)
-- **Toggle Switch Enhancement**: Increased account inversion toggle size from h-6 w-11 to h-8 w-14 with larger touch target (44px minimum)
-- **Button Touch Targets**: Enhanced all buttons to meet 44px minimum touch target requirement for mobile devices
-- **Table Action Buttons**: Improved table delete buttons with larger touch targets and better visual feedback
-- **Expandable Sections**: Enhanced expandable section headers with larger touch targets and hover feedback
-- **Global Touch CSS**: Added comprehensive touch-specific CSS improvements:
-  - `touch-manipulation` class for better touch handling
-  - Mobile-specific media queries for improved touch targets
-  - Enhanced touch feedback with scale transforms
-  - Better focus states for touch devices
-  - Reduced hover effects on touch devices with active state alternatives
-- **Component Updates**: Updated all interactive components:
-  - AccountDetails: Larger toggle switches and action buttons
-  - TransactionList: Improved expandable section touch targets
-  - SettingsDialog: Enhanced toggle switches for mobile
-  - TransactionChartSettings: Better category filter and action buttons
-  - AnomalyAlert: Improved action button touch targets
-  - AccountCard: Enhanced button touch targets and feedback
-- **Button Variants**: Updated button component to include:
-  - `touch-manipulation` class for better touch handling
-  - `active:scale-95` for touch feedback
-  - Minimum height requirements for all button sizes
-- **Visual Feedback**: Added touch-specific visual feedback:
-  - Scale transforms on active states
-  - Better transition timing for touch interactions
-  - Improved focus states for accessibility
+### Smart Refresh Optimization (Previous)
+- **Removed Daily Cron Job**: Eliminated the daily 6 AM cron job that was making ~30 requests per day
+- **Smart Refresh Service**: Created `src/lib/refreshService.ts` with intelligent caching and rate limiting
+- **Cache TTL for Balances**:
+  - High activity accounts (credit, checking): 2 hours
+  - Medium activity accounts (savings): 4 hours
+  - Low activity accounts (investment, loans): 24 hours
+- **Rate Limiting**: Manual refreshes limited to 3 per day with 24-hour rolling window
+- **Auto-refresh Logic**: Data refreshes automatically when stale (>6 hours old)
+- **Batch Processing**: Accounts grouped by institution to minimize API calls
 
-### Month-over-Month Chart Dark Mode Fixes (Previous)
-- **Chart Label Colors**: Updated chart labels to use a lighter color in dark mode (`#9ca3af`) for better readability
-- **Summary Backgrounds**: Corrected the background color for summary metrics and category changes to use the proper dark mode color (`dark:bg-zinc-800`) instead of a bright one
+### API Endpoints
+- **`/api/accounts/refresh`**: Updated to support optional transaction syncing
+- **`/api/transactions/sync`**: New endpoint for dedicated transaction syncing
+- **Rate Limiting**: Both endpoints have separate rate limits and error handling
 
-### Analytics Page Card Styling Standardization (Previous)
-- **AccountTypeDistribution Component**: Updated to use standardized `.card` class and proper text colors (`text-surface-600 dark:text-gray-200` for headers, `text-surface-600 dark:text-gray-400` for labels, `text-surface-900 dark:text-surface-dark-900` for values)
-- **InstitutionBreakdown Component**: Updated to use standardized `.card` class and consistent text color system
-- **NetWorthChart Component**: Updated container to use `.card` class with proper header styling and maintained chart functionality
-- **MonthOverMonthChart Component**: Updated to use `.card` class for loading, error, and main states with consistent text colors and background styling
-- **FinancialGroupChart Component**: Updated to use `.card` class and standardized text colors for labels and progress bars
-- **Consistent Design System**: All Analytics page cards now follow the same styling patterns as `MetricCard` and other reusable components
-- **Dark Mode Support**: All components now have proper dark mode support with consistent color variables
-- **Hover Effects**: All cards now have consistent hover effects and transitions from the `.card` class
+### UI Components
+- **Utility Buttons**: Added transaction sync button with rate limiting feedback
+- **Dashboard**: Auto-refresh now includes optional transaction syncing
+- **Error Handling**: Improved error messages and rate limit notifications
 
-### Time Period Filter Removal (Previous)
-- **Removed Time Period Dropdown**: Eliminated the redundant Time Period filter (daily/weekly/monthly) from TransactionChartSettings
-- **Simplified Settings UI**: Removed the period selection dropdown since comprehensive date range filtering makes it redundant
-- **Updated Display Text**: Changed "Transaction Overview" subtitle from period-specific text to generic "Transaction analytics"
-- **Maintained API Compatibility**: API still accepts period parameter but defaults to 'monthly' for consistency
-- **Enhanced buildApiUrl**: Added fallback to 'monthly' period in case settings don't include period value
+## Technical Architecture
 
-### Time Filter Extension to All Charts (Previous)
-- **Vendor Chart Integration**: Updated vendor data query in `TransactionChart.tsx` to include `startDate` and `endDate` parameters
-- **AI Categories Integration**: Updated AI categories query to use settings and include all filtering parameters
-- **Query Key Updates**: Updated query keys to include settings so all charts refresh when date filters change
-- **AI Categories API Enhancement**: Enhanced `/api/transactions/for-ai` endpoint to support:
-  - Date range filtering (`startDate`, `endDate`)
-  - Account filtering (`accountIds`)
-  - Category filtering (`categories`)
-  - Amount range filtering (`minAmount`, `maxAmount`)
-- **Vendor API Fix**: Fixed vendor API to properly handle explicit date parameters from frontend
-- **Consistent Filtering**: All three charts now respond to the same date range settings
-- **Performance Optimization**: Proper query key dependencies ensure efficient cache invalidation
+### Transaction Sync Flow
+1. **Check Cache**: Verify if institution needs transaction sync based on TTL
+2. **Rate Limiting**: Check manual sync limits for user
+3. **Batch Processing**: Group accounts by institution
+4. **Cursor Management**: Use Plaid's `transactionsSync` with stored cursors
+5. **Incremental Updates**: Handle added, modified, and removed transactions
+6. **Cache Update**: Store sync timestamp and results
 
-### Time Filter Implementation (Previous)
-- **Date Utility Functions**: Created `src/lib/dateUtils.ts` with comprehensive date range calculation functions
-- **Prebuilt Filters**: Added quick access buttons for common time periods:
-  - This Week (Sunday to Saturday)
-  - This Month (1st to last day of current month)
-  - This Quarter (current quarter start to end)
-  - Last Quarter (previous quarter)
-  - Fiscal Year (July 1 to June 30)
-  - Year to Date (January 1 to current date)
-- **Custom Date Inputs**: Added manual date range selection with HTML5 date inputs
-- **Date Range Display**: Shows current selected date range in a formatted display
-- **Clear Functionality**: Added "Clear" button to reset date filters
-- **Validation**: Implemented date range validation to ensure start date <= end date
-- **Integration**: Seamlessly integrated with existing Transaction Chart Settings
-- **Persistence**: Date filters persist in localStorage with existing settings
-- **API Integration**: Existing API already supports date parameters via `buildApiUrl` function
+### Integration Points
+- **Balance Refresh**: 30% chance to include transaction sync during balance refresh
+- **Page Load**: Auto-sync transactions if balance data is fresh but transactions are stale
+- **Manual Controls**: Separate buttons for balance refresh and transaction sync
+- **Error Handling**: Graceful degradation with detailed error reporting
 
-### UI Consistency
-- **Grouped Stat Cards**: Created a `ListStatCard` component to restore the grouped list format for the "Account Status" section, ensuring a consistent design while improving code reusability.
-- **Dashboard Stats**: Refactored the "Account Status" and "Quick Stats" sections to use the `MetricCard` component, ensuring a consistent design with the main dashboard metrics.
+## Cost Optimization Strategy
 
-### Theme/Styling
-- **Consistent Headers**: Applied the same header style to both `MetricCard` and `AccountCard` for a consistent look.
-- **Metric Card Header**: Increased the font size and weight, and lightened the text color in dark mode for the `MetricCard` headers to match the requested style.
-- **Dark Mode Text Color**: Corrected the text color in the "Last Sync Times" table within the `SettingsDialog` to be light in dark mode, improving readability.
+### Before Optimization
+- **Daily Cron**: ~30 balance requests per day
+- **Transaction Sync**: Called during every balance refresh
+- **No Caching**: Every request hit Plaid API
+- **No Rate Limiting**: Unlimited manual refreshes
 
-### Responsive Layout
-- **Dashboard Metric Cards**: Updated the grid layout to be more responsive. The cards now stack in 3x3, 2x2, and 1x1 configurations on smaller screens to prevent text from wrapping.
+### After Optimization
+- **Smart Caching**: 70-90% reduction in API calls through TTL-based caching
+- **Separate Sync**: Transaction sync only when needed (not on every balance refresh)
+- **Rate Limiting**: Manual refreshes limited to prevent abuse
+- **Batch Processing**: Reduced API calls through institution grouping
+- **Auto-refresh**: Intelligent refresh based on data staleness
 
-### Client-Side Data Handling
-- **Fixed Response Parsing**: Corrected the `fetchAccounts` function in `SettingsDialog.tsx` to properly handle the array of accounts returned by the API, resolving the issue where no accounts were displayed.
+### Expected Cost Reduction
+- **Balance Requests**: 70-90% reduction (from ~30/day to ~3-9/day)
+- **Transaction Requests**: 80-95% reduction through smart syncing
+- **Manual Abuse Prevention**: Rate limiting prevents excessive manual requests
+- **Overall**: Estimated 75-85% reduction in total Plaid API costs
 
-### API Caching
-- **Disabled Caching**: Added `export const dynamic = "force-dynamic";` to the `/api/accounts` route handler to ensure fresh data is always fetched. This resolves the issue of stale data appearing in the settings dialog after a sync.
+## Next Steps
+1. **Monitor Usage**: Track actual API usage and costs for first month
+2. **Fine-tune TTLs**: Adjust cache TTLs based on usage patterns
+3. **SimpleFIN Evaluation**: Consider SimpleFIN Bridge as alternative ($1.50/month fixed cost)
+4. **Performance Monitoring**: Track sync performance and error rates
+5. **User Feedback**: Gather feedback on refresh frequency and sync behavior
 
-### Settings Dialog Fixes
-- **Account Counts**: Correctly fetching and displaying the counts for "new" and "all" accounts to be synced.
-- **Sync Status Display**: Updated to only show errors, not individual success messages, while keeping the "Batch sync complete" notice.
-- **Last Sync Times Table**: Fixed the table to populate correctly with "Account" and "Last Sync" time, and removed the "Last 4" column.
-- **Account Name Formatting**: Implemented the requested format: `[Institution] - [Account Type] ([Last 4])`.
-
-### Settings Dialog Restoration
-- **Restored Old Dialog**: Replaced the new basic settings dialog with the old comprehensive version.
-- **Portal Rendering**: Added `ReactDOM.createPortal` to render the dialog in a portal for proper full-page display.
-
-### Navigation Utility Buttons
-- **Refresh Data Button**: Fixed to call `/api/accounts/refresh`
-- **View Analytics Button**: Fixed to call `/api/plaid/refresh-institutions`
-- **Hide Sensitive Data Icon**: Corrected the icon logic
-- **Settings Button**: Opens the restored settings dialog
-
-### Utility Buttons Reorganization (Previous)
-- **Moved Utility Buttons**: Consolidated all utility buttons (refresh, globe, file, dark mode, sensitive data, settings) into the header
-- **Mobile Dropdown**: Added mobile-friendly dropdown with toolbox icon for utility buttons
-- **Improved Organization**: 
-  - Desktop: All buttons visible in the header
-  - Mobile: Buttons collapse into a toolbox dropdown menu
-- **Consistent Styling**: Applied consistent styling and hover states
-- **Better Accessibility**: Added proper aria labels and touch targets
-
-### Dark Mode Black Background Fix (Previous)
-- **Changed dark mode background**: From gray-900 to black for proper black background
-- **Updated layout and DashboardMetrics components**: To use consistent black background
-- **Eliminated dark blue appearance**: In dark mode
-- **Matched CSS variables**: Defined in globals.css
-
-### Dark Mode Background Fix (Previous)
-- **Added proper dark mode classes**: To body element
-- **Ensured dark background colors**: Are applied correctly
-- **Fixed text color contrast**: For dark mode
-- **Maintained JavaScript control**: Of dark mode class on html element
-
-### Dark Mode Persistence Fix (Previous)
-- **Fixed dark mode persistence**: By applying CSS class immediately when loading from localStorage
-- **Ensured dark mode setting**: Is properly applied on page refresh
-- **Maintained visual consistency**: Between page loads
-
-### Sensitive Data Default State Fix (Previous)
-- **Changed default state**: To show sensitive data (showSensitiveData: true)
-- **Added localStorage persistence**: For sensitive data setting
-- **Ensured setting persists**: Between page refreshes
-- **Applied globally**: Across all components
-
-### Disconnect Confirmation Enhancement (Previous)
-- **Added detailed confirmation dialog**: For institution disconnection
-- **Clear warning about data loss**: And irreversible action
-- **Lists specific consequences**: Account removal, transaction history deletion, balance history deletion
-- **Emphasizes that action cannot be undone**
-
-### Credit Utilization Display Fix (Previous)
-- **Fixed `formatBalance` function logic**: That was backwards
-- **Credit utilization bars now show**: When sensitive data is visible
-- **Credit utilization bars hide**: When sensitive data is hidden
-- **Consistent behavior**: With other sensitive data display
-
-### Sensitive Data Toggle (Previous)
-- **Connected sensitive data context**: To all components that display financial data
-- **Updated `DashboardMetrics`, `AccountCard`, and other components**: To use global state
-- **Fixed the eye icon toggle**: To properly show/hide sensitive information
-- **Added persistence**: So setting survives page refreshes
-
-### Component Updates (Previous)
-- **Updated `DashboardMetrics`**: To use sensitive data context
-- **Updated `AccountCard`**: To use sensitive data context
-- **Fixed credit utilization display logic**
-- **Added proper dark mode styling**: To all components
-
-### Mobile Responsiveness Improvements (Previous)
-- **Navigation Bar**: Enhanced mobile layout with proper spacing and touch targets
-- **Responsive Menus**: Added mobile-friendly dropdown menus for actions
-- **Button Organization**: 
-  - Primary actions (Financial Dashboard, Connect Bank) always visible
-  - Secondary actions moved to mobile menu on small screens
-- **Layout Adjustments**:
-  - Added proper padding and margins for mobile
-  - Fixed navigation bar width issues
-  - Added sticky header for better mobile UX
-  - Improved touch targets (minimum 44px)
-- **Custom Breakpoint**: Added 'xs' (480px) breakpoint for finer control
-- **Dark Mode**: Improved dark mode consistency on mobile
-
-### Enhanced Account Labeling (Previous)
-- **Settings Dialog Improvements**: Enhanced the settings dialog to show accounts with institution names and improved formatting
-- **Account Display Format**: Changed from simple "Account Name (Last 4)" to "Institution - Account Name (Last 4)"
-- **Credit Card Detection**: Added logic to detect and format credit card names (Freedom, Sapphire, etc.) from account names
-- **Simplified Table Design**: Removed institution headers and "Last 4" column to minimize data display
-- **Improved Card Detection**: Removed generic color terms (red, blue, etc.) and added more meaningful card types
-- **Consistent Formatting**: Applied the same improved formatting to TransactionChartSettings component
-- **Error List Enhancement**: Updated error messages in sync status to use the new account display format
-
-### AI Transaction Categorization Persistence (Previous)
-- **Database Storage**: Updated AI categorization API to store results in the `categoryAi` field
-
-## Current Status
-- ✅ Time filter functionality extended to all charts (main transaction chart, vendor chart, AI categories chart)
-- ✅ Vendor chart now responds to date range settings
-- ✅ AI categories chart now responds to date range settings
-- ✅ All charts use consistent filtering parameters
-- ✅ Query keys updated to ensure proper cache invalidation
-- ✅ AI categories API enhanced with comprehensive filtering support
-- ✅ Vendor API fixed to properly handle explicit date parameters
-- ✅ Time filter functionality implemented with prebuilt and custom date ranges
-- ✅ Date utility functions created for common time period calculations
-- ✅ Transaction Chart Settings enhanced with date filtering capabilities
-- ✅ Prebuilt filters for This Week, This Month, This Quarter, Last Quarter, Fiscal Year, Year to Date
-- ✅ Custom date inputs for manual date range selection
-- ✅ Date range validation and display
-- ✅ Integration with existing settings persistence
-- ✅ Comprehensive settings dialog restored with all original features
-- ✅ Portal rendering implemented for proper full-page dialog display
-- ✅ Plaid sync functionality working with new and all accounts sync
-- ✅ Sync status tracking and progress display
-- ✅ Last sync times table showing account sync history
-- ✅ Cooldown system preventing rapid sync requests
-- ✅ All navigation utility buttons now work correctly
-- ✅ Refresh data button calls `/api/accounts/refresh` with proper loading states
-- ✅ View analytics button calls `/api/plaid/refresh-institutions` with proper loading states
-- ✅ Hide sensitive data icon logic is fixed (crossed out when hidden)
-- ✅ Settings button opens comprehensive settings dialog
-- ✅ AI transaction categorization now persists in database
-- ✅ Dramatically reduced OpenAI API usage through intelligent caching
-- ✅ Enhanced logging shows cost savings and caching benefits
-- ✅ Database schema properly configured for `categoryAi`
+## Technical Debt
+- **Coinbase Refresh**: Need to implement Coinbase refresh logic in smart refresh service
+- **Error Recovery**: Add retry logic for failed API calls with exponential backoff
+- **Cache Persistence**: Consider Redis or database storage for cache persistence across restarts
+- **Monitoring**: Add comprehensive logging and monitoring for refresh operations

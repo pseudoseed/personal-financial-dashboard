@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AccountCard } from "@/components/AccountCard";
 import { ManualAccountForm } from "@/components/ManualAccountForm";
 import {
@@ -17,6 +17,8 @@ import { Account } from "@/types/account";
 import { useTheme } from "../../providers";
 import { AccountConnectionButtons } from "@/components/AccountConnectionButtons";
 import { AuthenticationAlerts } from "@/components/AuthenticationAlerts";
+import { CostOptimizationCard } from "@/components/CostOptimizationCard";
+import { useNotifications } from "@/components/ui/Notification";
 
 export default function AccountsPage() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
@@ -27,6 +29,8 @@ export default function AccountsPage() {
   const [disconnectingInstitutions, setDisconnectingInstitutions] = useState<Record<string, boolean>>({});
   const [institutionShowHidden, setInstitutionShowHidden] = useState<Record<string, boolean>>({});
   const { darkMode, setDarkMode } = useTheme();
+  const { addNotification } = useNotifications();
+  const queryClient = useQueryClient();
 
   const { data: accountsData, refetch } = useQuery<Account[]>({
     queryKey: ["accounts"],
@@ -116,6 +120,9 @@ export default function AccountsPage() {
   };
 
   const disconnectInstitution = async (institutionId: string) => {
+    // Map "Manual Account" to "manual" for the API
+    const apiInstitutionId = institutionId === "Manual Account" ? "manual" : institutionId;
+    
     const confirmed = confirm(
       `Are you sure you want to disconnect "${institutionId}"?\n\n` +
       "⚠️  WARNING: This action will:\n" +
@@ -134,21 +141,32 @@ export default function AccountsPage() {
         ...prev,
         [institutionId]: true,
       }));
+
       const response = await fetch("/api/accounts/disconnect", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ institutionId }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ institutionId: apiInstitutionId }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to disconnect institution");
+      if (response.ok) {
+        addNotification({
+          type: "success",
+          title: "Institution disconnected",
+          message: `Successfully disconnected ${institutionId} and all associated accounts.`,
+        });
+        // Invalidate queries to refresh the data
+        queryClient.invalidateQueries({ queryKey: ["accounts"] });
+        queryClient.invalidateQueries({ queryKey: ["accountsWithHistory"] });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to disconnect institution");
       }
-
-      await refetch();
     } catch (error) {
-      console.error("Error disconnecting institution:", error);
+      addNotification({
+        type: "error",
+        title: "Disconnection failed",
+        message: error instanceof Error ? error.message : "Failed to disconnect institution. Please try again.",
+      });
     } finally {
       setDisconnectingInstitutions((prev) => ({
         ...prev,
@@ -170,11 +188,16 @@ export default function AccountsPage() {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           Accounts
         </h1>
-        <AccountConnectionButtons />
+        {/* <AccountConnectionButtons /> */}
       </div>
 
       {/* Authentication Alerts */}
       <AuthenticationAlerts />
+
+      {/* Cost Optimization Card - Only show if there are Plaid accounts */}
+      {accountsData && accountsData.length > 0 && (
+        <CostOptimizationCard accounts={accountsData} />
+      )}
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
