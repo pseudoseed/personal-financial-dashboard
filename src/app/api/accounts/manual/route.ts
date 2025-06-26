@@ -1,32 +1,53 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { randomUUID } from "crypto";
 
 export async function POST(request: Request) {
   try {
     const { name, type, subtype, balance, metadata, url } =
       await request.json();
 
+    // Find or create the default user
+    let user = await prisma.user.findUnique({ where: { email: 'user@example.com' } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          id: 'default',
+          email: 'user@example.com',
+          name: 'Default User',
+        },
+      });
+    }
+
     // Create a manual PlaidItem to associate with this account
-    const plaidItem = await prisma.plaidItem.create({
-      data: {
-        itemId: `manual_${Date.now()}`, // Generate a unique ID
-        accessToken: "manual", // Placeholder since we don't need a real token
+    let plaidItem = await prisma.plaidItem.findFirst({
+      where: {
         institutionId: "manual",
-        institutionName: "Manual Account",
       },
     });
+
+    if (!plaidItem) {
+      plaidItem = await prisma.plaidItem.create({
+        data: {
+          itemId: `manual_${randomUUID()}`, // Generate a unique ID
+          accessToken: "manual", // Placeholder since we don't need a real token
+          institutionId: "manual",
+          institutionName: "Manual Account",
+        },
+      });
+    }
 
     // Create the account
     const account = await prisma.account.create({
       data: {
-        plaidId: `manual_${Date.now()}`, // Generate a unique ID
+        plaidId: `manual_${randomUUID()}`, // Generate a unique ID
         name,
         type,
         subtype: subtype || null,
         metadata: metadata || null,
         url: url || null,
         itemId: plaidItem.id,
-        userId: "default", // Add the required userId field
+        userId: user.id, // Use the fetched/created user's ID
       },
     });
 
@@ -50,7 +71,13 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Error creating manual account:", error);
+    console.error("Error creating manual account:");
+    if (error instanceof Error) {
+      console.error(`Message: ${error.message}`);
+      console.error(`Stack: ${error.stack}`);
+    } else {
+      console.error("Caught a non-Error object:", error);
+    }
     return NextResponse.json(
       { error: "Failed to create manual account" },
       { status: 500 }

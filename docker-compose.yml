@@ -10,20 +10,29 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:/app/data/dev.db
-      - NEXTAUTH_URL=http://10.10.30.100:3000
+      - NEXTAUTH_URL=http://localhost:3000
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
     env_file:
       - .env
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - ./backups:/app/backups
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
     networks:
       - dashboard-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
 networks:
   dashboard-network:
@@ -33,4 +42,6 @@ volumes:
   data:
     driver: local
   logs:
+    driver: local
+  backups:
     driver: local 

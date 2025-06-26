@@ -52,6 +52,8 @@ model Account {
   balances                   AccountBalance[]
   transactions               Transaction[]
   downloadLogs               TransactionDownloadLog[]
+  recurringPayments          RecurringPayment[]
+  emergencyFundAccounts      EmergencyFundAccount[]
 }
 
 model AccountBalance {
@@ -121,9 +123,13 @@ model Transaction {
   sedol                   String?
   transactionCode         String?
   unofficialCurrencyCode  String?
-  categoryAi              String?
+  categoryAiGranular      String?
+  categoryAiGeneral       String?
+  categoryPlaidGranular   String?
+  categoryPlaidGeneral    String?
   anomalies               AnomalyDetectionResult[]
   account                 Account                  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  recurringExpenseTransactions RecurringExpenseTransaction[]
 
   @@unique([accountId, plaidId])
   @@index([date])
@@ -144,15 +150,19 @@ model TransactionDownloadLog {
 }
 
 model User {
-  id                 String                    @id @default(cuid())
-  email              String                    @unique
-  name               String?
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
-  accounts           Account[]
-  anomalySettings    AnomalyDetectionSettings?
-  emailNotifications EmailNotification[]
-  dismissalRules     AnomalyDismissalRule[]
+  id                     String                    @id @default(cuid())
+  email                  String                    @unique
+  name                   String?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  accounts               Account[]
+  anomalySettings        AnomalyDetectionSettings?
+  emailNotifications     EmailNotification[]
+  dismissalRules         AnomalyDismissalRule[]
+  recurringExpenses      RecurringExpense[]
+  recurringPayments      RecurringPayment[]
+  financialHealthMetrics FinancialHealthMetrics[]
+  emergencyFundAccounts  EmergencyFundAccount[]
 
   @@map("users")
 }
@@ -221,13 +231,98 @@ model EmailNotification {
 model AnomalyDismissalRule {
   id          String   @id @default(cuid())
   userId      String
-  pattern     String   // The pattern to match (transaction name, merchant, etc.)
-  patternType String   // exact_name, merchant_name, category, amount_range
-  reason      String?  // Optional reason for dismissal
-  dismissedAt DateTime @default(now())
+  ruleType    String   // 'merchant', 'category', 'amount_range'
+  ruleValue   String   // JSON string containing rule criteria
+  createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([patternType])
-  @@index([dismissedAt])
+}
+
+model RecurringExpense {
+  id                    String                        @id @default(cuid())
+  userId                String                        @default("default")
+  name                  String                        // Human-readable name (e.g., "Netflix Subscription")
+  merchantName          String                        // Original merchant name from transactions
+  category              String?                       // Transaction category
+  amount                Float                         // Expected amount
+  frequency             String                        // 'monthly', 'weekly', 'quarterly', 'yearly'
+  nextDueDate           DateTime?                     // When the next payment is expected
+  lastTransactionDate   DateTime                      // Date of last occurrence
+  confidence            Int                           // Detection confidence score (0-100)
+  isActive              Boolean                       @default(true)
+  isConfirmed           Boolean                       @default(false)
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  user                  User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions          RecurringExpenseTransaction[]
+
+  @@index([userId])
+  @@index([merchantName])
+  @@index([isActive])
+  @@index([isConfirmed])
+}
+
+model RecurringExpenseTransaction {
+  id                  String           @id @default(cuid())
+  recurringExpenseId  String
+  transactionId       String
+  createdAt           DateTime         @default(now())
+  recurringExpense    RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
+  transaction         Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@unique([recurringExpenseId, transactionId])
+  @@index([recurringExpenseId])
+  @@index([transactionId])
+}
+
+model RecurringPayment {
+  id                    String                        @id @default(cuid())
+  userId                String                        @default("default")
+  name                  String                        // Human-readable name (e.g., "Bi-weekly Paycheck")
+  amount                Float                         // Expected payment amount
+  frequency             String                        // 'weekly', 'bi-weekly', 'monthly', 'quarterly', 'yearly'
+  nextPaymentDate       DateTime                      // When the next payment is expected
+  lastPaymentDate       DateTime?                     // Date of last occurrence (optional for new payments)
+  dayOfWeek             Int?                          // Day of week (0-6, Sunday=0) for weekly/bi-weekly
+  dayOfMonth            Int?                          // Day of month (1-31) for monthly payments
+  paymentType           String                        // 'direct_deposit', 'paycheck', 'investment_dividend', 'other'
+  targetAccountId       String?                       // Account where payment is deposited
+  isActive              Boolean                       @default(true)
+  isConfirmed           Boolean                       @default(false)
+  confidence            Int                           // Detection confidence score (0-100)
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  user                  User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetAccount         Account?                      @relation(fields: [targetAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([isActive])
+  @@index([isConfirmed])
+  @@index([nextPaymentDate])
+  @@index([targetAccountId])
+}
+
+model FinancialHealthMetrics {
+  id                   String   @id @default(cuid())
+  userId               String
+  overallScore         Int      // 0-100 score
+  emergencyFundRatio   Float?   // Months of expenses covered
+  debtToIncomeRatio    Float?   // Total debt / monthly income
+  savingsRate          Float?   // Monthly savings / monthly income
+  creditUtilization    Float?   // Credit used / total credit limit
+  calculatedAt         DateTime @default(now())
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([calculatedAt])
+}
+
+model EmergencyFundAccount {
+  id        String  @id @default(cuid())
+  userId    String
+  accountId String
+  user      User    @relation(fields: [userId], references: [id])
+  account   Account @relation(fields: [accountId], references: [id])
+  @@unique([userId, accountId])
 }

@@ -11,17 +11,14 @@ export async function GET(request: NextRequest) {
     const minAmount = searchParams.get('minAmount') ? parseFloat(searchParams.get('minAmount')!) : undefined;
     const maxAmount = searchParams.get('maxAmount') ? parseFloat(searchParams.get('maxAmount')!) : undefined;
     const limit = parseInt(searchParams.get('limit') || '1000', 10);
+    const categoryType = searchParams.get('categoryType') || 'granular'; // 'granular' or 'general'
 
     if (!category) {
       return NextResponse.json({ error: 'Category parameter is required' }, { status: 400 });
     }
 
     // Build where clause for transactions - match the same logic as /api/transactions/for-ai
-    const whereClause: any = {
-      amount: {
-        lt: 0, // Only expenses for AI categorization (same as for-ai endpoint)
-      },
-    };
+    const whereClause: any = {};
 
     // Filter by account IDs
     if (accountIds.length > 0) {
@@ -55,9 +52,9 @@ export async function GET(request: NextRequest) {
         name: true,
         amount: true,
         category: true,
-        categoryAi: true,
         merchantName: true,
         pending: true,
+        accountId: true,
         account: {
           select: {
             name: true,
@@ -72,9 +69,12 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Filter transactions using the same logic as the pie chart
+    // Filter transactions by category only (no spend logic)
     const filteredTransactions = allTransactions.filter(tx => {
-      const effectiveCategory = tx.categoryAi || tx.category || "Miscellaneous";
+      const t = tx as any;
+      const effectiveCategory = categoryType === 'general'
+        ? (t.categoryAiGeneral || t.categoryAiGranular || t.category || 'Miscellaneous')
+        : (t.categoryAiGranular || t.categoryAiGeneral || t.category || 'Miscellaneous');
       return effectiveCategory === category;
     }).slice(0, limit);
 
@@ -90,6 +90,7 @@ export async function GET(request: NextRequest) {
         transactionCount,
         averageAmount,
         category,
+        categoryType,
       },
     });
   } catch (error) {

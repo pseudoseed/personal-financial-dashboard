@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Personal Financial Dashboard Deployment Script
-# This script helps manage the Docker deployment
+# Personal Finance Dashboard Deployment Script
+# This script helps deploy and manage the Personal Financial Dashboard
 
 set -e
 
@@ -12,7 +12,12 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Function to print colored output
+# Configuration
+DOCKER_COMPOSE="docker-compose"
+CONTAINER_NAME="financial-dashboard"
+IMAGE_NAME="personal-finance-dashboard"
+
+# Helper functions
 print_status() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -29,72 +34,66 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Check if Docker is running
+check_docker() {
+    if ! docker info > /dev/null 2>&1; then
+        print_error "Docker is not running. Please start Docker and try again."
+        exit 1
+    fi
+}
+
 # Check if .env file exists
 check_env() {
     if [ ! -f .env ]; then
-        print_error ".env file not found! Please create one based on .env.example"
-        exit 1
-    fi
-    print_success ".env file found"
-}
-
-# Check if docker compose is available
-check_docker_compose() {
-    if docker compose version >/dev/null 2>&1; then
-        DOCKER_COMPOSE="docker compose"
-        print_success "Using 'docker compose' (modern version)"
-    elif docker-compose --version >/dev/null 2>&1; then
-        DOCKER_COMPOSE="docker-compose"
-        print_success "Using 'docker-compose' (legacy version)"
-    else
-        print_error "Neither 'docker compose' nor 'docker-compose' is available"
-        print_error "Please install Docker Compose or ensure Docker is properly installed"
-        exit 1
+        print_warning ".env file not found. Creating from template..."
+        if [ -f env.example ]; then
+            cp env.example .env
+            print_warning "Please edit .env file with your actual configuration values."
+            print_warning "Required variables: PLAID_CLIENT_ID, PLAID_SECRET, COINBASE_CLIENT_ID, COINBASE_CLIENT_SECRET"
+            exit 1
+        else
+            print_error "No .env file or env.example template found. Please create .env file manually."
+            exit 1
+        fi
     fi
 }
 
-# Create necessary directories
-setup_directories() {
-    print_status "Creating necessary directories..."
-    mkdir -p data logs backups
-    print_success "Directories created"
-    
-    # Set proper permissions for Docker container (user 1001:1001)
-    print_status "Setting directory permissions..."
-    chmod 755 data logs backups
-    print_success "Directory permissions set"
-}
-
-# Build and start the application
+# Build and deploy
 deploy() {
-    print_status "Building and starting the application..."
-    $DOCKER_COMPOSE up -d --build
-    print_success "Application deployed successfully!"
-    print_status "The dashboard should be available at http://localhost:3000"
-    print_status "Cron job is scheduled to run daily at 6 AM"
-}
-
-# Stop the application
-stop() {
-    print_status "Stopping the application..."
-    $DOCKER_COMPOSE down
-    print_success "Application stopped"
-}
-
-# Restart the application
-restart() {
-    print_status "Restarting the application..."
-    $DOCKER_COMPOSE restart
-    print_success "Application restarted"
-}
-
-# Update the application
-update() {
-    print_status "Pulling latest changes and rebuilding..."
-    git pull
-    $DOCKER_COMPOSE down
-    $DOCKER_COMPOSE up -d --build
-    print_success "Application updated successfully!"
+    print_status "Building and deploying Personal Finance Dashboard..."
+    
+    check_docker
+    check_env
+    
+    # Build the image
+    print_status "Building Docker image..."
+    docker build -t $IMAGE_NAME .
+    
+    # Stop existing container if running
+    if docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
+        print_status "Stopping existing container..."
+        $DOCKER_COMPOSE down
+    fi
+    
+    # Start the application
+    print_status "Starting application..."
+    $DOCKER_COMPOSE up -d
+    
+    # Wait for the application to be ready
+    print_status "Waiting for application to start..."
+    sleep 15
+    
+    # Check if the application is running
+    if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
+        print_success "Application is running successfully!"
+        print_status "Dashboard is available at: http://localhost:3000"
+        print_status "Smart refresh is enabled - data will refresh automatically when needed"
+        print_status "Manual refresh is limited to 3 times per day to control costs"
+    else
+        print_error "Application failed to start properly"
+        print_status "Check logs with: $0 logs"
+        exit 1
+    fi
 }
 
 # Show logs
@@ -103,144 +102,160 @@ logs() {
     $DOCKER_COMPOSE logs -f
 }
 
-# Show cron logs
-cron_logs() {
-    print_status "Showing cron job logs..."
-    if [ -f "logs/cron.log" ]; then
-        tail -f logs/cron.log
-    else
-        print_warning "No cron logs found yet. Cron job runs daily at 6 AM."
-    fi
-}
-
 # Show status
 status() {
     print_status "Application status:"
-    $DOCKER_COMPOSE ps
-    echo ""
-    print_status "Container health:"
-    $DOCKER_COMPOSE exec financial-dashboard curl -s http://localhost:3000/api/health | jq . 2>/dev/null || echo "Health check not available"
-    echo ""
-    print_status "Cron job status:"
-    if [ -f "logs/cron.log" ]; then
-        echo "Last cron run: $(tail -n 1 logs/cron.log | cut -d' ' -f1-3 2>/dev/null || echo 'No runs yet')"
+    if docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
+        print_success "Container is running"
+        echo "Container ID: $(docker ps -q -f name=$CONTAINER_NAME)"
+        echo "Port: 3000"
+        echo "Health check: $(curl -s http://localhost:3000/api/health || echo 'Not responding')"
+        
+        # Show resource usage
+        echo ""
+        print_status "Resource usage:"
+        docker stats --no-stream $CONTAINER_NAME
     else
-        echo "No cron logs found yet"
+        print_warning "Container is not running"
     fi
+}
+
+# Stop the application
+stop() {
+    print_status "Stopping application..."
+    $DOCKER_COMPOSE down
+    print_success "Application stopped"
+}
+
+# Restart the application
+restart() {
+    print_status "Restarting application..."
+    $DOCKER_COMPOSE restart
+    print_success "Application restarted"
+}
+
+# Update to latest version
+update() {
+    print_status "Updating to latest version..."
+    
+    # Pull latest changes (if using git)
+    if [ -d .git ]; then
+        print_status "Pulling latest changes..."
+        git pull origin main
+    fi
+    
+    # Rebuild and deploy
+    deploy
 }
 
 # Backup database
 backup() {
     print_status "Creating database backup..."
-    timestamp=$(date +%Y%m%d_%H%M%S)
-    backup_file="backup_${timestamp}.db"
-    cp data/dev.db "backups/${backup_file}" 2>/dev/null || mkdir -p backups && cp data/dev.db "backups/${backup_file}"
-    print_success "Database backed up to backups/${backup_file}"
+    
+    if [ ! -d backups ]; then
+        mkdir -p backups
+    fi
+    
+    BACKUP_FILE="backups/backup-$(date +%Y%m%d-%H%M%S).db"
+    
+    if docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
+        docker cp $CONTAINER_NAME:/app/data/dev.db $BACKUP_FILE
+        print_success "Database backed up to: $BACKUP_FILE"
+    else
+        if [ -f data/dev.db ]; then
+            cp data/dev.db $BACKUP_FILE
+            print_success "Database backed up to: $BACKUP_FILE"
+        else
+            print_error "No database file found to backup"
+        fi
+    fi
 }
 
 # Manually run refresh
 refresh() {
-    print_status "Manually running refresh script..."
-    $DOCKER_COMPOSE exec financial-dashboard /app/scripts/refresh-data-docker.sh
+    print_status "Manually running refresh..."
+    curl -X POST http://localhost:3000/api/accounts/refresh \
+        -H "Content-Type: application/json" \
+        -d '{"manual": true, "userId": "default"}' \
+        -s | jq '.' || echo "Refresh endpoint not available"
     print_success "Refresh completed"
 }
 
-# Create default user
-create_default_user() {
-    print_status "Creating default user..."
-    $DOCKER_COMPOSE exec -T financial-dashboard npx prisma db execute --schema=/app/prisma/schema.prisma --stdin <<< "INSERT OR IGNORE INTO users (id, email, name, createdAt, updatedAt) VALUES ('default', 'default@example.com', 'Default User', datetime('now'), datetime('now'));"
-    print_success "Default user created (if it didn't exist)"
-}
-
-# Show cron schedule
-cron_schedule() {
-    print_status "Current cron schedule:"
-    echo "Daily at 6:00 AM - Refresh all account balances and transactions"
+# Show refresh info
+refresh_info() {
+    print_status "Smart Refresh Configuration:"
+    echo "• Auto-refresh: Enabled on page load (if data is >6 hours old)"
+    echo "• Manual refresh: Limited to 3 times per day"
+    echo "• Cache TTL: 2-24 hours based on account activity"
+    echo "• Rate limiting: Prevents excessive API calls"
     echo ""
-    print_status "To modify the schedule, edit the Dockerfile and rebuild:"
-    echo "1. Edit the cron line in Dockerfile (line with '0 6 * * *')"
-    echo "2. Run: ./deploy.sh update"
-    echo ""
-    print_status "Common cron patterns:"
-    echo "0 6 * * *     - Daily at 6 AM (current)"
-    echo "0 */6 * * *   - Every 6 hours"
-    echo "0 6,18 * * *  - Twice daily at 6 AM and 6 PM"
-    echo "0 6 * * 1-5   - Weekdays only at 6 AM"
+    print_status "Cost Optimization Features:"
+    echo "• Smart caching reduces redundant requests"
+    echo "• Batch processing by institution"
+    echo "• Rate limiting prevents abuse"
 }
 
 # Show help
-show_help() {
-    echo "Personal Financial Dashboard Deployment Script"
+help() {
+    echo "Personal Finance Dashboard Management Script"
     echo ""
     echo "Usage: $0 [COMMAND]"
     echo ""
     echo "Commands:"
-    echo "  deploy        - Build and start the application"
-    echo "  stop          - Stop the application"
-    echo "  restart       - Restart the application"
-    echo "  update        - Pull latest changes and rebuild"
-    echo "  logs          - Show application logs"
-    echo "  cron_logs     - Show cron job logs"
-    echo "  status        - Show application status"
-    echo "  backup        - Create database backup"
-    echo "  refresh       - Manually run refresh script"
-    echo "  create_user   - Create default user manually"
-    echo "  cron_schedule - Show cron schedule and options"
-    echo "  help          - Show this help message"
+    echo "  deploy      - Build and deploy the application"
+    echo "  logs        - Show application logs"
+    echo "  status      - Show application status"
+    echo "  stop        - Stop the application"
+    echo "  restart     - Restart the application"
+    echo "  update      - Update to latest version"
+    echo "  backup      - Create database backup"
+    echo "  refresh     - Manually run refresh"
+    echo "  refresh_info - Show refresh configuration"
+    echo "  help        - Show this help message"
     echo ""
+    echo "Examples:"
+    echo "  $0 deploy   - Deploy the application"
+    echo "  $0 logs     - Show logs"
+    echo "  $0 backup   - Create database backup"
+    echo "  $0 refresh  - Manually refresh data"
 }
 
 # Main script logic
-case "${1:-deploy}" in
+case "${1:-help}" in
     deploy)
-        check_env
-        check_docker_compose
-        setup_directories
         deploy
         ;;
+    logs)
+        logs
+        ;;
+    status)
+        status
+        ;;
     stop)
-        check_docker_compose
         stop
         ;;
     restart)
-        check_docker_compose
         restart
         ;;
     update)
-        check_env
-        check_docker_compose
         update
-        ;;
-    logs)
-        check_docker_compose
-        logs
-        ;;
-    cron_logs)
-        cron_logs
-        ;;
-    status)
-        check_docker_compose
-        status
         ;;
     backup)
         backup
         ;;
     refresh)
-        check_docker_compose
         refresh
         ;;
-    create_user)
-        create_default_user
-        ;;
-    cron_schedule)
-        cron_schedule
+    refresh_info)
+        refresh_info
         ;;
     help|--help|-h)
-        show_help
+        help
         ;;
     *)
         print_error "Unknown command: $1"
-        show_help
+        echo ""
+        help
         exit 1
         ;;
 esac 

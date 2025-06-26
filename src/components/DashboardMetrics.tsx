@@ -4,6 +4,7 @@ import { useSensitiveData } from "@/app/providers";
 import { Account } from "@/types/account";
 import { MetricCard } from "./MetricCard";
 import { formatBalance } from "@/lib/formatters";
+import { maskSensitiveValue } from '@/lib/ui';
 
 interface DashboardMetricsProps {
   accounts: Account[];
@@ -87,17 +88,17 @@ export function DashboardMetrics({ accounts }: DashboardMetricsProps) {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       <MetricCard
         title="Net Worth"
-        value={showSensitiveData ? formatBalance(metrics.netWorth) : "••••••"}
+        value={maskSensitiveValue(formatBalance(metrics.netWorth), showSensitiveData)}
         color={getNetWorthColor(metrics.netWorth)}
       />
       <MetricCard
         title="Assets"
-        value={showSensitiveData ? formatBalance(metrics.totalAssets) : "••••••"}
+        value={maskSensitiveValue(formatBalance(metrics.totalAssets), showSensitiveData)}
         color="text-surface-900 dark:text-surface-dark-900"
       />
       <MetricCard
         title="Liabilities"
-        value={showSensitiveData ? formatBalance(metrics.totalLiabilities) : "••••••"}
+        value={maskSensitiveValue(formatBalance(metrics.totalLiabilities), showSensitiveData)}
         color="text-surface-900 dark:text-surface-dark-900"
       />
       {showSensitiveData && metrics.hasCreditAccounts && (

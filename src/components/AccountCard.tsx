@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useSensitiveData } from "@/app/providers";
 import { getRelativeTime } from "@/lib/ui";
@@ -25,6 +25,7 @@ import { Account } from "@/types/account";
 import { getAccountTypeInfo } from "@/lib/accountTypes";
 import { formatBalance } from "@/lib/formatters";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNotifications } from "@/components/ui/Notification";
 
 interface AccountCardProps {
   account: Account;
@@ -43,10 +44,12 @@ export function AccountCard({
 }: AccountCardProps) {
   const { showSensitiveData } = useSensitiveData();
   const queryClient = useQueryClient();
+  const { addNotification } = useNotifications();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [nickname, setNickname] = useState(account.nickname || "");
   const [isUpdating, setIsUpdating] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const displayBalance = (amount: number | null) => {
     if (amount === null) return "N/A";
@@ -57,6 +60,10 @@ export function AccountCard({
   const Icon = accountTypeInfo.icon;
   const isCredit = account.type === "credit";
   const isNegative = account.balance.current < 0;
+
+  // Check if this is a manual account
+  const isManualAccount = account.plaidItem?.accessToken === 'manual' || 
+                         account.plaidItem?.provider === 'manual';
 
   // Calculate credit utilization
   const utilizationPercentage = isCredit && account.balance.limit
@@ -77,6 +84,14 @@ export function AccountCard({
   const handleRefresh = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    if (isManualAccount) {
+      // For manual accounts, open the edit form instead of refreshing
+      handleStartEditing(e);
+      return;
+    }
+    
+    // For Plaid/Coinbase accounts, use the normal refresh logic
     if (onRefresh) {
       setIsRefreshing(true);
       try {
@@ -101,24 +116,42 @@ export function AccountCard({
     setIsEditing(true);
   };
 
-  const handleSaveNickname = async (e: React.FormEvent) => {
+  const handleNicknameUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
+    if (nickname.trim() === account.nickname) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsUpdating(true);
     try {
       const response = await fetch(`/api/accounts/${account.id}/update-nickname`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname }),
+        body: JSON.stringify({ nickname: nickname.trim() }),
       });
-      
+
       if (response.ok) {
+        addNotification({
+          type: "success",
+          title: "Nickname updated",
+          message: "Account nickname has been updated successfully.",
+        });
+        queryClient.invalidateQueries({ queryKey: ["accounts"] });
         setIsEditing(false);
-        // Optionally refresh the page or update the account data
-        window.location.reload();
+      } else {
+        throw new Error("Failed to update nickname");
       }
     } catch (error) {
-      console.error("Error updating nickname:", error);
+      addNotification({
+        type: "error",
+        title: "Update failed",
+        message: "Failed to update account nickname. Please try again.",
+      });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -187,8 +220,19 @@ export function AccountCard({
                 <EyeIcon className="w-4 h-4" />
               )}
             </button>
-            <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="p-1">
-              <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefresh} 
+              disabled={isRefreshing} 
+              className="p-1"
+              title={isManualAccount ? "Edit balance" : "Refresh balance"}
+            >
+              {isManualAccount ? (
+                <PencilIcon className="h-4 w-4" />
+              ) : (
+                <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              )}
             </Button>
           </div>
         </div>
@@ -196,16 +240,31 @@ export function AccountCard({
         {/* Account Name and Edit */}
         <div className="my-1">
           {isEditing ? (
-            <form onSubmit={handleSaveNickname} className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+            <form onSubmit={handleNicknameUpdate} className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
               <input
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
+                placeholder="Enter nickname"
                 className="w-full px-2 py-1 text-sm border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
                 autoFocus
+                ref={inputRef}
               />
-              <Button type="submit" size="sm" variant="primary" className="px-2 py-1 text-xs">Save</Button>
-              <Button type="button" size="sm" variant="ghost" onClick={handleCancelEdit} className="px-2 py-1 text-xs">Cancel</Button>
+              <Button type="submit" size="sm" variant="primary" className="px-2 py-1 text-xs" disabled={isUpdating}>
+                {isUpdating ? "Saving..." : "Save"}
+              </Button>
+              <Button 
+                type="button" 
+                size="sm" 
+                variant="secondary" 
+                className="px-2 py-1 text-xs"
+                onClick={() => {
+                  setNickname(account.nickname || "");
+                  setIsEditing(false);
+                }}
+              >
+                Cancel
+              </Button>
             </form>
           ) : (
             <div className="flex items-center gap-1">
@@ -305,20 +364,39 @@ export function AccountCard({
             const lastUpdate = new Date(account.lastUpdated);
             const now = new Date();
             const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+            const daysSinceUpdate = hoursSinceUpdate / 24;
             
-            if (hoursSinceUpdate > 24) {
-              return (
-                <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-md">
-                  <div className="flex items-center text-xs text-orange-700 dark:text-orange-300">
-                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    Data may be outdated - refresh to update
+            if (isManualAccount) {
+              // For manual accounts, show notice if not updated in over a week
+              if (daysSinceUpdate > 7) {
+                return (
+                  <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                    <div className="flex items-center text-xs text-blue-700 dark:text-blue-300">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      Manual account - please review and update balance
+                    </div>
                   </div>
-                </div>
-              );
+                );
+              }
+              return null; // Don't show any notice for recent manual updates
+            } else {
+              // For Plaid/Coinbase accounts, show notice if more than 24 hours old
+              if (hoursSinceUpdate > 24) {
+                return (
+                  <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-md">
+                    <div className="flex items-center text-xs text-orange-700 dark:text-orange-300">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      Data may be outdated - refresh to update
+                    </div>
+                  </div>
+                );
+              }
+              return null;
             }
-            return null;
           })()}
         </div>
       </div>

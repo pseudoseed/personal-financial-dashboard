@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Menu } from "@headlessui/react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   WrenchScrewdriverIcon,
   SunIcon, 
@@ -12,7 +13,8 @@ import {
   ArrowPathIcon,
   GlobeAltIcon,
   Cog6ToothIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  DocumentTextIcon
 } from "@heroicons/react/24/outline";
 import { useTheme, useSensitiveData } from "@/app/providers";
 import { Button } from "@/components/ui/Button";
@@ -38,9 +40,13 @@ export function UtilityButtons({
   const { darkMode, setDarkMode } = useTheme();
   const { showSensitiveData, toggleSensitiveData } = useSensitiveData();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [isRefreshingInstitutions, setIsRefreshingInstitutions] = useState(false);
+  const [isSyncingTransactions, setIsSyncingTransactions] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [transactionSyncError, setTransactionSyncError] = useState<string | null>(null);
 
   // Refresh data functionality
   const handleRefreshData = async () => {
@@ -51,21 +57,69 @@ export function UtilityButtons({
 
     try {
       setIsRefreshingData(true);
+      setRefreshError(null);
+      
       const response = await fetch("/api/accounts/refresh", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          manual: true,
+          userId: "default",
+        }),
       });
 
       if (!response.ok) {
         throw new Error("Failed to refresh balances");
       }
 
-      // Refresh the page to show updated data
-      router.refresh();
+      // Invalidate relevant queries instead of refreshing the page
+      await queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      await queryClient.invalidateQueries({ queryKey: ["accountsWithHistory"] });
+      await queryClient.invalidateQueries({ queryKey: ["account-history"] });
     } catch (error) {
       console.error("Error refreshing balances:", error);
-      // You could add a toast notification here
+      setRefreshError(error instanceof Error ? error.message : "Unknown error");
     } finally {
       setIsRefreshingData(false);
+      // Clear error after 5 seconds
+      setTimeout(() => setRefreshError(null), 5000);
+    }
+  };
+
+  // Transaction sync functionality
+  const handleTransactionSync = async () => {
+    try {
+      setIsSyncingTransactions(true);
+      setTransactionSyncError(null);
+      
+      const response = await fetch("/api/transactions/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          manual: true,
+          userId: "default",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to sync transactions");
+      }
+
+      // Invalidate relevant queries
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions-by-category"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions-for-ai"] });
+    } catch (error) {
+      console.error("Error syncing transactions:", error);
+      setTransactionSyncError(error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      setIsSyncingTransactions(false);
+      // Clear error after 5 seconds
+      setTimeout(() => setTransactionSyncError(null), 5000);
     }
   };
 
@@ -86,8 +140,9 @@ export function UtilityButtons({
         throw new Error("Failed to refresh institution data");
       }
 
-      // Refresh the page to show updated data
-      router.refresh();
+      // Invalidate relevant queries instead of refreshing the page
+      await queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      await queryClient.invalidateQueries({ queryKey: ["accountsWithHistory"] });
     } catch (error) {
       console.error("Error refreshing institutions:", error);
       // You could add a toast notification here
@@ -104,10 +159,19 @@ export function UtilityButtons({
   const utilityButtons = [
     {
       icon: <ArrowPathIcon className={`h-5 w-5 ${isRefreshingData ? "animate-spin" : ""}`} />,
-      label: "Refresh Balances",
+      label: refreshError ? `Refresh (${refreshError})` : "Refresh Balances",
       onClick: handleRefreshData,
       show: true,
-      disabled: isRefreshingData
+      disabled: isRefreshingData,
+      className: refreshError ? "text-red-500" : ""
+    },
+    {
+      icon: <DocumentTextIcon className={`h-5 w-5 ${isSyncingTransactions ? "animate-spin" : ""}`} />,
+      label: transactionSyncError ? `Sync TX (${transactionSyncError})` : "Sync Transactions",
+      onClick: handleTransactionSync,
+      show: true,
+      disabled: isSyncingTransactions,
+      className: transactionSyncError ? "text-red-500" : ""
     },
     {
       icon: <GlobeAltIcon className={`h-5 w-5 ${isRefreshingInstitutions ? "animate-spin" : ""}`} />,

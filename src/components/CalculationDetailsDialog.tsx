@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { XMarkIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
 import { formatBalance } from "@/lib/formatters";
 import { useSensitiveData } from "@/app/providers";
+import { useDialogDismiss } from "@/lib/useDialogDismiss";
+import { getExpectedIncomeForMonth, calculateNextPaymentDate } from "@/lib/recurringPaymentUtils";
 
 interface CalculationDetailsDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  metricType: "bills" | "cash" | "net";
+  metricType: "bills" | "cash" | "net" | "income";
   data: {
     totalBillsDueThisMonth: number;
     availableCash: number;
@@ -32,6 +34,16 @@ interface CalculationDetailsDialogProps {
         merchantName?: string;
       }>;
     }>;
+    expectedIncome?: number;
+    recurringPayments?: Array<{
+      id: string;
+      name: string;
+      amount: number;
+      frequency: string;
+      dayOfWeek?: string;
+      dayOfMonth?: number;
+      nextPaymentDate: string;
+    }>;
   };
 }
 
@@ -42,7 +54,13 @@ export function CalculationDetailsDialog({
   data 
 }: CalculationDetailsDialogProps) {
   const { showSensitiveData } = useSensitiveData();
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useDialogDismiss({
+    isOpen,
+    onClose,
+    allowEscape: true,
+    allowClickOutside: true,
+    requireInput: false,
+  });
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -104,6 +122,51 @@ export function CalculationDetailsDialog({
           total: data.totalBillsDueThisMonth,
           calculation: "Statement balances for credit/loan accounts with due dates in the next 30 days"
         };
+      case "income":
+        return {
+          title: "Expected Income Calculation",
+          description: "Expected income from recurring payments this month",
+          accounts: [],
+          total: data.expectedIncome || 0,
+          calculation: "Sum of expected income from active recurring payments due this month",
+          payDates: data.recurringPayments ? data.recurringPayments.map(payment => {
+            const payDates = [];
+            let paymentDate = new Date(payment.nextPaymentDate);
+            const now = new Date();
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            let iterations = 0;
+            // Move to first pay date in this month
+            while (paymentDate < monthStart) {
+              if (iterations++ > 50) {
+                console.error('Infinite loop detected in pay date pre-loop', { payment, paymentDate, monthStart });
+                break;
+              }
+              paymentDate = calculateNextPaymentDate(
+                paymentDate,
+                payment.frequency,
+                payment.dayOfWeek !== undefined ? parseInt(payment.dayOfWeek as any) : undefined,
+                payment.dayOfMonth
+              );
+            }
+            iterations = 0;
+            // Collect all pay dates in this month
+            while (paymentDate <= monthEnd) {
+              if (iterations++ > 50) {
+                console.error('Infinite loop detected in pay date main loop', { payment, paymentDate, monthEnd });
+                break;
+              }
+              payDates.push(new Date(paymentDate));
+              paymentDate = calculateNextPaymentDate(
+                paymentDate,
+                payment.frequency,
+                payment.dayOfWeek !== undefined ? parseInt(payment.dayOfWeek as any) : undefined,
+                payment.dayOfMonth
+              );
+            }
+            return { ...payment, payDates };
+          }) : []
+        };
       case "cash":
         return {
           title: "Available Cash Calculation",
@@ -115,10 +178,10 @@ export function CalculationDetailsDialog({
       case "net":
         return {
           title: "Net Position Calculation",
-          description: "Available cash minus upcoming bills",
+          description: "Available cash plus expected income minus upcoming bills",
           accounts: [],
-          total: data.availableCash - data.totalBillsDueThisMonth,
-          calculation: `Available Cash (${formatBalance(data.availableCash)}) - Upcoming Bills (${formatBalance(data.totalBillsDueThisMonth)})`
+          total: (data.availableCash + (data.expectedIncome || 0)) - data.totalBillsDueThisMonth,
+          calculation: `Available Cash (${formatBalance(data.availableCash)}) + Expected Income (${formatBalance(data.expectedIncome || 0)}) - Upcoming Bills (${formatBalance(data.totalBillsDueThisMonth)})`
         };
     }
   };
@@ -368,6 +431,53 @@ export function CalculationDetailsDialog({
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Income Details */}
+          {metricType === "income" && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Recurring Payments
+              </h3>
+              <div className="space-y-3">
+                {Array.isArray(metricInfo.payDates) && metricInfo.payDates.map((payment) => (
+                  <div key={payment.id} className="p-3 bg-gray-50 dark:bg-zinc-700 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {payment.name}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {payment.frequency}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {showSensitiveData ? formatBalance(payment.amount) : "••••••"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-gray-200 dark:border-zinc-600">
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        Pay Dates:
+                      </p>
+                      <div className="space-y-1">
+                        {payment.payDates.map((payDate) => (
+                          <div key={payDate.toISOString()} className="flex justify-between text-xs">
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {payDate.toLocaleDateString()}
+                            </span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {showSensitiveData ? formatBalance(payment.amount) : "••••••"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

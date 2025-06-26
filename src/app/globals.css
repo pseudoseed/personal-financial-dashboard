@@ -169,8 +169,8 @@
   --surface-500: #a3a3a3;
   --surface-600: #d4d4d4;
   --surface-700: #e5e5e5;
-  --surface-800: #f5f5f5;
-  --surface-900: #fafafa;
+  --surface-800: #262626;
+  --surface-900: #171717;
   
   /* Border colors (adjusted for dark mode) */
   --border-light: #374151;
@@ -276,7 +276,7 @@ p {
 }
 
 .dark .card {
-  background: var(--surface-100);
+  background: var(--surface-800);
   border: none;
   box-shadow: 0 2px 12px rgba(0,0,0,0.25);
 }

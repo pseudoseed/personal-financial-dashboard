@@ -96,23 +96,21 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     
-    // For now, use a default user ID - in a real app, this would come from authentication
-    const userId = "default";
-    
-    // Ensure the default user exists
-    let user = await (prisma as any).user.findUnique({
-      where: { id: userId },
+    // Get or create default user (same logic as dismiss-pattern route)
+    let user = await (prisma as any).user.findFirst({
+      where: { email: 'default@example.com' }
     });
 
     if (!user) {
       user = await (prisma as any).user.create({
         data: {
-          id: userId,
-          email: "default@example.com",
-          name: "Default User",
-        },
+          email: 'default@example.com',
+          name: 'Default User'
+        }
       });
     }
+    
+    const userId = user.id;
     
     // Get or create user settings
     let settings = await (prisma as any).anomalyDetectionSettings.findUnique({
@@ -183,25 +181,36 @@ export async function GET(request: NextRequest) {
     });
 
     // Filter out transactions that match dismissal rules
-    const filteredTransactions = transactions.filter(transaction => {
+    const filteredTransactions = transactions.filter((transaction: any) => {
       const transactionText = `${transaction.name} ${transaction.merchantName || ''}`.toLowerCase();
       const amount = Math.abs(transaction.amount);
       const category = transaction.categoryAi || transaction.category || 'Uncategorized';
       
-      return !dismissalRules.some(rule => {
-        switch (rule.patternType) {
-          case 'exact_name':
-            return transaction.name.toLowerCase() === rule.pattern.toLowerCase();
-          case 'merchant_name':
-            return transaction.merchantName && 
-                   transaction.merchantName.toLowerCase().includes(rule.pattern.toLowerCase());
-          case 'category':
-            return category.toLowerCase().includes(rule.pattern.toLowerCase());
-          case 'amount_range':
-            const [min, max] = rule.pattern.split('-').map(Number);
-            return amount >= min && amount <= max;
-          default:
-            return transactionText.includes(rule.pattern.toLowerCase());
+      return !dismissalRules.some((rule: any) => {
+        try {
+          // Parse the ruleValue JSON to get the pattern data
+          const ruleData = JSON.parse(rule.ruleValue);
+          const pattern = ruleData.pattern;
+          const patternType = ruleData.patternType;
+          
+          switch (patternType) {
+            case 'exact_name':
+              return transaction.name.toLowerCase() === pattern.toLowerCase();
+            case 'merchant_name':
+              return transaction.merchantName && 
+                     transaction.merchantName.toLowerCase().includes(pattern.toLowerCase());
+            case 'category':
+              return category.toLowerCase().includes(pattern.toLowerCase());
+            case 'amount_range':
+              const [min, max] = pattern.split('-').map(Number);
+              return amount >= min && amount <= max;
+            default:
+              return transactionText.includes(pattern.toLowerCase());
+          }
+        } catch (error) {
+          // If we can't parse the rule, skip it
+          console.warn('Failed to parse dismissal rule:', rule.id);
+          return false;
         }
       });
     });
@@ -209,7 +218,7 @@ export async function GET(request: NextRequest) {
     const anomalies: any[] = [];
 
     // 1. Detect suspicious patterns
-    filteredTransactions.forEach(transaction => {
+    filteredTransactions.forEach((transaction: any) => {
       const transactionText = `${transaction.name} ${transaction.merchantName || ''}`.toLowerCase();
       
       // Skip if this is a legitimate transaction
@@ -297,7 +306,11 @@ export async function GET(request: NextRequest) {
           anomalyResults.push(result);
         }
       } catch (err) {
-        console.error('Error creating anomaly result:', err instanceof Error ? err.message : err);
+        const errorMessage = err ? (err instanceof Error ? err.message : String(err)) : 'Unknown error';
+        console.log('Error creating anomaly result:', {
+          message: errorMessage,
+          errorType: err ? typeof err : 'null/undefined'
+        });
       }
     }
 
@@ -316,8 +329,66 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Apply dismissal rules to existing anomalies in the database
+    console.log(`Found ${dbAnomalies.length} anomalies in database`);
+    console.log(`Found ${dismissalRules.length} dismissal rules`);
+    
+    const filteredDbAnomalies = dbAnomalies.filter((dbAnomaly: any) => {
+      const transaction = dbAnomaly.transaction;
+      const transactionText = `${transaction.name} ${transaction.merchantName || ''}`.toLowerCase();
+      const amount = Math.abs(transaction.amount);
+      const category = transaction.categoryAi || transaction.category || 'Uncategorized';
+      
+      const shouldFilter = dismissalRules.some((rule: any) => {
+        try {
+          // Parse the ruleValue JSON to get the pattern data
+          const ruleData = JSON.parse(rule.ruleValue);
+          const pattern = ruleData.pattern;
+          const patternType = ruleData.patternType;
+          
+          let matches = false;
+          switch (patternType) {
+            case 'exact_name':
+              matches = transaction.name.toLowerCase() === pattern.toLowerCase();
+              break;
+            case 'merchant_name':
+              matches = transaction.merchantName && 
+                     transaction.merchantName.toLowerCase().includes(pattern.toLowerCase());
+              break;
+            case 'category':
+              matches = category.toLowerCase().includes(pattern.toLowerCase());
+              break;
+            case 'amount_range':
+              const [min, max] = pattern.split('-').map(Number);
+              matches = amount >= min && amount <= max;
+              break;
+            default:
+              matches = transactionText.includes(pattern.toLowerCase());
+          }
+          
+          if (matches) {
+            console.log(`Anomaly ${dbAnomaly.id} matches dismissal rule: ${patternType}="${pattern}"`);
+          }
+          
+          return matches;
+        } catch (error) {
+          // If we can't parse the rule, skip it
+          console.warn('Failed to parse dismissal rule:', rule.id);
+          return false;
+        }
+      });
+      
+      if (shouldFilter) {
+        console.log(`Filtering out anomaly ${dbAnomaly.id} for transaction: ${transaction.name}`);
+      }
+      
+      return !shouldFilter;
+    });
+    
+    console.log(`After filtering: ${filteredDbAnomalies.length} anomalies remaining`);
+
     // Map database anomalies to the expected format
-    const dbAnomaliesFormatted = dbAnomalies.map((dbAnomaly: any) => ({
+    const dbAnomaliesFormatted = filteredDbAnomalies.map((dbAnomaly: any) => ({
       id: dbAnomaly.id,
       type: dbAnomaly.type,
       severity: dbAnomaly.severity,
@@ -330,7 +401,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // Sort by severity and date
-    dbAnomaliesFormatted.sort((a, b) => {
+    dbAnomaliesFormatted.sort((a: any, b: any) => {
       const severityOrder = { high: 3, medium: 2, low: 1 };
       const severityDiff = severityOrder[b.severity as keyof typeof severityOrder] - severityOrder[a.severity as keyof typeof severityOrder];
       if (severityDiff !== 0) return severityDiff;
@@ -350,7 +421,11 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error detecting anomalies:', error instanceof Error ? error.message : error);
+    const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    console.log('Error detecting anomalies:', {
+      message: errorMessage,
+      errorType: error ? typeof error : 'null/undefined'
+    });
     return NextResponse.json({ error: 'Failed to detect anomalies' }, { status: 500 });
   }
 }
@@ -367,10 +442,10 @@ function findDuplicateCharges(transactions: any[], hoursWindow: number): any[] {
       return;
     }
     
-    // Create a key based on merchant and amount (within $1 tolerance)
+    // Create a key based on merchant and exact amount (to the cent)
     const amount = Math.abs(transaction.amount);
     const merchantKey = transaction.merchantEntityId || transaction.merchantName || transaction.name;
-    const chargeKey = `${merchantKey}_${Math.round(amount)}`;
+    const chargeKey = `${merchantKey}_${amount.toFixed(2)}`;
     
     if (!seenCharges.has(chargeKey)) {
       seenCharges.set(chargeKey, []);

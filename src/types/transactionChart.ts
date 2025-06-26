@@ -56,4 +56,5 @@ export interface Account {
   plaidItem: {
     institutionName: string | null;
   };
+  mask?: string | null;
 } 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { useDialogDismiss } from "@/lib/useDialogDismiss";
 
 interface AnomalyDismissalDialogProps {
   isOpen: boolean;
@@ -25,6 +26,15 @@ export function AnomalyDismissalDialog({
   const [patternType, setPatternType] = useState<string>("exact_name");
   const [customPattern, setCustomPattern] = useState<string>("");
   const [reason, setReason] = useState<string>("");
+
+  // Use the dialog dismiss hook - Anomaly dismissal dialog requires input, so prevent dismissal
+  const dialogRef = useDialogDismiss({
+    isOpen,
+    onClose,
+    allowEscape: false,
+    allowClickOutside: false,
+    requireInput: true,
+  });
 
   if (!isOpen || !transaction) return null;
 
@@ -58,7 +68,10 @@ export function AnomalyDismissalDialog({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-zinc-800 rounded-lg max-w-md w-full">
+      <div 
+        ref={dialogRef}
+        className="bg-white dark:bg-zinc-800 rounded-lg max-w-md w-full"
+      >
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Dismiss Anomaly

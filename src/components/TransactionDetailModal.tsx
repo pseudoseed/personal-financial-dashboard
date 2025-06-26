@@ -4,6 +4,7 @@ import { useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { formatBalance } from "@/lib/formatters";
 import { format } from "date-fns";
+import { useDialogDismiss } from "@/lib/useDialogDismiss";
 
 interface Transaction {
   id: string;
@@ -30,11 +31,23 @@ interface TransactionDetailModalProps {
 }
 
 export function TransactionDetailModal({ transaction, isOpen, onClose, isMasked = false }: TransactionDetailModalProps) {
+  // Use the dialog dismiss hook - Transaction detail modal doesn't require input
+  const dialogRef = useDialogDismiss({
+    isOpen,
+    onClose,
+    allowEscape: true,
+    allowClickOutside: true,
+    requireInput: false,
+  });
+
   if (!isOpen || !transaction) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div 
+        ref={dialogRef}
+        className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-zinc-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">

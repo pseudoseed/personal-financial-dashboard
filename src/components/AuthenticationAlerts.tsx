@@ -127,8 +127,37 @@ export function AuthenticationAlerts() {
     setDismissedAlerts(prev => new Set(prev).add(institutionId));
   };
 
+  // Utility to determine severity order
+  const statusSeverity = (status: string) => {
+    switch (status) {
+      case "needs_reauth": return 3;
+      case "institution_down": return 2;
+      case "error": return 1;
+      default: return 0;
+    }
+  };
+
+  // Group authStatus by institutionId
+  const groupedAuthStatus: AuthStatus[] = Object.values(
+    authStatus.reduce((acc, curr) => {
+      if (!acc[curr.institutionId]) {
+        acc[curr.institutionId] = { ...curr };
+      } else {
+        // Aggregate accounts
+        acc[curr.institutionId].accounts += curr.accounts;
+        // Pick the most severe status
+        if (statusSeverity(curr.status) > statusSeverity(acc[curr.institutionId].status)) {
+          acc[curr.institutionId].status = curr.status;
+          acc[curr.institutionId].errorMessage = curr.errorMessage;
+          acc[curr.institutionId].errorCode = curr.errorCode;
+        }
+      }
+      return acc;
+    }, {} as Record<string, AuthStatus>)
+  );
+
   // Filter out dismissed alerts and only show problematic ones
-  const problematicInstitutions = authStatus.filter(
+  const problematicInstitutions = groupedAuthStatus.filter(
     status => 
       status.status !== "valid" && 
       !dismissedAlerts.has(status.institutionId)
