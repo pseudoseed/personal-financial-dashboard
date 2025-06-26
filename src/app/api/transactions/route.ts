@@ -252,10 +252,11 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error fetching transaction data:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch transaction data' },
-      { status: 500 }
-    );
+    const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    console.log('Error fetching transaction data:', {
+      message: errorMessage,
+      errorType: error ? typeof error : 'null/undefined'
+    });
+    return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 });
   }
 } 

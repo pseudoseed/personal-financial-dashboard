@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { safeErrorLog, createErrorResponse } from '@/lib/errorHandling';
 
 export async function POST(request: NextRequest) {
   try {
-    const { pattern, patternType, reason, anomalyId } = await request.json();
+    const body = await request.json();
+    const { pattern, patternType, reason, anomalyId } = body;
+
+    // Validate required fields
+    if (!pattern || !patternType) {
+      return NextResponse.json(
+        { error: 'Missing required fields: pattern and patternType are required' },
+        { status: 400 }
+      );
+    }
+
+    console.log('Creating dismissal rule:', { pattern, patternType, reason, anomalyId });
 
     // Get or create default user
     let user = await (prisma as any).user.findFirst({
@@ -11,6 +23,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
+      console.log('Creating default user');
       user = await (prisma as any).user.create({
         data: {
           email: 'default@example.com',
@@ -19,22 +32,43 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create dismissal rule
+    console.log('Using user:', user.id);
+
+    // Create dismissal rule using the correct schema
+    const ruleValue = JSON.stringify({
+      pattern,
+      patternType,
+      reason: reason || null
+    });
+
     const dismissalRule = await (prisma as any).anomalyDismissalRule.create({
       data: {
         userId: user.id,
-        pattern,
-        patternType,
-        reason: reason || null,
+        ruleType: patternType, // Use patternType as ruleType
+        ruleValue: ruleValue,  // Store pattern data as JSON string
       }
     });
 
+    console.log('Created dismissal rule:', dismissalRule.id);
+
     // If an anomalyId was provided, also hide that specific anomaly
     if (anomalyId) {
-      await (prisma as any).anomalyDetectionResult.update({
-        where: { id: anomalyId },
-        data: { isHidden: true }
+      console.log('Hiding anomaly:', anomalyId);
+      
+      // Check if the anomaly exists before trying to update it
+      const existingAnomaly = await (prisma as any).anomalyDetectionResult.findUnique({
+        where: { id: anomalyId }
       });
+      
+      if (existingAnomaly) {
+        await (prisma as any).anomalyDetectionResult.update({
+          where: { id: anomalyId },
+          data: { isHidden: true }
+        });
+        console.log('Successfully hid anomaly:', anomalyId);
+      } else {
+        console.log('Anomaly not found, skipping hide operation:', anomalyId);
+      }
     }
 
     return NextResponse.json({ 
@@ -44,11 +78,8 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error creating dismissal rule:', error);
-    return NextResponse.json(
-      { error: 'Failed to create dismissal rule' },
-      { status: 500 }
-    );
+    const errorResponse = createErrorResponse(error, 'Failed to create dismissal rule');
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }
 
@@ -66,16 +97,19 @@ export async function GET(request: NextRequest) {
     // Get all dismissal rules for the user
     const dismissalRules = await (prisma as any).anomalyDismissalRule.findMany({
       where: { userId: user.id },
-      orderBy: { dismissedAt: 'desc' }
+      orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json({ dismissalRules });
+    // Parse the ruleValue JSON for each rule
+    const parsedRules = dismissalRules.map((rule: any) => ({
+      ...rule,
+      ruleData: JSON.parse(rule.ruleValue)
+    }));
+
+    return NextResponse.json({ dismissalRules: parsedRules });
 
   } catch (error) {
-    console.error('Error fetching dismissal rules:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch dismissal rules' },
-      { status: 500 }
-    );
+    const errorResponse = createErrorResponse(error, 'Failed to fetch dismissal rules');
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 } 

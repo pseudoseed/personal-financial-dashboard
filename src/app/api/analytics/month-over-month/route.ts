@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         name: true,
         amount: true,
         category: true,
-        categoryAi: true,
+        categoryAiGranular: true,
         merchantName: true,
         account: {
           select: {
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
         name: true,
         amount: true,
         category: true,
-        categoryAi: true,
+        categoryAiGranular: true,
         merchantName: true,
         account: {
           select: {
@@ -188,11 +188,12 @@ export async function GET(request: NextRequest) {
       }),
     });
   } catch (error) {
-    console.error('Error calculating month-over-month comparison:', error);
-    return NextResponse.json(
-      { error: 'Failed to calculate month-over-month comparison' },
-      { status: 500 }
-    );
+    const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    console.log('Error calculating month-over-month comparison:', {
+      message: errorMessage,
+      errorType: error ? typeof error : 'null/undefined'
+    });
+    return NextResponse.json({ error: 'Failed to calculate month-over-month comparison' }, { status: 500 });
   }
 }
 
@@ -202,7 +203,7 @@ function groupTransactionsByCategory(transactions: any[]): Record<string, number
   transactions
     .filter(t => t.amount < 0) // Only expenses
     .forEach(transaction => {
-      const category = transaction.categoryAi || transaction.category || 'Uncategorized';
+      const category = transaction.categoryAiGranular || transaction.category || 'Uncategorized';
       grouped[category] = (grouped[category] || 0) + Math.abs(transaction.amount);
     });
   

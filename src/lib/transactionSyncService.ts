@@ -117,9 +117,21 @@ export async function smartSyncTransactions(
 ) {
   console.log("Starting smart transaction sync process...");
   
+  // Get the actual user ID if "default" is passed
+  let actualUserId = userId;
+  if (userId === "default") {
+    const defaultUser = await prisma.user.findFirst({
+      where: { email: 'default@example.com' }
+    });
+    if (!defaultUser) {
+      throw new Error("Default user not found");
+    }
+    actualUserId = defaultUser.id;
+  }
+  
   // Build where clause
   const whereClause: any = {
-    userId,
+    userId: actualUserId,
     hidden: false,
     plaidItem: {
       accessToken: {

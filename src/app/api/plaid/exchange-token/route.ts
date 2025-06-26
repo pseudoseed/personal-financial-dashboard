@@ -52,6 +52,20 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get or create default user first
+    let defaultUser = await prisma.user.findFirst({
+      where: { email: 'default@example.com' }
+    });
+
+    if (!defaultUser) {
+      defaultUser = await prisma.user.create({
+        data: {
+          email: 'default@example.com',
+          name: 'Default User'
+        }
+      });
+    }
+
     // Exchange public token for access token
     const response = await plaidClient.itemPublicTokenExchange({
       public_token: publicToken,
@@ -66,6 +80,13 @@ export async function POST(request: Request) {
     });
 
     const institutionId = itemResponse.data.item.institution_id;
+
+    if (!institutionId) {
+      return NextResponse.json(
+        { error: "Invalid institution ID from Plaid" },
+        { status: 400 }
+      );
+    }
 
     // Get institution information
     const institutionResponse = await plaidClient.institutionsGetById({
@@ -86,8 +107,8 @@ export async function POST(request: Request) {
         where: { id: existingInstitution.id },
         data: {
           accessToken,
-          institutionName: institution.name || null,
-          institutionLogo: institution.logo || null,
+          institutionName: institution.name ?? null,
+          institutionLogo: institution.logo ?? null,
         },
       });
 
@@ -130,14 +151,14 @@ export async function POST(request: Request) {
               subtype: plaidAccount.subtype || null,
               mask: plaidAccount.mask || null,
               itemId: existingInstitution.id,
-              userId: "default", // Use default user for now
+              userId: defaultUser.id, // Use the actual user ID
             },
           });
         }
       }
 
       // Check for and merge duplicates
-      const duplicateGroup = await detectDuplicates(institutionId);
+      const duplicateGroup = institutionId ? await detectDuplicates(institutionId) : null;
       let mergeMessage = null;
       
       if (duplicateGroup && duplicateGroup.shouldMerge) {
@@ -158,8 +179,8 @@ export async function POST(request: Request) {
           itemId: plaidItemId,
           accessToken,
           institutionId,
-          institutionName: institution.name || null,
-          institutionLogo: institution.logo || null,
+          institutionName: institution.name ?? null,
+          institutionLogo: institution.logo ?? null,
         },
       });
 
@@ -180,13 +201,13 @@ export async function POST(request: Request) {
             subtype: plaidAccount.subtype || null,
             mask: plaidAccount.mask || null,
             itemId: newInstitution.id,
-            userId: "default", // Use default user for now
+            userId: defaultUser.id, // Use the actual user ID
           },
         });
       }
 
       // Check for and merge duplicates
-      const duplicateGroup = await detectDuplicates(institutionId);
+      const duplicateGroup = institutionId ? await detectDuplicates(institutionId) : null;
       let mergeMessage = null;
       
       if (duplicateGroup && duplicateGroup.shouldMerge) {
@@ -202,7 +223,17 @@ export async function POST(request: Request) {
       });
     }
   } catch (error) {
-    console.error("Error exchanging token:", error);
+    // Safely handle null/undefined error values
+    const errorMessage = error instanceof Error ? error.message : String(error || 'Unknown error');
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    // Log error safely without passing potentially null error object
+    console.error("Error exchanging token:", {
+      message: errorMessage,
+      stack: errorStack,
+      timestamp: new Date().toISOString()
+    });
+    
     return NextResponse.json(
       { error: "Failed to exchange token" },
       { status: 500 }

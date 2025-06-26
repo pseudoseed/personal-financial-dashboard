@@ -9,6 +9,7 @@ interface BillsData {
   totalBillsDueThisMonth: number;
   totalBillsDueNext30Days?: number;
   availableCash: number;
+  expectedIncome?: number;
   accounts: Array<{
     id: string;
     name: string;
@@ -28,6 +29,13 @@ interface BillsData {
       merchantName?: string;
     }>;
   }>;
+  recurringPayments?: Array<{
+    id: string;
+    name: string;
+    amount: number;
+    date: string;
+    merchantName?: string;
+  }>;
 }
 
 export function BillsVsCashCard() {
@@ -35,7 +43,8 @@ export function BillsVsCashCard() {
   const [data, setData] = useState<BillsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedMetric, setSelectedMetric] = useState<"bills" | "cash" | "net">("bills");
+  const [selectedMetric, setSelectedMetric] = useState<"bills" | "cash" | "net" | "income">("bills");
+  const [recurringPayments, setRecurringPayments] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -52,10 +61,24 @@ export function BillsVsCashCard() {
     fetchData();
   }, []);
 
-  const ratio = data && data.availableCash > 0 ? data.totalBillsDueThisMonth / data.availableCash : 0;
-  const isHealthy = ratio < 0.5; // Example: healthy if bills are less than 50% of cash
+  useEffect(() => {
+    async function fetchRecurringPayments() {
+      try {
+        const response = await fetch("/api/recurring-payments");
+        const result = await response.json();
+        setRecurringPayments(result);
+      } catch (error) {
+        // ignore
+      }
+    }
+    fetchRecurringPayments();
+  }, []);
 
-  const handleMetricClick = (metric: "bills" | "cash" | "net") => {
+  const netPosition = data ? (data.availableCash + (data.expectedIncome || 0)) - data.totalBillsDueThisMonth : 0;
+  const isNetPositive = netPosition >= 0;
+  const isHealthy = netPosition >= 0;
+
+  const handleMetricClick = (metric: "bills" | "cash" | "net" | "income") => {
     setSelectedMetric(metric);
     setDialogOpen(true);
   };
@@ -86,9 +109,6 @@ export function BillsVsCashCard() {
     )
   }
 
-  const netPosition = data.availableCash - data.totalBillsDueThisMonth;
-  const isNetPositive = netPosition >= 0;
-
   return (
     <>
       <div className="card p-4 bg-white dark:bg-black border border-gray-200 dark:border-gray-800">
@@ -115,9 +135,31 @@ export function BillsVsCashCard() {
               {showSensitiveData ? formatBalance(data.totalBillsDueThisMonth) : "••••••"}
             </p>
           </div>
-          
+
+          {/* Expected Income */}
           <div 
-            className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md hover:bg-purple-100 dark:hover:bg-purple-900/30"
+            className={`p-3 rounded-lg cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30`}
+            onClick={() => handleMetricClick("income")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleMetricClick("income");
+              }
+            }}
+          >
+            <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
+              Expected Income
+            </p>
+            <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
+              {showSensitiveData ? formatBalance(data.expectedIncome || 0) : "••••••"}
+            </p>
+          </div>
+
+          {/* Available Cash */}
+          <div 
+            className={`p-3 rounded-lg cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30`}
             onClick={() => handleMetricClick("cash")}
             role="button"
             tabIndex={0}
@@ -128,10 +170,10 @@ export function BillsVsCashCard() {
               }
             }}
           >
-            <p className="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">
+            <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">
               Available Cash
             </p>
-            <p className="text-lg font-bold text-purple-700 dark:text-purple-300">
+            <p className="text-lg font-bold text-green-700 dark:text-green-300">
               {showSensitiveData ? formatBalance(data.availableCash) : "••••••"}
             </p>
           </div>
@@ -164,7 +206,10 @@ export function BillsVsCashCard() {
           isOpen={dialogOpen}
           onClose={() => setDialogOpen(false)}
           metricType={selectedMetric}
-          data={data}
+          data={{
+            ...data,
+            recurringPayments: recurringPayments,
+          }}
         />
       )}
     </>

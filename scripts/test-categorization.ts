@@ -11,7 +11,7 @@ async function testCategorization() {
         id: true,
         name: true,
         amount: true,
-        categoryAi: true,
+        category: true,
         date: true
       },
       orderBy: { date: 'desc' }
@@ -39,7 +39,7 @@ async function testCategorization() {
     // Check if categories were stored in database
     const updatedTransactions = await prisma.transaction.findMany({
       where: { id: { in: transactions.map(t => t.id) } },
-      select: { id: true, name: true, categoryAi: true }
+      select: { id: true, name: true, category: true }
     });
 
     // Test second call to verify caching

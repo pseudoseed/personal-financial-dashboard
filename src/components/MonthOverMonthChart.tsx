@@ -205,19 +205,29 @@ export function MonthOverMonthChart({}: MonthOverMonthChartProps) {
           <div className="flex items-center justify-center space-x-1 mb-1">
             {data.summary.income.changePercent > 0 ? (
               <ArrowTrendingUpIcon className="w-4 h-4 text-green-500 dark:text-green-400" />
-            ) : (
+            ) : data.summary.income.changePercent < 0 ? (
               <ArrowTrendingDownIcon className="w-4 h-4 text-pink-500 dark:text-pink-400" />
+            ) : (
+              <ArrowTrendingUpIcon className="w-4 h-4 text-gray-400 dark:text-gray-400" />
             )}
             <span className={`text-lg font-semibold ${
-              data.summary.income.changePercent > 0 
-                ? 'text-green-500 dark:text-green-400' 
-                : 'text-pink-500 dark:text-pink-400'
+              data.summary.income.changePercent > 0
+                ? 'text-green-500 dark:text-green-400'
+                : data.summary.income.changePercent < 0
+                  ? 'text-pink-500 dark:text-pink-400'
+                  : 'text-gray-500 dark:text-gray-400'
             }`}>
               {data.summary.income.changePercent > 0 ? '+' : ''}
               {data.summary.income.changePercent.toFixed(1)}%
             </span>
           </div>
-          <p className="text-xs text-surface-600 dark:text-gray-400">
+          <p className={`text-xs font-medium ${
+            data.summary.income.changePercent > 0
+              ? 'text-green-600 dark:text-green-400'
+              : data.summary.income.changePercent < 0
+                ? 'text-pink-600 dark:text-pink-400'
+                : 'text-gray-500 dark:text-gray-400'
+          }`}>
             {showSensitiveData ? formatBalance(data.summary.income.current) : "••••••"}
           </p>
         </div>
@@ -227,19 +237,29 @@ export function MonthOverMonthChart({}: MonthOverMonthChartProps) {
           <div className="flex items-center justify-center space-x-1 mb-1">
             {data.summary.expenses.changePercent < 0 ? (
               <ArrowTrendingDownIcon className="w-4 h-4 text-green-500 dark:text-green-400" />
-            ) : (
+            ) : data.summary.expenses.changePercent > 0 ? (
               <ArrowTrendingUpIcon className="w-4 h-4 text-pink-500 dark:text-pink-400" />
+            ) : (
+              <ArrowTrendingDownIcon className="w-4 h-4 text-gray-400 dark:text-gray-400" />
             )}
             <span className={`text-lg font-semibold ${
-              data.summary.expenses.changePercent < 0 
-                ? 'text-green-500 dark:text-green-400' 
-                : 'text-pink-500 dark:text-pink-400'
+              data.summary.expenses.changePercent < 0
+                ? 'text-green-500 dark:text-green-400'
+                : data.summary.expenses.changePercent > 0
+                  ? 'text-pink-500 dark:text-pink-400'
+                  : 'text-gray-500 dark:text-gray-400'
             }`}>
               {data.summary.expenses.changePercent > 0 ? '+' : ''}
               {data.summary.expenses.changePercent.toFixed(1)}%
             </span>
           </div>
-          <p className="text-xs text-surface-600 dark:text-gray-400">
+          <p className={`text-xs font-medium ${
+            data.summary.expenses.changePercent < 0
+              ? 'text-green-600 dark:text-green-400'
+              : data.summary.expenses.changePercent > 0
+                ? 'text-pink-600 dark:text-pink-400'
+                : 'text-gray-500 dark:text-gray-400'
+          }`}>
             {showSensitiveData ? formatBalance(data.summary.expenses.current) : "••••••"}
           </p>
         </div>
@@ -249,13 +269,17 @@ export function MonthOverMonthChart({}: MonthOverMonthChartProps) {
           <div className="flex items-center justify-center space-x-1 mb-1">
             {data.summary.net.change > 0 ? (
               <ArrowTrendingUpIcon className="w-4 h-4 text-green-500 dark:text-green-400" />
-            ) : (
+            ) : data.summary.net.change < 0 ? (
               <ArrowTrendingDownIcon className="w-4 h-4 text-pink-500 dark:text-pink-400" />
+            ) : (
+              <ArrowTrendingUpIcon className="w-4 h-4 text-gray-400 dark:text-gray-400" />
             )}
             <span className={`text-lg font-semibold ${
-              data.summary.net.change > 0 
-                ? 'text-green-500 dark:text-green-400' 
-                : 'text-pink-500 dark:text-pink-400'
+              data.summary.net.change > 0
+                ? 'text-green-500 dark:text-green-400'
+                : data.summary.net.change < 0
+                  ? 'text-pink-500 dark:text-pink-400'
+                  : 'text-gray-500 dark:text-gray-400'
             }`}>
               {netChangePercent !== null ? (
                 <>
@@ -267,7 +291,13 @@ export function MonthOverMonthChart({}: MonthOverMonthChartProps) {
               )}
             </span>
           </div>
-          <p className="text-xs text-surface-600 dark:text-gray-400">
+          <p className={`text-xs font-medium ${
+            data.summary.net.change > 0
+              ? 'text-green-600 dark:text-green-400'
+              : data.summary.net.change < 0
+                ? 'text-pink-600 dark:text-pink-400'
+                : 'text-gray-500 dark:text-gray-400'
+          }`}>
             {showSensitiveData ? formatBalance(data.summary.net.current) : "••••••"}
           </p>
         </div>

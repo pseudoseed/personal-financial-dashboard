@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getExpectedIncomeForMonth } from "@/lib/recurringPaymentUtils";
 
 export async function GET() {
   try {
@@ -73,6 +74,38 @@ export async function GET() {
 
     console.log(`[Bills API] Total available cash: $${availableCash}`);
 
+    // Get recurring payments for expected income calculation
+    const recurringPayments = await prisma.recurringPayment.findMany({
+      where: { 
+        userId: "default",
+        isActive: true 
+      },
+      select: {
+        id: true,
+        name: true,
+        amount: true,
+        frequency: true,
+        nextPaymentDate: true,
+        lastPaymentDate: true,
+        dayOfWeek: true,
+        dayOfMonth: true,
+        paymentType: true,
+        targetAccountId: true,
+        isActive: true,
+        isConfirmed: true,
+        confidence: true,
+      },
+    });
+
+    const expectedIncome = getExpectedIncomeForMonth(
+      recurringPayments.map(payment => ({
+        ...payment,
+        frequency: payment.frequency as 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly' | 'yearly'
+      })),
+      now
+    );
+    console.log(`[Bills API] Expected income from recurring payments: $${expectedIncome}`);
+
     const accountData = accounts.map(account => ({
       id: account.id,
       name: account.name,
@@ -88,6 +121,7 @@ export async function GET() {
       totalBillsDueThisMonth: totalBillsDueNext30Days, // Keep old field name for backward compatibility
       totalBillsDueNext30Days, // New field name for clarity
       availableCash,
+      expectedIncome, // New field for recurring payments
       accounts: accountData,
     });
   } catch (error) {

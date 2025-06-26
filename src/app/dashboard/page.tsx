@@ -10,6 +10,10 @@ import { Account } from "@/types/account";
 import { DashboardSkeleton } from "@/components/LoadingStates";
 import { AuthenticationAlerts } from "@/components/AuthenticationAlerts";
 import { RecurringExpensesCard } from '@/components/RecurringExpensesCard';
+import { FinancialRecommendationsCard } from '@/components/FinancialHealthCard';
+import { InvestmentPerformanceCard } from '@/components/InvestmentPerformanceCard';
+import { EnhancedBillsCard } from '@/components/EnhancedBillsCard';
+import { ActivityFeedCard } from '@/components/ActivityFeedCard';
 import { EmptyStateDashboard } from "@/components/EmptyStateDashboard";
 
 // Fetch accounts data
@@ -151,18 +155,11 @@ export default function DashboardPage() {
         {/* Main Content */}
         <div className="lg:col-span-3 space-y-8">
           <DashboardSummary accounts={visibleAccounts} />
-          {/* <DashboardMetrics accounts={visibleAccounts} /> */}
+          <FinancialRecommendationsCard />
+          <InvestmentPerformanceCard />
+          <EnhancedBillsCard />
+          <ActivityFeedCard />
           <RecurringExpensesCard />
-          <div>
-            <h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-4">
-              Accounts
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {visibleAccounts.map((account) => (
-                <AccountCard key={account.id} account={account} />
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Sidebar */}

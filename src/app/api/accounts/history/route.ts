@@ -125,6 +125,7 @@ export async function GET() {
           subtype: account.subtype,
           mask: account.mask,
           hidden: account.hidden,
+          invertTransactions: account.invertTransactions,
           institution:
             account.plaidItem.institutionName ||
             account.plaidItem.institutionId,

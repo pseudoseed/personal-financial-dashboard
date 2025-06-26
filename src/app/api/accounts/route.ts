@@ -63,11 +63,12 @@ export async function GET() {
 
     return NextResponse.json(formattedAccounts);
   } catch (error) {
-    console.error("Error fetching accounts:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch accounts" },
-      { status: 500 }
-    );
+    const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    console.log("Error fetching accounts:", {
+      message: errorMessage,
+      errorType: error ? typeof error : 'null/undefined'
+    });
+    return NextResponse.json({ error: 'Failed to fetch accounts' }, { status: 500 });
   }
 }
 

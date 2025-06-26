@@ -179,7 +179,7 @@ async function handleRegularTransactions(
               ? new Date(transaction.datetime)
               : null,
             paymentChannel: transaction.payment_channel,
-            transactionCode: transaction.transaction_code?.value || null,
+            transactionCode: transaction.transaction_code || null,
             personalFinanceCategory:
               transaction.personal_finance_category?.primary || null,
             merchantEntityId: transaction.merchant_entity_id,
@@ -352,7 +352,9 @@ async function handleInvestmentTransactions(
     };
   } catch (error) {
     console.error("Investment transactions sync error details:", error);
-    console.error(error.response.data);
+    if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response) {
+      console.error((error.response as any).data);
+    }
     throw error;
   }
 }
@@ -378,7 +380,9 @@ export async function POST(
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error downloading transactions:", error);
-    console.error(error.response.data);
+    if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response) {
+      console.error((error.response as any).data);
+    }
     // Log the error
     await prisma.transactionDownloadLog.create({
       data: {

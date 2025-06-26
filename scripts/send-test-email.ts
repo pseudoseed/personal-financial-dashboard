@@ -84,7 +84,7 @@ async function sendTestEmail(): Promise<void> {
         name: true,
         amount: true,
         date: true,
-        categoryAi: true,
+        category: true,
       },
     });
 
@@ -102,7 +102,7 @@ async function sendTestEmail(): Promise<void> {
       <h3>Recent Transactions:</h3>
       <ul>
         ${recentTransactions.map(t => 
-          `<li>${t.name} - $${t.amount.toFixed(2)} (${t.categoryAi || 'Uncategorized'})</li>`
+          `<li>${t.name} - $${t.amount.toFixed(2)} (${t.category || 'Uncategorized'})</li>`
         ).join('')}
       </ul>
     `;

@@ -16,8 +16,8 @@ export async function PUT(
     // Update the transaction's AI category
     const updatedTransaction = await prisma.transaction.update({
       where: { id: transactionId },
-      data: { categoryAi: category },
-      select: { id: true, name: true, categoryAi: true }
+      data: { category: category },
+      select: { id: true, name: true, category: true }
     });
 
     return NextResponse.json({ 

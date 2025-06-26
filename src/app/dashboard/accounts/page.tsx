@@ -5,6 +5,7 @@ import { usePlaidLink } from "react-plaid-link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AccountCard } from "@/components/AccountCard";
 import { ManualAccountForm } from "@/components/ManualAccountForm";
+import { RecurringPaymentsCard } from "@/components/RecurringPaymentsCard";
 import {
   EyeIcon,
   EyeSlashIcon,
@@ -294,6 +295,11 @@ export default function AccountsPage() {
             );
           })}
         </div>
+      </div>
+
+      {/* Recurring Payments Section */}
+      <div className="mt-8">
+        <RecurringPaymentsCard />
       </div>
     </div>
   );

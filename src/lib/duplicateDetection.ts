@@ -75,7 +75,7 @@ export async function detectDuplicates(institutionId: string): Promise<Duplicate
         id: account.id,
         name: account.name,
         type: account.type,
-        subtype: account.subtype,
+        subtype: account.subtype || '',
         mask: account.mask,
         balances: account.balances,
         plaidItem: account.plaidItem,

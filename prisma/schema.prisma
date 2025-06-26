@@ -52,6 +52,7 @@ model Account {
   balances                   AccountBalance[]
   transactions               Transaction[]
   downloadLogs               TransactionDownloadLog[]
+  recurringPayments          RecurringPayment[]
 }
 
 model AccountBalance {
@@ -148,16 +149,18 @@ model TransactionDownloadLog {
 }
 
 model User {
-  id                 String                    @id @default(cuid())
-  email              String                    @unique
-  name               String?
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
-  accounts           Account[]
-  anomalySettings    AnomalyDetectionSettings?
-  emailNotifications EmailNotification[]
-  dismissalRules     AnomalyDismissalRule[]
-  recurringExpenses  RecurringExpense[]
+  id                     String                    @id @default(cuid())
+  email                  String                    @unique
+  name                   String?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  accounts               Account[]
+  anomalySettings        AnomalyDetectionSettings?
+  emailNotifications     EmailNotification[]
+  dismissalRules         AnomalyDismissalRule[]
+  recurringExpenses      RecurringExpense[]
+  recurringPayments      RecurringPayment[]
+  financialHealthMetrics FinancialHealthMetrics[]
 
   @@map("users")
 }
@@ -269,4 +272,46 @@ model RecurringExpenseTransaction {
   @@unique([recurringExpenseId, transactionId])
   @@index([recurringExpenseId])
   @@index([transactionId])
+}
+
+model RecurringPayment {
+  id                    String                        @id @default(cuid())
+  userId                String                        @default("default")
+  name                  String                        // Human-readable name (e.g., "Bi-weekly Paycheck")
+  amount                Float                         // Expected payment amount
+  frequency             String                        // 'weekly', 'bi-weekly', 'monthly', 'quarterly', 'yearly'
+  nextPaymentDate       DateTime                      // When the next payment is expected
+  lastPaymentDate       DateTime?                     // Date of last occurrence (optional for new payments)
+  dayOfWeek             Int?                          // Day of week (0-6, Sunday=0) for weekly/bi-weekly
+  dayOfMonth            Int?                          // Day of month (1-31) for monthly payments
+  paymentType           String                        // 'direct_deposit', 'paycheck', 'investment_dividend', 'other'
+  targetAccountId       String?                       // Account where payment is deposited
+  isActive              Boolean                       @default(true)
+  isConfirmed           Boolean                       @default(false)
+  confidence            Int                           // Detection confidence score (0-100)
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  user                  User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetAccount         Account?                      @relation(fields: [targetAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([isActive])
+  @@index([isConfirmed])
+  @@index([nextPaymentDate])
+  @@index([targetAccountId])
+}
+
+model FinancialHealthMetrics {
+  id                   String   @id @default(cuid())
+  userId               String
+  overallScore         Int      // 0-100 score
+  emergencyFundRatio   Float?   // Months of expenses covered
+  debtToIncomeRatio    Float?   // Total debt / monthly income
+  savingsRate          Float?   // Monthly savings / monthly income
+  creditUtilization    Float?   // Credit used / total credit limit
+  calculatedAt         DateTime @default(now())
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([calculatedAt])
 }

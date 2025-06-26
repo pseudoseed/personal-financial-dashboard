@@ -18,7 +18,11 @@ export async function POST(
 
     return NextResponse.json({ success: true, anomaly: updatedAnomaly });
   } catch (error) {
-    console.error('Error toggling anomaly visibility:', error instanceof Error ? error.message : error);
+    const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    console.log('Error toggling anomaly visibility:', {
+      message: errorMessage,
+      errorType: error ? typeof error : 'null/undefined'
+    });
     return NextResponse.json({ error: 'Failed to toggle anomaly visibility' }, { status: 500 });
   }
 } 

@@ -80,6 +80,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
   const [isTransactionsExpanded, setIsTransactionsExpanded] = useState(false);
   const [isInverting, setIsInverting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [localInvertTransactions, setLocalInvertTransactions] = useState(account.invertTransactions);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const displayBalance = (amount: number | null) => {
@@ -111,6 +112,10 @@ export function AccountDetails({ account }: AccountDetailsProps) {
       inputRef.current.focus();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    setLocalInvertTransactions(account.invertTransactions);
+  }, [account.invertTransactions]);
 
   const handleStartEditing = () => {
     setIsEditing(true);
@@ -271,6 +276,8 @@ export function AccountDetails({ account }: AccountDetailsProps) {
 
   const handleToggleInversion = async () => {
     setIsInverting(true);
+    const prevValue = localInvertTransactions;
+    setLocalInvertTransactions(!prevValue);
     try {
       const response = await fetch(`/api/accounts/${account.id}/toggle-inversion`, {
         method: 'POST',
@@ -278,12 +285,12 @@ export function AccountDetails({ account }: AccountDetailsProps) {
       if (!response.ok) {
         throw new Error('Failed to toggle inversion status');
       }
-      // Invalidate relevant queries instead of reloading
       await queryClient.invalidateQueries({ queryKey: ["account-history", account.id] });
       await queryClient.invalidateQueries({ queryKey: ["accounts"] });
       await queryClient.invalidateQueries({ queryKey: ["accountsWithHistory"] });
     } catch (error) {
       console.error('Error toggling inversion status:', error);
+      setLocalInvertTransactions(prevValue);
       alert('Failed to toggle transaction sign inversion. Please try again.');
     } finally {
       setIsInverting(false);
@@ -303,13 +310,11 @@ export function AccountDetails({ account }: AccountDetailsProps) {
         throw new Error(data.error || "Failed to sync transactions");
       }
 
-      // Invalidate relevant queries instead of reloading
       await queryClient.invalidateQueries({ queryKey: ["account-history", account.id] });
       await queryClient.invalidateQueries({ queryKey: ["accounts"] });
       await queryClient.invalidateQueries({ queryKey: ["accountsWithHistory"] });
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
     } catch (err) {
-      // You might want to show an error to the user
       console.error(err);
       alert(err instanceof Error ? err.message : "An error occurred during sync.");
     } finally {
@@ -394,7 +399,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                   <ArrowPathIcon className="w-5 h-5" />
                 )}
                 <span className="ml-2">
-                  {isInverting ? "Updating..." : `Toggle Transaction Sign (${account.invertTransactions ? "Inverted" : "Normal"})`}
+                  {isInverting ? "Updating..." : `Toggle Transaction Sign (${localInvertTransactions ? "Inverted" : "Normal"})`}
                 </span>
               </button>
             </div>
@@ -659,13 +664,13 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                 onClick={handleToggleInversion}
                 disabled={isInverting}
                 className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 touch-manipulation ${
-                  account.invertTransactions ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
+                  localInvertTransactions ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
                 }`}
               >
                 <span
                   aria-hidden="true"
                   className={`inline-block h-6 w-6 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200 ${
-                    account.invertTransactions
+                    localInvertTransactions
                       ? "translate-x-5"
                       : "translate-x-1"
                   }`}
