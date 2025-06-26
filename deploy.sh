@@ -13,9 +13,36 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-DOCKER_COMPOSE="docker-compose"
 CONTAINER_NAME="financial-dashboard"
 IMAGE_NAME="personal-finance-dashboard"
+
+# Detect Docker Compose command
+detect_docker_compose() {
+    # Try docker compose (v2) first
+    if docker compose version > /dev/null 2>&1; then
+        echo "docker compose"
+        return 0
+    fi
+    
+    # Fall back to docker-compose (v1)
+    if docker-compose --version > /dev/null 2>&1; then
+        echo "docker-compose"
+        return 0
+    fi
+    
+    # Neither command found
+    return 1
+}
+
+# Set Docker Compose command
+DOCKER_COMPOSE=$(detect_docker_compose)
+if [ $? -ne 0 ]; then
+    echo -e "${RED}[ERROR]${NC} Docker Compose is not available. Please install Docker Compose and try again."
+    echo "Supported versions:"
+    echo "  - Docker Compose v2: 'docker compose'"
+    echo "  - Docker Compose v1: 'docker-compose'"
+    exit 1
+fi
 
 # Helper functions
 print_status() {
@@ -61,6 +88,7 @@ check_env() {
 # Build and deploy
 deploy() {
     print_status "Building and deploying Personal Finance Dashboard..."
+    print_status "Using Docker Compose command: $DOCKER_COMPOSE"
     
     check_docker
     check_env
@@ -218,6 +246,11 @@ help() {
     echo "  $0 logs     - Show logs"
     echo "  $0 backup   - Create database backup"
     echo "  $0 refresh  - Manually refresh data"
+    echo ""
+    echo "Docker Compose Compatibility:"
+    echo "  This script automatically detects and uses the appropriate Docker Compose command:"
+    echo "  - Docker Compose v2: 'docker compose' (preferred)"
+    echo "  - Docker Compose v1: 'docker-compose' (fallback)"
 }
 
 # Main script logic

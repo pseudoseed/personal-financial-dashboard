@@ -32,6 +32,14 @@ This guide explains how to deploy the Personal Financial Dashboard using Docker 
 4. **Access the dashboard**:
    Open your browser and go to `http://your-server-ip:3000`
 
+## Docker Compose Compatibility
+
+The deployment script automatically detects and uses the appropriate Docker Compose command:
+- **Docker Compose v2** (preferred): `docker compose`
+- **Docker Compose v1** (fallback): `docker-compose`
+
+This ensures compatibility across different Docker installations and versions.
+
 ## Environment Configuration
 
 The application requires several environment variables to function properly. Copy `env.example` to `.env` and configure:
@@ -159,6 +167,28 @@ The container includes automatic health checks:
 
 If you prefer to use Docker commands directly:
 
+### Docker Compose v2 (Recommended)
+```bash
+# Build and start
+docker compose up -d --build
+
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
+
+# Restart
+docker compose restart
+
+# Check status
+docker compose ps
+
+# Execute commands in container
+docker compose exec financial-dashboard bash
+```
+
+### Docker Compose v1 (Legacy)
 ```bash
 # Build and start
 docker-compose up -d --build
