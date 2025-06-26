@@ -26,7 +26,7 @@ import {
   buildApiUrl,
 } from "@/lib/transactionChartSettings";
 import type { ChartData } from "chart.js";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/app/providers";
 import { useSensitiveData } from "@/app/providers";
 import { CategoryTransactionsList } from "./CategoryTransactionsList";
 
@@ -48,18 +48,9 @@ export function TransactionChart({}: TransactionChartProps) {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const { resolvedTheme, theme } = useTheme();
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [textColor, setTextColor] = useState('#18181b');
-  const [gridColor, setGridColor] = useState('rgba(0,0,0,0.1)');
-  const [tooltipBackgroundColor, setTooltipBackgroundColor] = useState('#ffffff');
+  const { darkMode } = useTheme();
   const queryClient = useQueryClient();
   const [useGranularCategories, setUseGranularCategories] = useState(true);
-
-  useEffect(() => {
-    const isDark = document.documentElement.classList.contains('dark');
-    setIsDarkMode(isDark);
-  }, []);
 
   // Fetch transaction data
   const { data, isLoading, error } = useQuery<TransactionChartData>({
@@ -293,7 +284,7 @@ export function TransactionChart({}: TransactionChartProps) {
       legend: {
         position: "top" as const,
         labels: {
-          color: textColor,
+          color: darkMode ? "#9ca3af" : "#374151",
           font: { ...defaultFont },
           boxWidth: 12,
           padding: 20,
@@ -301,13 +292,13 @@ export function TransactionChart({}: TransactionChartProps) {
       },
       title: {
         display: false,
-        color: textColor,
+        color: darkMode ? "#9ca3af" : "#374151",
         font: { ...defaultFont },
       },
       tooltip: {
-        backgroundColor: tooltipBackgroundColor,
-        titleColor: textColor,
-        bodyColor: textColor,
+        backgroundColor: darkMode ? "#232323" : "#ffffff",
+        titleColor: darkMode ? "#9ca3af" : "#374151",
+        bodyColor: darkMode ? "#9ca3af" : "#374151",
         padding: 10,
         boxPadding: 4,
         titleFont: { ...defaultFont },
@@ -333,28 +324,28 @@ export function TransactionChart({}: TransactionChartProps) {
       y: {
         beginAtZero: true,
         ticks: {
-          color: textColor,
+          color: darkMode ? "#9ca3af" : "#374151",
           font: { ...defaultFont },
           callback: function (value) {
             return formatCurrency(value as number);
           },
         },
         grid: {
-          color: gridColor,
+          color: darkMode ? "rgba(229,231,235,0.15)" : "rgba(0,0,0,0.1)",
         },
       },
       x: {
         ticks: {
-          color: textColor,
+          color: darkMode ? "#9ca3af" : "#374151",
           font: { ...defaultFont },
         },
         grid: {
-          color: gridColor,
+          color: darkMode ? "rgba(229,231,235,0.15)" : "rgba(0,0,0,0.1)",
           display: false,
         },
       },
     },
-  }), [isDarkMode, showSensitiveData, textColor, gridColor, tooltipBackgroundColor, resolvedTheme]);
+  }), [darkMode, showSensitiveData]);
 
   const pieChartOptions: ChartOptions<"pie"> = useMemo(() => ({
     responsive: true,
@@ -372,7 +363,7 @@ export function TransactionChart({}: TransactionChartProps) {
       legend: {
         position: 'right' as const,
         labels: {
-          color: textColor,
+          color: darkMode ? "#9ca3af" : "#374151",
           font: { ...defaultFont },
           boxWidth: 12,
           padding: 15,
@@ -380,9 +371,9 @@ export function TransactionChart({}: TransactionChartProps) {
         align: 'start',
       },
       tooltip: {
-        backgroundColor: tooltipBackgroundColor,
-        titleColor: textColor,
-        bodyColor: textColor,
+        backgroundColor: darkMode ? "#232323" : "#ffffff",
+        titleColor: darkMode ? "#9ca3af" : "#374151",
+        bodyColor: darkMode ? "#9ca3af" : "#374151",
         titleFont: { ...defaultFont },
         bodyFont: { ...defaultFont },
         padding: 10,
@@ -405,7 +396,7 @@ export function TransactionChart({}: TransactionChartProps) {
         }
       }
     }
-  }), [isDarkMode, showSensitiveData, textColor, tooltipBackgroundColor, resolvedTheme, aiPieData.labels]);
+  }), [darkMode, showSensitiveData, aiPieData.labels]);
   
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error loading transaction data.</div>;
@@ -497,7 +488,7 @@ export function TransactionChart({}: TransactionChartProps) {
           </div>
         </div>
         <div className="flex-1 min-h-0">
-          <Bar key={resolvedTheme} options={barChartOptions} data={chartData} />
+          <Bar key={darkMode ? 'dark' : 'light'} options={barChartOptions} data={chartData} />
         </div>
       </div>
       <div className="grid grid-cols-1 gap-6 mt-6">
@@ -510,7 +501,7 @@ export function TransactionChart({}: TransactionChartProps) {
           ) : (
             <div className="w-full flex-1 min-h-0">
               <Bar
-                key={resolvedTheme + '-vendors'}
+                key={(darkMode ? 'dark' : 'light') + '-vendors'}
                 options={barChartOptions}
                 data={vendorBarData}
               />
@@ -557,7 +548,7 @@ export function TransactionChart({}: TransactionChartProps) {
             <div className="dark:text-gray-100">No spend data available for categorization.</div>
           ) : (
             <div className="w-full flex-1 min-h-0 cursor-pointer">
-              <Pie key={resolvedTheme} data={aiPieData} options={pieChartOptions} />
+              <Pie key={darkMode ? 'dark' : 'light'} data={aiPieData} options={pieChartOptions} />
             </div>
           )}
         </div>

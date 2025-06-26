@@ -10,7 +10,7 @@ import { Account } from "@/types/account";
 import { DashboardSkeleton } from "@/components/LoadingStates";
 import { AuthenticationAlerts } from "@/components/AuthenticationAlerts";
 import { RecurringExpensesCard } from '@/components/RecurringExpensesCard';
-import { FinancialRecommendationsCard } from '@/components/FinancialHealthCard';
+import { RecurringPaymentsCard } from '@/components/RecurringPaymentsCard';
 import { InvestmentPerformanceCard } from '@/components/InvestmentPerformanceCard';
 import { EnhancedBillsCard } from '@/components/EnhancedBillsCard';
 import { ActivityFeedCard } from '@/components/ActivityFeedCard';
@@ -155,11 +155,10 @@ export default function DashboardPage() {
         {/* Main Content */}
         <div className="lg:col-span-3 space-y-8">
           <DashboardSummary accounts={visibleAccounts} />
-          <FinancialRecommendationsCard />
           <InvestmentPerformanceCard />
           <EnhancedBillsCard />
-          <ActivityFeedCard />
           <RecurringExpensesCard />
+          <RecurringPaymentsCard />
         </div>
 
         {/* Sidebar */}

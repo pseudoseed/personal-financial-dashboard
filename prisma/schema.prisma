@@ -53,6 +53,7 @@ model Account {
   transactions               Transaction[]
   downloadLogs               TransactionDownloadLog[]
   recurringPayments          RecurringPayment[]
+  emergencyFundAccounts      EmergencyFundAccount[]
 }
 
 model AccountBalance {
@@ -161,6 +162,7 @@ model User {
   recurringExpenses      RecurringExpense[]
   recurringPayments      RecurringPayment[]
   financialHealthMetrics FinancialHealthMetrics[]
+  emergencyFundAccounts  EmergencyFundAccount[]
 
   @@map("users")
 }
@@ -314,4 +316,13 @@ model FinancialHealthMetrics {
 
   @@index([userId])
   @@index([calculatedAt])
+}
+
+model EmergencyFundAccount {
+  id        String  @id @default(cuid())
+  userId    String
+  accountId String
+  user      User    @relation(fields: [userId], references: [id])
+  account   Account @relation(fields: [accountId], references: [id])
+  @@unique([userId, accountId])
 }

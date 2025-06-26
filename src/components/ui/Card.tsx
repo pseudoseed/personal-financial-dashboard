@@ -82,4 +82,42 @@ const CardFooter = React.forwardRef<
 
 CardFooter.displayName = "CardFooter";
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }; 
+// Standardized Dashboard Card Component
+interface DashboardCardProps {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  className?: string;
+  headerAction?: React.ReactNode;
+}
+
+const DashboardCard = React.forwardRef<HTMLDivElement, DashboardCardProps>(
+  ({ title, subtitle, children, className, headerAction }, ref) => {
+    return (
+      <div ref={ref} className={cn("card", className)}>
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <h3 className="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-1">
+              {title}
+            </h3>
+            {subtitle && (
+              <p className="text-sm text-surface-600 dark:text-surface-400">
+                {subtitle}
+              </p>
+            )}
+          </div>
+          {headerAction && (
+            <div className="flex-shrink-0">
+              {headerAction}
+            </div>
+          )}
+        </div>
+        {children}
+      </div>
+    );
+  }
+);
+
+DashboardCard.displayName = "DashboardCard";
+
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent, DashboardCard }; 

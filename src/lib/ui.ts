@@ -53,9 +53,9 @@ export const cardVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-surface-100 shadow-md hover:shadow-lg hover:-translate-y-0.5 dark:bg-surface-100",
-        elevated: "bg-surface-0 shadow-lg hover:shadow-xl hover:-translate-y-1 dark:bg-surface-50",
-        outline: "bg-transparent border border-border hover:bg-surface-50 dark:hover:bg-surface-100",
+        default: "bg-surface-100 shadow-md hover:shadow-lg hover:-translate-y-0.5 dark:bg-surface-800 dark:shadow-lg dark:hover:shadow-xl",
+        elevated: "bg-surface-0 shadow-lg hover:shadow-xl hover:-translate-y-1 dark:bg-surface-900 dark:shadow-xl dark:hover:shadow-2xl",
+        outline: "bg-transparent border border-border hover:bg-surface-50 dark:hover:bg-surface-800",
       },
       padding: {
         none: "p-0",
@@ -296,4 +296,13 @@ export function throttle<T extends (...args: any[]) => any>(
       setTimeout(() => (inThrottle = false), limit);
     }
   };
+}
+
+/**
+ * Masks a value with dots if sensitive info should be hidden.
+ * If value is a number, returns dots. If string, returns dots. Otherwise, returns the value as is.
+ */
+export function maskSensitiveValue<T>(value: T, showSensitiveData: boolean, mask: string = '••••••'): T | string {
+  if (showSensitiveData) return value;
+  return mask;
 } 

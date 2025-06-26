@@ -13,7 +13,7 @@ import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { useDialogDismiss } from "@/lib/useDialogDismiss";
 import { Account } from "@/types/account";
 import { Modal } from "@/components/ui/Modal";
-import { BriefcaseIcon, CreditCardIcon, BanknotesIcon, Squares2X2Icon, InformationCircleIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { BriefcaseIcon, CreditCardIcon, BanknotesIcon, Squares2X2Icon, InformationCircleIcon, ExclamationTriangleIcon, CurrencyDollarIcon, PencilIcon } from "@heroicons/react/24/outline";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/Tooltip";
 import { useNotifications } from "@/components/ui/Notification";
 
@@ -369,7 +369,7 @@ export function AccountConnectionButtons() {
                         : "text-gray-700 dark:text-gray-300"
                     } flex w-full items-center px-4 py-2 text-sm`}
                   >
-                    <PlusIcon className="h-4 w-4 mr-3" />
+                    <BanknotesIcon className="h-4 w-4 mr-3" />
                     Connect Bank Account
                   </button>
                 )}
@@ -387,7 +387,7 @@ export function AccountConnectionButtons() {
                       isConnectingCoinbase ? "opacity-50 cursor-not-allowed" : ""
                     }`}
                   >
-                    <PlusIcon className="h-4 w-4 mr-3" />
+                    <CurrencyDollarIcon className="h-4 w-4 mr-3" />
                     {isConnectingCoinbase ? "Connecting..." : "Connect Coinbase"}
                   </button>
                 )}
@@ -402,7 +402,7 @@ export function AccountConnectionButtons() {
                         : "text-gray-700 dark:text-gray-300"
                     } flex w-full items-center px-4 py-2 text-sm`}
                   >
-                    <PlusIcon className="h-4 w-4 mr-3" />
+                    <PencilIcon className="h-4 w-4 mr-3" />
                     Add Manual Account
                   </button>
                 )}

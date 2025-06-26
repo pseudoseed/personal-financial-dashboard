@@ -11,7 +11,7 @@ import { NotificationProvider } from "@/components/ui/Notification";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Personal Financial Dashboard",
+  title: "pseudofi",
   description: "Track all your financial accounts in one place",
 };
 
@@ -22,6 +22,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full">
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body className={`${inter.className} h-full bg-background text-foreground antialiased`}>
         <ErrorBoundary>
           <NotificationProvider>

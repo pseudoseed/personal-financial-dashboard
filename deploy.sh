@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Personal Finance Dashboard Deployment Script
-# This script helps deploy and manage the Personal Finance Dashboard
+# This script helps deploy and manage the Personal Financial Dashboard
 
 set -e
 
@@ -42,11 +42,28 @@ check_docker() {
     fi
 }
 
+# Check if .env file exists
+check_env() {
+    if [ ! -f .env ]; then
+        print_warning ".env file not found. Creating from template..."
+        if [ -f env.example ]; then
+            cp env.example .env
+            print_warning "Please edit .env file with your actual configuration values."
+            print_warning "Required variables: PLAID_CLIENT_ID, PLAID_SECRET, COINBASE_CLIENT_ID, COINBASE_CLIENT_SECRET"
+            exit 1
+        else
+            print_error "No .env file or env.example template found. Please create .env file manually."
+            exit 1
+        fi
+    fi
+}
+
 # Build and deploy
 deploy() {
     print_status "Building and deploying Personal Finance Dashboard..."
     
     check_docker
+    check_env
     
     # Build the image
     print_status "Building Docker image..."
@@ -64,7 +81,7 @@ deploy() {
     
     # Wait for the application to be ready
     print_status "Waiting for application to start..."
-    sleep 10
+    sleep 15
     
     # Check if the application is running
     if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
@@ -93,6 +110,11 @@ status() {
         echo "Container ID: $(docker ps -q -f name=$CONTAINER_NAME)"
         echo "Port: 3000"
         echo "Health check: $(curl -s http://localhost:3000/api/health || echo 'Not responding')"
+        
+        # Show resource usage
+        echo ""
+        print_status "Resource usage:"
+        docker stats --no-stream $CONTAINER_NAME
     else
         print_warning "Container is not running"
     fi
@@ -110,6 +132,43 @@ restart() {
     print_status "Restarting application..."
     $DOCKER_COMPOSE restart
     print_success "Application restarted"
+}
+
+# Update to latest version
+update() {
+    print_status "Updating to latest version..."
+    
+    # Pull latest changes (if using git)
+    if [ -d .git ]; then
+        print_status "Pulling latest changes..."
+        git pull origin main
+    fi
+    
+    # Rebuild and deploy
+    deploy
+}
+
+# Backup database
+backup() {
+    print_status "Creating database backup..."
+    
+    if [ ! -d backups ]; then
+        mkdir -p backups
+    fi
+    
+    BACKUP_FILE="backups/backup-$(date +%Y%m%d-%H%M%S).db"
+    
+    if docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
+        docker cp $CONTAINER_NAME:/app/data/dev.db $BACKUP_FILE
+        print_success "Database backed up to: $BACKUP_FILE"
+    else
+        if [ -f data/dev.db ]; then
+            cp data/dev.db $BACKUP_FILE
+            print_success "Database backed up to: $BACKUP_FILE"
+        else
+            print_error "No database file found to backup"
+        fi
+    fi
 }
 
 # Manually run refresh
@@ -131,7 +190,6 @@ refresh_info() {
     echo "• Rate limiting: Prevents excessive API calls"
     echo ""
     print_status "Cost Optimization Features:"
-    echo "• Removed daily cron job (was ~$30/month)"
     echo "• Smart caching reduces redundant requests"
     echo "• Batch processing by institution"
     echo "• Rate limiting prevents abuse"
@@ -149,6 +207,8 @@ help() {
     echo "  status      - Show application status"
     echo "  stop        - Stop the application"
     echo "  restart     - Restart the application"
+    echo "  update      - Update to latest version"
+    echo "  backup      - Create database backup"
     echo "  refresh     - Manually run refresh"
     echo "  refresh_info - Show refresh configuration"
     echo "  help        - Show this help message"
@@ -156,6 +216,7 @@ help() {
     echo "Examples:"
     echo "  $0 deploy   - Deploy the application"
     echo "  $0 logs     - Show logs"
+    echo "  $0 backup   - Create database backup"
     echo "  $0 refresh  - Manually refresh data"
 }
 
@@ -175,6 +236,12 @@ case "${1:-help}" in
         ;;
     restart)
         restart
+        ;;
+    update)
+        update
+        ;;
+    backup)
+        backup
         ;;
     refresh)
         refresh

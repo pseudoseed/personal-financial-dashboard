@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     const requestConfig = {
       user: { client_user_id: "user-id" },
-      client_name: "Personal Finance Dashboard",
+      client_name: "pseudofi",
       products,
       country_codes: [CountryCode.Us],
       language: "en",

@@ -1,5 +1,5 @@
 import { prisma } from './db';
-import { Account, Transaction, RecurringExpense, RecurringPayment } from '@prisma/client';
+import { Account, Transaction } from '@prisma/client';
 
 export interface FinancialHealthMetrics {
   overallScore: number;
@@ -35,6 +35,15 @@ export async function calculateFinancialHealth(userId: string): Promise<Financia
     },
   });
 
+  // Emergency Fund: get user-selected accounts
+  const efAccountLinks: { accountId: string }[] = await prisma.emergencyFundAccount.findMany({ where: { userId } });
+  const efAccountIds: string[] = efAccountLinks.map((link) => link.accountId);
+  let efAccounts = accounts.filter(acc => efAccountIds.includes(acc.id));
+  // If none selected, fall back to default logic
+  if (efAccounts.length === 0) {
+    efAccounts = accounts.filter(account => ['depository', 'checking', 'savings'].includes(account.type));
+  }
+
   const transactions = await prisma.transaction.findMany({
     where: {
       account: { userId, hidden: false },
@@ -44,16 +53,16 @@ export async function calculateFinancialHealth(userId: string): Promise<Financia
     },
   });
 
-  const recurringExpenses = await prisma.recurringExpense.findMany({
+  const recurringExpenses: any[] = await prisma.recurringExpense.findMany({
     where: { userId, isActive: true },
   });
 
-  const recurringPayments = await prisma.recurringPayment.findMany({
+  const recurringPayments: any[] = await prisma.recurringPayment.findMany({
     where: { userId, isActive: true },
   });
 
   // Calculate metrics
-  const emergencyFundRatio = calculateEmergencyFundRatio(accounts, recurringExpenses);
+  const emergencyFundRatio = calculateEmergencyFundRatio(efAccounts, recurringExpenses);
   const debtToIncomeRatio = calculateDebtToIncomeRatio(accounts, recurringPayments);
   const savingsRate = calculateSavingsRate(transactions, recurringPayments);
   const creditUtilization = calculateCreditUtilization(accounts);
@@ -99,7 +108,7 @@ export async function calculateFinancialHealth(userId: string): Promise<Financia
 
 function calculateEmergencyFundRatio(
   accounts: (Account & { balances: any[] })[],
-  recurringExpenses: RecurringExpense[]
+  recurringExpenses: any[]
 ): number {
   // Calculate total liquid assets (checking + savings)
   const liquidAssets = accounts
@@ -134,7 +143,7 @@ function calculateEmergencyFundRatio(
 
 function calculateDebtToIncomeRatio(
   accounts: (Account & { balances: any[] })[],
-  recurringPayments: RecurringPayment[]
+  recurringPayments: any[]
 ): number {
   // Calculate total debt (credit cards, loans)
   const totalDebt = accounts
@@ -169,7 +178,7 @@ function calculateDebtToIncomeRatio(
 
 function calculateSavingsRate(
   transactions: Transaction[],
-  recurringPayments: RecurringPayment[]
+  recurringPayments: any[]
 ): number {
   // Calculate monthly income
   const monthlyIncome = recurringPayments.reduce((total, payment) => {

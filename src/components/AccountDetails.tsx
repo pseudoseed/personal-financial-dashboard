@@ -37,6 +37,7 @@ import {
 } from "@prisma/client";
 import { formatBalance } from "@/lib/formatters";
 import { useSensitiveData } from "@/app/providers";
+import { Switch } from '@headlessui/react';
 
 // Register ChartJS components
 ChartJS.register(
@@ -82,6 +83,9 @@ export function AccountDetails({ account }: AccountDetailsProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [localInvertTransactions, setLocalInvertTransactions] = useState(account.invertTransactions);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isEmergencyFund, setIsEmergencyFund] = useState<boolean | null>(null);
+  const [isEmergencyLoading, setIsEmergencyLoading] = useState(false);
+  const [emergencyError, setEmergencyError] = useState<string | null>(null);
 
   const displayBalance = (amount: number | null) => {
     if (amount === null) return "-";
@@ -116,6 +120,16 @@ export function AccountDetails({ account }: AccountDetailsProps) {
   useEffect(() => {
     setLocalInvertTransactions(account.invertTransactions);
   }, [account.invertTransactions]);
+
+  // Fetch emergency fund status
+  useEffect(() => {
+    setIsEmergencyLoading(true);
+    fetch(`/api/accounts/${account.id}/toggle-emergency-fund`)
+      .then(res => res.json())
+      .then(data => setIsEmergencyFund(data.included))
+      .catch(() => setEmergencyError('Failed to load emergency fund status'))
+      .finally(() => setIsEmergencyLoading(false));
+  }, [account.id]);
 
   const handleStartEditing = () => {
     setIsEditing(true);
@@ -322,6 +336,24 @@ export function AccountDetails({ account }: AccountDetailsProps) {
     }
   };
 
+  const handleToggleEmergencyFund = async () => {
+    setIsEmergencyLoading(true);
+    setEmergencyError(null);
+    try {
+      const response = await fetch(`/api/accounts/${account.id}/toggle-emergency-fund`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ included: !isEmergencyFund }),
+      });
+      if (!response.ok) throw new Error('Failed to update emergency fund status');
+      setIsEmergencyFund(!isEmergencyFund);
+    } catch (err) {
+      setEmergencyError('Failed to update emergency fund status');
+    } finally {
+      setIsEmergencyLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto">
@@ -402,6 +434,29 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                   {isInverting ? "Updating..." : `Toggle Transaction Sign (${localInvertTransactions ? "Inverted" : "Normal"})`}
                 </span>
               </button>
+              <div className="flex justify-between items-center py-3">
+                <div>
+                  <span className="font-medium text-surface-700 dark:text-gray-300">Include in Emergency Fund</span>
+                  <p className="text-sm text-surface-600 dark:text-gray-400">Include this account's balance in emergency fund calculations.</p>
+                </div>
+                <button
+                  onClick={handleToggleEmergencyFund}
+                  disabled={isEmergencyLoading || isEmergencyFund === null}
+                  className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 touch-manipulation ${
+                    isEmergencyFund ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`inline-block h-6 w-6 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200 ${
+                      isEmergencyFund
+                        ? "translate-x-5"
+                        : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+              {emergencyError && <div className="text-xs text-red-500 mt-1">{emergencyError}</div>}
             </div>
           </div>
         </div>
@@ -691,6 +746,33 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                 {isDownloading ? "Syncing..." : "Sync"}
               </button>
             </div>
+            <div className="flex justify-between items-center py-3">
+              <div>
+                <span className="font-medium text-surface-700 dark:text-gray-300">Include in Emergency Fund</span>
+                <p className="text-sm text-surface-600 dark:text-gray-400">Include this account's balance in emergency fund calculations.</p>
+              </div>
+              <button
+                onClick={handleToggleEmergencyFund}
+                disabled={isEmergencyLoading || isEmergencyFund === null}
+                className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 touch-manipulation ${
+                  isEmergencyFund ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`inline-block h-6 w-6 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200 ${
+                    isEmergencyFund
+                      ? "translate-x-5"
+                      : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+            {emergencyError && (
+              <div className="py-2">
+                <div className="text-xs text-red-500">{emergencyError}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>

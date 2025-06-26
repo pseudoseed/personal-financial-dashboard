@@ -1,68 +1,52 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { validateDataIntegrity, getDataHealthSummary } from '@/lib/dataValidation';
 
 export async function GET() {
   try {
-    // Basic database connectivity check
-    await prisma.$queryRaw`SELECT 1`;
+    // Check database connectivity
+    const dbCheck = await prisma.$queryRaw`SELECT 1 as health_check`;
+    
+    // Check if default user exists
+    const userCheck = await prisma.user.findUnique({
+      where: { id: 'default' },
+      select: { id: true }
+    });
 
-    // Get data health summary
-    const healthSummary = await getDataHealthSummary(prisma);
+    // Get basic stats
+    const accountCount = await prisma.account.count();
+    const transactionCount = await prisma.transaction.count();
 
-    // Validate data integrity
-    const validationResult = await validateDataIntegrity(prisma);
-
-    // Determine overall health status
-    const hasOrphanedRecords = 
-      validationResult.orphanedAccounts.length > 0 ||
-      validationResult.orphanedBalances.length > 0 ||
-      validationResult.orphanedTransactions.length > 0 ||
-      validationResult.orphanedDownloadLogs.length > 0;
-
-    const hasInconsistencies = validationResult.dataInconsistencies.some(
-      inconsistency => inconsistency.type !== "Summary Statistics"
-    );
-
-    const status = hasOrphanedRecords || hasInconsistencies ? "warning" : "healthy";
-
-    return NextResponse.json({
-      status,
+    const healthStatus = {
+      status: 'healthy',
       timestamp: new Date().toISOString(),
       database: {
         connected: true,
-        health: healthSummary,
+        userExists: !!userCheck,
+        accounts: accountCount,
+        transactions: transactionCount
       },
-      dataIntegrity: {
-        orphanedRecords: {
-          accounts: validationResult.orphanedAccounts.length,
-          balances: validationResult.orphanedBalances.length,
-          transactions: validationResult.orphanedTransactions.length,
-          downloadLogs: validationResult.orphanedDownloadLogs.length,
-        },
-        inconsistencies: validationResult.dataInconsistencies.filter(
-          inconsistency => inconsistency.type !== "Summary Statistics"
-        ),
-        summary: validationResult.dataInconsistencies.find(
-          inconsistency => inconsistency.type === "Summary Statistics"
-        ),
-      },
-      details: {
-        orphanedAccounts: validationResult.orphanedAccounts,
-        orphanedBalances: validationResult.orphanedBalances,
-        orphanedTransactions: validationResult.orphanedTransactions,
-        orphanedDownloadLogs: validationResult.orphanedDownloadLogs,
-      },
-    });
+      version: process.env.npm_package_version || '1.0.0',
+      environment: process.env.NODE_ENV || 'development'
+    };
+
+    return NextResponse.json(healthStatus);
   } catch (error) {
-    console.error("Health check failed:", error);
-    return NextResponse.json(
-      {
-        status: "error",
-        timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : "Unknown error",
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    const healthStatus = {
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: errorMessage,
+      database: {
+        connected: false,
+        userExists: false,
+        accounts: 0,
+        transactions: 0
       },
-      { status: 500 }
-    );
+      version: process.env.npm_package_version || '1.0.0',
+      environment: process.env.NODE_ENV || 'development'
+    };
+
+    return NextResponse.json(healthStatus, { status: 503 });
   }
 } 

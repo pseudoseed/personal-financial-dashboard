@@ -1,15 +1,23 @@
 # Active Context
 
 ## Current Focus
-**Status**: ALL CRITICAL BUGS FIXED - Application Fully Functional
+**Status**: MISSING FEATURES RESTORED - All UI Features Now Available
 
-We have successfully implemented all three major planned features and fixed ALL critical bugs:
-1. ✅ **Investment Performance Card** - Portfolio tracking with snapshot toggles
-2. ✅ **Enhanced Bills & Payments** - Payment tracking and cash flow forecasting  
-3. ✅ **Activity Feed** - Comprehensive activity timeline
-4. ✅ **Critical Bug Fixes** - Fixed ALL hard-stopping errors and data flow issues
+I have successfully restored all the missing features that were accidentally disabled:
 
-## Recent Achievements
+### ✅ Restored Features
+1. **Cost Check Before Connecting Bank** - Uncommented `AccountConnectionButtons` in accounts page
+2. **Recurring Income Features** - Added `RecurringPaymentsCard` to main dashboard
+3. **All Enhanced Features** - Confirmed all major features are properly integrated:
+   - Investment Performance Card
+   - Enhanced Bills & Payments  
+   - Activity Feed
+   - Financial Health Score
+   - Cost Optimization Card
+   - Anomaly Detection
+   - Suggested Recurring Income (in analytics page)
+
+### Recent Achievements
 
 ### Critical Bug Fixes (COMPLETE)
 - **Plaid Token Exchange Error**: Fixed TypeError in `/api/plaid/exchange-token` route
@@ -20,6 +28,12 @@ We have successfully implemented all three major planned features and fixed ALL 
 - **Balance Data Flow**: Fixed balance refresh not creating database records
 - **Authentication Loop**: Resolved accounts showing "needs reauth" despite working tokens
 - **Data Display**: Fixed frontend showing zeros despite successful backend operations
+
+### Missing Features Restored (COMPLETE)
+- **AccountConnectionButtons**: Uncommented in `/src/app/dashboard/accounts/page.tsx`
+- **RecurringPaymentsCard**: Added to main dashboard for better accessibility
+- **Cost Selection UI**: Full cost breakdown and account type selection now available
+- **Recurring Income Detection**: Suggested recurring payments feature accessible in analytics
 
 ### Root Cause Analysis
 **Primary Issue**: User ID mismatch in refresh services
@@ -32,6 +46,7 @@ We have successfully implemented all three major planned features and fixed ALL 
 - Poor error handling causing console.error crashes
 - Database schema mismatches between code and actual schema
 - Missing TypeScript types causing runtime errors
+- **AccountConnectionButtons was commented out** - preventing cost check feature
 
 ### Data Flow Now Working
 - ✅ **Balance Refresh**: Creating proper balance records in database
@@ -40,6 +55,8 @@ We have successfully implemented all three major planned features and fixed ALL 
 - ✅ **Financial Health**: Calculating real scores (45 instead of 60)
 - ✅ **Authentication**: Properly detecting valid vs expired tokens
 - ✅ **Dashboard**: All cards now displaying real data instead of zeros
+- ✅ **Cost Check**: Users can now see costs before connecting accounts
+- ✅ **Recurring Income**: Full recurring payment management available
 
 ### Files Fixed:
 - `src/app/api/plaid/exchange-token/route.ts` - Fixed console.error crash
@@ -51,6 +68,8 @@ We have successfully implemented all three major planned features and fixed ALL 
 - `src/app/api/analytics/anomalies/dismiss-pattern/route.ts` - Fixed implicit any types
 - `src/app/api/transactions/[transactionId]/update-category/route.ts` - Fixed categoryAi → category
 - `src/lib/duplicateDetection.ts` - Fixed null subtype handling
+- `src/app/dashboard/accounts/page.tsx` - **Uncommented AccountConnectionButtons**
+- `src/app/dashboard/page.tsx` - **Added RecurringPaymentsCard**
 
 ### Investment Performance Card
 - **Portfolio Tracking**: Real-time portfolio value with historical snapshots
@@ -73,6 +92,20 @@ We have successfully implemented all three major planned features and fixed ALL 
 - **Relative Time**: Smart time formatting (just now, 2 hours ago, etc.)
 - **Summary Statistics**: Quick overview of recent activity counts
 
+### Cost Check Before Connecting Bank
+- **Account Type Selection**: 4 different account types with pricing
+- **Cost Breakdown**: Clear monthly costs for each product
+- **Optimization Tips**: Guidance on avoiding duplicate accounts
+- **Unified Login Warning**: Prevents duplicates for banks like Chase, BofA
+- **Product Selection**: Smart enabling of Liabilities/Investments based on account type
+
+### Recurring Income Features
+- **RecurringPaymentsCard**: Full management interface on main dashboard
+- **Suggested Recurring Income**: AI detection of potential income sources
+- **One-Click Addition**: Add detected income with single click
+- **Payment Tracking**: Full lifecycle management of recurring payments
+- **Income Forecasting**: Integration with bills and cash flow analysis
+
 ## Current Issues
 
 ### Minor Issues (Non-Critical)
@@ -85,6 +118,7 @@ We have successfully implemented all three major planned features and fixed ALL 
 - ✅ **Testing**: Core functionality stable
 - ✅ **Performance**: No blocking issues
 - ✅ **Documentation**: Updated with all fixes
+- ✅ **Missing Features**: All UI features restored
 
 ## Next Steps
 
@@ -109,6 +143,7 @@ We have successfully implemented all three major planned features and fixed ALL 
 - ✅ **All Critical Blockers Resolved**: Application is now fully functional
 - ✅ **Data Flow Working**: All APIs returning real data
 - ✅ **Authentication Stable**: Proper token management
+- ✅ **Missing Features Restored**: All UI features now available
 
 ## Technical Decisions
 
@@ -139,4 +174,9 @@ We have successfully implemented all three major planned features and fixed ALL 
 ### New Utilities
 - `src/lib/investmentPerformance.ts`
 - `src/lib/enhancedBills.ts`
-- `
+- `src/lib/activityFeed.ts`
+
+### Restored Features
+- `src/app/dashboard/accounts/page.tsx` - **Uncommented AccountConnectionButtons**
+- `src/app/dashboard/page.tsx` - **Added RecurringPaymentsCard**
+- `src/app/dashboard/analytics/page.tsx` - **SuggestedRecurringPaymentsCard already present**

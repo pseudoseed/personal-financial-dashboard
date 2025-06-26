@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { format } from 'date-fns';
+import { useSensitiveData } from '@/app/providers';
 
 interface RecurringExpense {
   id: string;
@@ -17,6 +18,7 @@ interface RecurringExpense {
 const PAGE_SIZE = 5;
 
 export function RecurringExpensesCard() {
+  const { showSensitiveData } = useSensitiveData();
   const [expenses, setExpenses] = useState<RecurringExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,8 +69,15 @@ export function RecurringExpensesCard() {
 
   return (
     <div className="card">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-md font-semibold text-surface-900 dark:text-surface-100">Recurring Expenses</h3>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h3 className="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-1">
+            Recurring Expenses
+          </h3>
+          <p className="text-sm text-surface-600 dark:text-surface-400">
+            Automated expense tracking and management
+          </p>
+        </div>
         <a 
           href="/dashboard/recurring-expenses" 
           className="text-primary-600 dark:text-primary-400 text-sm font-medium hover:underline focus:outline-none focus:underline transition-colors"
@@ -78,7 +87,9 @@ export function RecurringExpensesCard() {
       </div>
       
       <div className="mb-3 text-sm text-surface-600 dark:text-surface-400">
-        Total Monthly Recurring: <span className="font-semibold text-success-600 dark:text-success-400">${totalMonthly.toFixed(2)}</span>
+        Total Monthly Recurring: <span className="font-semibold text-success-600 dark:text-success-400">
+          {showSensitiveData ? `$${totalMonthly.toFixed(2)}` : "••••••"}
+        </span>
       </div>
       
       {loading ? (
@@ -116,7 +127,7 @@ export function RecurringExpensesCard() {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-3 text-xs text-surface-600 dark:text-surface-400">
-                    <span>${exp.amount.toFixed(2)}</span>
+                    <span>{showSensitiveData ? `$${exp.amount.toFixed(2)}` : "••••••"}</span>
                     <span className={`capitalize ${getFrequencyColor(exp.frequency)}`}>
                       {exp.frequency}
                     </span>

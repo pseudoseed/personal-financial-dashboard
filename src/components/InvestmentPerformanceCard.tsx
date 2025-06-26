@@ -5,12 +5,14 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { formatCurrency, formatPercentage } from '@/lib/ui';
 import { InvestmentPerformanceData, SnapshotType } from '@/lib/investmentPerformance';
+import { useSensitiveData } from '@/app/providers';
 
 interface InvestmentPerformanceCardProps {
   className?: string;
 }
 
 export function InvestmentPerformanceCard({ className = '' }: InvestmentPerformanceCardProps) {
+  const { showSensitiveData } = useSensitiveData();
   const [data, setData] = useState<InvestmentPerformanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,53 +47,60 @@ export function InvestmentPerformanceCard({ className = '' }: InvestmentPerforma
 
   if (loading) {
     return (
-      <Card className={`p-6 ${className}`}>
+      <div className="card">
         <div className="animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="h-8 bg-gray-200 rounded w-1/2 mb-6"></div>
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-6"></div>
           <div className="space-y-3">
-            <div className="h-4 bg-gray-200 rounded"></div>
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
           </div>
         </div>
-      </Card>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Card className={`p-6 ${className}`}>
+      <div className="card">
         <div className="text-center">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Investment Performance</h3>
-          <p className="text-red-600 mb-4">{error}</p>
+          <h3 className="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-2">Investment Performance</h3>
+          <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
           <Button onClick={() => fetchData(snapshotType)} variant="secondary">
             Retry
           </Button>
         </div>
-      </Card>
+      </div>
     );
   }
 
   if (!data) {
     return (
-      <Card className={`p-6 ${className}`}>
+      <div className="card">
         <div className="text-center">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Investment Performance</h3>
-          <p className="text-gray-500">No investment data available</p>
+          <h3 className="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-2">Investment Performance</h3>
+          <p className="text-gray-500 dark:text-gray-400">No investment data available</p>
         </div>
-      </Card>
+      </div>
     );
   }
 
   const isPositive = data.changePercent >= 0;
-  const changeColor = isPositive ? 'text-green-600' : 'text-red-600';
+  const changeColor = isPositive ? 'text-green-600 dark:text-green-400' : 'text-pink-600 dark:text-pink-400';
   const changeIcon = isPositive ? '↗' : '↘';
 
   return (
-    <Card className={`p-6 ${className}`}>
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-900">Investment Performance</h3>
+    <div className="card">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h3 className="text-lg font-semibold text-surface-900 dark:text-surface-100 mb-1">
+            Investment Performance
+          </h3>
+          <p className="text-sm text-surface-600 dark:text-surface-400">
+            Portfolio tracking and analysis
+          </p>
+        </div>
         <div className="flex space-x-1">
           {(['daily', 'weekly', 'monthly'] as SnapshotType[]).map((type) => (
             <Button
@@ -109,14 +118,16 @@ export function InvestmentPerformanceCard({ className = '' }: InvestmentPerforma
 
       {/* Portfolio Value and Change */}
       <div className="mb-6">
-        <div className="text-3xl font-bold text-gray-900 mb-2">
-          {formatCurrency(data.portfolioValue)}
+        <div className="text-3xl font-bold text-surface-900 dark:text-surface-100 mb-2">
+          {showSensitiveData ? formatCurrency(data.portfolioValue) : "••••••"}
         </div>
         <div className={`flex items-center text-sm ${changeColor}`}>
           <span className="mr-1">{changeIcon}</span>
-          <span className="font-medium">{formatPercentage(Math.abs(data.changePercent))}</span>
-          <span className="ml-2 text-gray-600">
-            ({formatCurrency(Math.abs(data.changeAmount))})
+          <span className="font-medium">
+            {showSensitiveData ? formatPercentage(Math.abs(data.changePercent)) : "••••••"}
+          </span>
+          <span className="ml-2 text-surface-600 dark:text-surface-400">
+            {showSensitiveData ? `(${formatCurrency(Math.abs(data.changeAmount))})` : "(••••••)"}
           </span>
         </div>
       </div>
@@ -124,7 +135,7 @@ export function InvestmentPerformanceCard({ className = '' }: InvestmentPerforma
       {/* Asset Allocation */}
       {data.assetAllocation.length > 0 && (
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Asset Allocation</h4>
+          <h4 className="text-sm font-medium text-surface-700 dark:text-surface-300 mb-3">Asset Allocation</h4>
           <div className="space-y-2">
             {data.assetAllocation.slice(0, 5).map((asset, index) => (
               <div key={asset.category} className="flex items-center justify-between">
@@ -135,11 +146,13 @@ export function InvestmentPerformanceCard({ className = '' }: InvestmentPerforma
                       backgroundColor: `hsl(${index * 60}, 70%, 50%)` 
                     }}
                   ></div>
-                  <span className="text-sm text-gray-600">{asset.category}</span>
+                  <span className="text-sm text-surface-600 dark:text-surface-400">{asset.category}</span>
                 </div>
-                <div className="text-sm font-medium text-gray-900">
-                  {formatCurrency(asset.value)}
-                  <span className="text-gray-500 ml-1">({formatPercentage(asset.percentage)})</span>
+                <div className="text-sm font-medium text-surface-900 dark:text-surface-100">
+                  {showSensitiveData ? formatCurrency(asset.value) : "••••••"}
+                  <span className="text-surface-500 dark:text-surface-400 ml-1">
+                    {showSensitiveData ? `(${formatPercentage(asset.percentage)})` : "(••••••)"}
+                  </span>
                 </div>
               </div>
             ))}
@@ -150,17 +163,17 @@ export function InvestmentPerformanceCard({ className = '' }: InvestmentPerforma
       {/* Top Performers */}
       {data.topPerformers.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Top Performers</h4>
+          <h4 className="text-sm font-medium text-surface-700 dark:text-surface-300 mb-3">Top Performers</h4>
           <div className="space-y-2">
             {data.topPerformers.map((performer, index) => (
               <div key={performer.accountName} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{performer.accountName}</span>
+                <span className="text-sm text-surface-600 dark:text-surface-400">{performer.accountName}</span>
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-900">
-                    {formatCurrency(performer.value)}
+                  <span className="text-sm font-medium text-surface-900 dark:text-surface-100">
+                    {showSensitiveData ? formatCurrency(performer.value) : "••••••"}
                   </span>
-                  <span className={`text-xs ${performer.changePercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {performer.changePercent >= 0 ? '+' : ''}{formatPercentage(performer.changePercent)}
+                  <span className={`text-xs ${performer.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-pink-600 dark:text-pink-400'}`}>
+                    {showSensitiveData ? `${performer.changePercent >= 0 ? '+' : ''}${formatPercentage(performer.changePercent)}` : "••••••"}
                   </span>
                 </div>
               </div>
@@ -171,12 +184,12 @@ export function InvestmentPerformanceCard({ className = '' }: InvestmentPerforma
 
       {/* Historical Data Summary */}
       {data.historicalData.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <div className="text-xs text-gray-500">
+        <div className="mt-4 pt-4 border-t border-surface-200 dark:border-surface-700">
+          <div className="text-xs text-surface-500 dark:text-surface-400">
             Data based on {data.historicalData.length} {snapshotType} snapshots
           </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 } 

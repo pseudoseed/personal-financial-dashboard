@@ -3,7 +3,7 @@ import { calculateFinancialHealth, getFinancialHealthTrend } from '@/lib/financi
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = "cmccxbmo000008of2p0eyw0o5"; // Default user for now
+    const userId = "default"; // Use the default user ID that matches database initialization
 
     console.log('Calculating financial health for user:', userId);
 
@@ -20,13 +20,12 @@ export async function GET(request: NextRequest) {
       trend,
     });
   } catch (error) {
-    console.error('Error calculating financial health:', error);
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    const errMsg = error instanceof Error ? error.message : JSON.stringify(error);
+    const errStack = error instanceof Error ? error.stack : undefined;
+    console.error('Error calculating financial health:', errMsg);
+    if (errStack) console.error('Error stack:', errStack);
     return NextResponse.json(
-      { error: 'Failed to calculate financial health metrics', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to calculate financial health metrics', details: errMsg },
       { status: 500 }
     );
   }

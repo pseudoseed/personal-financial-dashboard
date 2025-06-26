@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { formatBalance } from "@/lib/formatters";
 import { useSensitiveData } from "@/app/providers";
 import { CalculationDetailsDialog } from "./CalculationDetailsDialog";
+import { maskSensitiveValue } from '@/lib/ui';
 
 interface BillsData {
   totalBillsDueThisMonth: number;
@@ -132,7 +133,7 @@ export function BillsVsCashCard() {
               Upcoming Bills
             </p>
             <p className={`text-lg font-bold ${isHealthy ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'}`}>
-              {showSensitiveData ? formatBalance(data.totalBillsDueThisMonth) : "••••••"}
+              {maskSensitiveValue(formatBalance(data.totalBillsDueThisMonth), showSensitiveData)}
             </p>
           </div>
 
@@ -153,7 +154,7 @@ export function BillsVsCashCard() {
               Expected Income
             </p>
             <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
-              {showSensitiveData ? formatBalance(data.expectedIncome || 0) : "••••••"}
+              {maskSensitiveValue(formatBalance(data.expectedIncome || 0), showSensitiveData)}
             </p>
           </div>
 
@@ -174,7 +175,7 @@ export function BillsVsCashCard() {
               Available Cash
             </p>
             <p className="text-lg font-bold text-green-700 dark:text-green-300">
-              {showSensitiveData ? formatBalance(data.availableCash) : "••••••"}
+              {maskSensitiveValue(formatBalance(data.availableCash), showSensitiveData)}
             </p>
           </div>
 
@@ -194,7 +195,7 @@ export function BillsVsCashCard() {
               Net Position
             </p>
             <p className={`text-lg font-bold ${isNetPositive ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'}`}>
-              {showSensitiveData ? formatBalance(netPosition) : "••••••"}
+              {maskSensitiveValue(formatBalance(netPosition), showSensitiveData)}
             </p>
           </div>
         </div>

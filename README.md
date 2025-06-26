@@ -1,4 +1,6 @@
-# Personal Finance Dashboard
+# pseudofi
+
+Pseudofi is a secure, unified personal finance dashboard.
 
 A dashboard to track all your financial accounts in one place using Plaid API and Coinbase integration. Features include bank account balance tracking, cryptocurrency holdings, daily updates, and email notifications.
 ![image](https://github.com/user-attachments/assets/d0d8ba2c-d540-444e-a739-7f5797c4dd20)

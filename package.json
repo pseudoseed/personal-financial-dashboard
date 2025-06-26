@@ -1,13 +1,17 @@
 {
-  "name": "ec-personal-dashboard",
-  "version": "0.1.0",
+  "name": "pseudofi",
+  "version": "1.0.0",
   "private": true,
+  "description": "Pseudofi: Secure, unified personal finance dashboard.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test-email": "tsx scripts/send-test-email.ts"
+    "test-email": "tsx scripts/send-test-email.ts",
+    "db:migrate": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:seed": "tsx scripts/init-db.sh"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",
@@ -54,5 +58,9 @@
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.19.4",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
   }
 }

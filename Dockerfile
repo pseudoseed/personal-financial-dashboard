@@ -1,5 +1,5 @@
 # Multi-stage build for production
-FROM node:20.14.0-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -27,24 +27,25 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-# Install necessary packages (removed cron)
+# Install necessary packages
 RUN apk add --no-cache \
     curl \
     bash \
-    tzdata
+    tzdata \
+    sqlite
 
 # Set timezone
 ENV TZ=UTC
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
-# ENV NEXT_TELEMETRY_DISABLED 1
+# ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/logs
+RUN mkdir -p /app/data /app/logs /app/backups
 
 # Copy the public folder
 COPY --from=builder /app/public ./public
@@ -66,13 +67,15 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/scripts ./scripts
 RUN chmod +x scripts/init-db.sh
 
-# Create startup script (removed cron)
+# Create startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
+    echo 'set -e' >> /app/start.sh && \
     echo 'echo "Initializing database..."' >> /app/start.sh && \
     echo 'cd /app' >> /app/start.sh && \
     echo 'export DATABASE_URL="file:/app/data/dev.db"' >> /app/start.sh && \
     echo './scripts/init-db.sh' >> /app/start.sh && \
     echo 'echo "Starting Next.js application..."' >> /app/start.sh && \
+    echo 'echo "Application will be available at http://localhost:3000"' >> /app/start.sh && \
     echo 'exec node server.js' >> /app/start.sh && \
     chmod +x /app/start.sh
 
@@ -81,12 +84,14 @@ RUN chown -R nextjs:nodejs /app
 
 EXPOSE 3000
 
-ENV PORT 3000
+ENV PORT=3000
 # set hostname to localhost
-ENV HOSTNAME "0.0.0.0"
+ENV HOSTNAME=0.0.0.0
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/api/health || exit 1
+
+USER nextjs
 
 CMD ["/app/start.sh"] 
