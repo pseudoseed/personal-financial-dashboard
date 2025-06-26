@@ -10,6 +10,7 @@ import { Account } from "@/types/account";
 import { DashboardSkeleton } from "@/components/LoadingStates";
 import { AuthenticationAlerts } from "@/components/AuthenticationAlerts";
 import { RecurringExpensesCard } from '@/components/RecurringExpensesCard';
+import { EmptyStateDashboard } from "@/components/EmptyStateDashboard";
 
 // Fetch accounts data
 async function fetchAccounts(): Promise<Account[]> {
@@ -49,39 +50,6 @@ function shouldAutoSyncTransactions(accounts: Account[]): boolean {
   });
 }
 
-// Auto-refresh function
-async function performAutoRefresh(includeTransactions: boolean = false) {
-  try {
-    console.log("Performing auto-refresh...");
-    const response = await fetch("/api/accounts/refresh", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        manual: false,
-        userId: "default",
-        includeTransactions,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error("Auto-refresh failed:", response.statusText);
-      return;
-    }
-
-    const data = await response.json();
-    console.log("Auto-refresh completed:", {
-      refreshed: data.accountsRefreshed,
-      skipped: data.accountsSkipped,
-      errors: data.errors,
-      transactionSync: data.transactionSync,
-    });
-  } catch (error) {
-    console.error("Error during auto-refresh:", error);
-  }
-}
-
 export default function DashboardPage() {
   const [hasAutoRefreshed, setHasAutoRefreshed] = useState(false);
   const [hasAutoSyncedTransactions, setHasAutoSyncedTransactions] = useState(false);
@@ -105,24 +73,23 @@ export default function DashboardPage() {
       const needsTransactionSync = shouldAutoSyncTransactions(accounts);
       
       if (needsRefresh) {
-        console.log("Data is stale, performing auto-refresh...");
-        performAutoRefresh(needsTransactionSync);
+        // Perform auto-refresh
+        fetch("/api/accounts/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ includeTransactionSync: true }),
+        }).catch(error => {
+          console.error("Auto-refresh failed:", error);
+        });
         setHasAutoRefreshed(true);
         setHasAutoSyncedTransactions(needsTransactionSync);
       } else if (needsTransactionSync && !hasAutoSyncedTransactions) {
-        console.log("Transactions are stale, performing transaction sync...");
         // Only sync transactions if balance data is fresh
         fetch("/api/transactions/sync", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            manual: false,
-            userId: "default",
-          }),
+          headers: { "Content-Type": "application/json" },
         }).catch(error => {
-          console.error("Error during auto transaction sync:", error);
+          console.error("Transaction sync failed:", error);
         });
         setHasAutoSyncedTransactions(true);
       }
@@ -155,19 +122,7 @@ export default function DashboardPage() {
   }
 
   if (!accounts || accounts.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-100 mb-4">
-            Welcome to Your Financial Dashboard
-          </h1>
-          <p className="text-surface-600 dark:text-surface-400 mb-8">
-            Get started by connecting your first account.
-          </p>
-          <AuthenticationAlerts />
-        </div>
-      </div>
-    );
+    return <EmptyStateDashboard />;
   }
 
   const visibleAccounts = accounts.filter((account) => !account.hidden);
@@ -196,7 +151,7 @@ export default function DashboardPage() {
         {/* Main Content */}
         <div className="lg:col-span-3 space-y-8">
           <DashboardSummary accounts={visibleAccounts} />
-          <DashboardMetrics accounts={visibleAccounts} />
+          {/* <DashboardMetrics accounts={visibleAccounts} /> */}
           <RecurringExpensesCard />
           <div>
             <h2 className="text-xl font-semibold text-surface-900 dark:text-surface-100 mb-4">

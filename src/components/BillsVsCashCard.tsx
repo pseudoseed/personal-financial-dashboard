@@ -7,6 +7,7 @@ import { CalculationDetailsDialog } from "./CalculationDetailsDialog";
 
 interface BillsData {
   totalBillsDueThisMonth: number;
+  totalBillsDueNext30Days?: number;
   availableCash: number;
   accounts: Array<{
     id: string;

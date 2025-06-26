@@ -13,11 +13,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Build where clause for transactions
-    const whereClause: any = {
-      amount: {
-        lt: 0, // Only expenses for AI categorization
-      },
-    };
+    const whereClause: any = {};
 
     // Filter by account IDs
     if (accountIds.length > 0) {
@@ -54,13 +50,15 @@ export async function GET(request: NextRequest) {
         name: true,
         amount: true,
         category: true,
-        categoryAi: true,
+        categoryAiGranular: true,
+        categoryAiGeneral: true,
       },
     });
 
-    return NextResponse.json({ transactions });
+    return NextResponse.json({ transactions: transactions || [] });
   } catch (error) {
-    console.error('Error in /api/transactions/for-ai:', error);
+    const errObj = error instanceof Error ? error : { message: String(error) };
+    console.error('Error in /api/transactions/for-ai:', errObj);
     return NextResponse.json({ error: 'Failed to fetch transactions for AI' }, { status: 500 });
   }
 }

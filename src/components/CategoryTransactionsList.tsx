@@ -22,7 +22,8 @@ interface Transaction {
   name: string;
   amount: number;
   category: string | null;
-  categoryAi: string | null;
+  categoryAiGranular: string | null;
+  categoryAiGeneral: string | null;
   merchantName: string | null;
   pending: boolean;
   account: {
@@ -53,6 +54,7 @@ export function CategoryTransactionsList({
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [categoryView, setCategoryView] = useState<'granular' | 'general'>('granular');
 
   // Build API URL with filters
   const buildApiUrl = () => {
@@ -171,6 +173,22 @@ export function CategoryTransactionsList({
 
   return (
     <div className="space-y-4">
+      {/* Category View Toggle */}
+      <div className="flex gap-2 items-center mb-2">
+        <span className="text-xs text-gray-500 dark:text-gray-400">Category View:</span>
+        <button
+          className={`px-2 py-1 rounded text-xs font-medium border ${categoryView === 'granular' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-zinc-700'}`}
+          onClick={() => setCategoryView('granular')}
+        >
+          Granular
+        </button>
+        <button
+          className={`px-2 py-1 rounded text-xs font-medium border ${categoryView === 'general' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-zinc-700'}`}
+          onClick={() => setCategoryView('general')}
+        >
+          General
+        </button>
+      </div>
       {/* Summary and Search */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         {summary && (
@@ -227,6 +245,9 @@ export function CategoryTransactionsList({
                   <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">
                     Account
                   </th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">
+                    AI Category
+                  </th>
                   <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">
                     <SortableHeader field="amount">Amount</SortableHeader>
                   </th>
@@ -260,6 +281,9 @@ export function CategoryTransactionsList({
                         <div>{showSensitiveData ? (transaction.account.plaidItem.institutionName || 'Unknown') : "••••••••••"}</div>
                         <div>{showSensitiveData ? transaction.account.name : "••••••••••"}</div>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                      {categoryView === 'granular' ? (transaction.categoryAiGranular || '-') : (transaction.categoryAiGeneral || '-')}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right font-medium">
                       <span className={transaction.amount < 0 ? "text-pink-500 dark:text-pink-400" : "text-green-600 dark:text-green-400"}>

@@ -54,6 +54,7 @@ export function TransactionChart({}: TransactionChartProps) {
   const [gridColor, setGridColor] = useState('rgba(0,0,0,0.1)');
   const [tooltipBackgroundColor, setTooltipBackgroundColor] = useState('#ffffff');
   const queryClient = useQueryClient();
+  const [useGranularCategories, setUseGranularCategories] = useState(true);
 
   useEffect(() => {
     const isDark = document.documentElement.classList.contains('dark');
@@ -168,7 +169,7 @@ export function TransactionChart({}: TransactionChartProps) {
       await fetch("/api/ai/categorize-transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactions: allTxData.transactions }),
+        body: JSON.stringify({ transactions: allTxData.transactions, force: true }),
       });
       await queryClient.invalidateQueries({
         queryKey: ["allTransactionsForAI"],
@@ -189,7 +190,10 @@ export function TransactionChart({}: TransactionChartProps) {
     if (allTxData && allTxData.transactions) {
       const totals: Record<string, number> = {};
       allTxData.transactions.forEach((t: any) => {
-        const category = t.categoryAi || t.category || "Miscellaneous";
+        // Use the new AI category fields, fallback to Plaid category if AI not available
+        const category = useGranularCategories 
+          ? (t.categoryAiGranular || t.categoryAiGeneral || t.category || "Miscellaneous")
+          : (t.categoryAiGeneral || t.categoryAiGranular || t.category || "Miscellaneous");
         totals[category] = (totals[category] || 0) + Math.abs(t.amount);
       });
       setAiCategoryTotals(totals);
@@ -203,7 +207,22 @@ export function TransactionChart({}: TransactionChartProps) {
     if (allTxError) {
       setAiError("Failed to load transactions for AI categorization.");
     }
-  }, [allTxData, isAllTxLoading, allTxError]);
+  }, [allTxData, isAllTxLoading, allTxError, useGranularCategories]);
+
+  // Check if we need to trigger AI categorization
+  useEffect(() => {
+    if (allTxData && allTxData.transactions && !aiLoading && !aiCompleted) {
+      // Check if any transactions have AI categories
+      const hasAiCategories = allTxData.transactions.some((t: any) => 
+        t.categoryAiGranular || t.categoryAiGeneral
+      );
+      
+      if (!hasAiCategories && allTxData.transactions.length > 0) {
+        console.log('[FRONTEND] No AI categories found, triggering AI categorization...');
+        triggerAICategorization();
+      }
+    }
+  }, [allTxData, aiLoading, aiCompleted]);
 
   const chartColors = useMemo(
     () => [
@@ -213,13 +232,23 @@ export function TransactionChart({}: TransactionChartProps) {
     []
   );
 
+  // Filtered AI category totals for spend only
+  const spendCategories = [
+    "Rent/Mortgage", "Home Maintenance", "Electricity", "Water/Sewer", "Gas Utility", "Internet", "Cell Phone", "Streaming Services", "Groceries", "Fast Food", "Restaurants", "Coffee Shops", "Alcohol/Bars", "Gas Station", "Public Transit", "Ride Sharing (Uber/Lyft)", "Car Payment", "Car Insurance", "Parking", "Flights", "Hotels", "Vacation Rental", "Online Shopping", "Clothing", "Electronics", "Beauty/Personal Care", "Gym/Fitness", "Medical Expenses", "Health Insurance", "Pharmacy", "Subscriptions", "Childcare", "Tuition", "Student Loans", "Books & Supplies", "Fees & Charges", "Gifts", "Donations", "Pets", "Hobbies", "Games"
+  ];
+  // Log all categories present before filtering
+  useEffect(() => {
+    const allCats = Object.keys(aiCategoryTotals);
+    console.log('[FRONTEND] All AI categories:', allCats);
+  }, [aiCategoryTotals]);
+  const filteredAiCategoryTotals = aiCategoryTotals;
+
   const aiPieData: ChartData<"pie"> = useMemo(() => {
-    const sortedCategories = Object.entries(aiCategoryTotals).sort(
+    const sortedCategories = Object.entries(filteredAiCategoryTotals).sort(
       ([, a], [, b]) => b - a
     );
     const labels = sortedCategories.map(([name]) => name);
     const data = sortedCategories.map(([, total]) => total);
-
     return {
       labels,
       datasets: [
@@ -229,7 +258,7 @@ export function TransactionChart({}: TransactionChartProps) {
         },
       ],
     };
-  }, [aiCategoryTotals, chartColors]);
+  }, [filteredAiCategoryTotals, chartColors]);
 
   const vendorBarData: ChartData<"bar"> = useMemo(() => {
     if (!vendorData || !vendorData.vendors)
@@ -491,23 +520,40 @@ export function TransactionChart({}: TransactionChartProps) {
         <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 flex flex-col items-center h-[400px] dark:text-gray-100">
           <div className="flex justify-between w-full items-center">
             <h3 className="text-md font-semibold mb-2 dark:text-gray-100">AI-Powered Categories</h3>
-            <button
-              onClick={triggerAICategorization}
-              disabled={aiLoading}
-              className="p-1 rounded-md hover:bg-gray-100 dark:bg-zinc-800 disabled:opacity-50 text-gray-400 dark:text-gray-100"
-              title="Refresh AI Categories"
-            >
-              <ArrowPathIcon
-                className={`h-4 w-4 ${aiLoading ? "animate-spin" : ""}`}
-              />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={triggerAICategorization}
+                disabled={aiLoading}
+                className="p-1 rounded-md hover:bg-gray-100 dark:bg-zinc-800 disabled:opacity-50 text-gray-400 dark:text-gray-100"
+                title="Refresh AI Categories"
+              >
+                <ArrowPathIcon
+                  className={`h-4 w-4 ${aiLoading ? "animate-spin" : ""}`}
+                />
+              </button>
+              <div className="flex gap-1 ml-2">
+                <div className="border-l border-gray-300 dark:border-zinc-700 mx-1"></div>
+                <button
+                  className={`px-2 py-1 rounded text-xs font-medium border ${useGranularCategories ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-zinc-700'}`}
+                  onClick={() => setUseGranularCategories(true)}
+                >
+                  Granular
+                </button>
+                <button
+                  className={`px-2 py-1 rounded text-xs font-medium border ${!useGranularCategories ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-zinc-700'}`}
+                  onClick={() => setUseGranularCategories(false)}
+                >
+                  General
+                </button>
+              </div>
+            </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Click any slice to view transactions below</p>
           {aiLoading && !aiCompleted ? (
             <div className="dark:text-gray-100">Categorizing...</div>
           ) : aiError ? (
             <div className="dark:text-gray-100">{aiError}</div>
-          ) : Object.keys(aiCategoryTotals).length === 0 ? (
+          ) : Object.keys(filteredAiCategoryTotals).length === 0 ? (
             <div className="dark:text-gray-100">No spend data available for categorization.</div>
           ) : (
             <div className="w-full flex-1 min-h-0 cursor-pointer">

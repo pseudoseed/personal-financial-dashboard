@@ -29,7 +29,8 @@ interface Transaction {
   name: string;
   amount: number;
   category: string | null;
-  categoryAi: string | null;
+  categoryAiGranular: string | null;
+  categoryAiGeneral: string | null;
   merchantName: string | null;
   pending: boolean;
   account: {
@@ -64,6 +65,7 @@ export function CategoryTransactionsDialog({
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [isMounted, setIsMounted] = useState(false);
+  const [categoryView, setCategoryView] = useState<'granular' | 'general'>('granular');
   const dialogRef = useDialogDismiss({
     isOpen,
     onClose,
@@ -218,6 +220,23 @@ export function CategoryTransactionsDialog({
           </button>
         </div>
 
+        {/* Category View Toggle */}
+        <div className="flex gap-2 items-center px-6 py-2 border-b border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-700">
+          <span className="text-xs text-gray-500 dark:text-gray-400">Category View:</span>
+          <button
+            className={`px-2 py-1 rounded text-xs font-medium border ${categoryView === 'granular' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-zinc-700'}`}
+            onClick={() => setCategoryView('granular')}
+          >
+            Granular
+          </button>
+          <button
+            className={`px-2 py-1 rounded text-xs font-medium border ${categoryView === 'general' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-zinc-700'}`}
+            onClick={() => setCategoryView('general')}
+          >
+            General
+          </button>
+        </div>
+
         {/* Search and Filters */}
         <div className="p-6 border-b border-gray-200 dark:border-zinc-700">
           <div className="flex items-center gap-4">
@@ -275,6 +294,9 @@ export function CategoryTransactionsDialog({
                       Account
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      AI Category
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Original Category
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -308,6 +330,9 @@ export function CategoryTransactionsDialog({
                           <div>{transaction.account.plaidItem.institutionName || 'Unknown'}</div>
                           <div className="text-xs">{transaction.account.name}</div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        {categoryView === 'granular' ? (transaction.categoryAiGranular || '-') : (transaction.categoryAiGeneral || '-')}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                         {transaction.category || '-'}

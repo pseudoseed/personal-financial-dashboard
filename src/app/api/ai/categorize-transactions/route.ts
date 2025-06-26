@@ -4,14 +4,34 @@ import { prisma } from '../../../../lib/db';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TEST_MODE = true; // Toggle this for test mode
 
-const STANDARD_CATEGORIES = [
-  "Rent/Mortgage", "Groceries", "Dining Out", "Utilities", "Internet", "Cell Phone", "Transportation", "Gas", "Car Payment", "Car Insurance", "Public Transit", "Health Insurance", "Medical Expenses", "Subscriptions", "Streaming Services", "Gym/Fitness", "Shopping", "Clothing", "Entertainment", "Travel", "Hotels", "Flights", "Uber/Lyft", "Coffee Shops", "Pets", "Gifts", "Donations", "Household Supplies", "Home Maintenance", "Childcare", "Education", "Student Loans", "Credit Card Payments", "Savings", "Investments", "Emergency Fund", "Hobbies", "Alcohol/Bars", "Beauty/Personal Care", "Tobacco/Vape", "Tech/Gadgets", "ATM Withdrawals", "Fees & Charges", "Miscellaneous"
+const GENERAL_CATEGORIES = [
+  "Housing", "Utilities", "Food & Dining", "Groceries", "Transportation", "Shopping", "Health & Fitness", "Entertainment", "Travel", "Personal Care", "Education", "Insurance", "Financial", "Gifts & Donations", "Kids", "Pets", "Miscellaneous"
 ];
+
+const GRANULAR_CATEGORIES = [
+  "Rent/Mortgage", "Home Maintenance", "Electricity", "Water/Sewer", "Gas Utility", "Internet", "Cell Phone", "Streaming Services", "Groceries", "Fast Food", "Restaurants", "Coffee Shops", "Alcohol/Bars", "Gas Station", "Public Transit", "Ride Sharing (Uber/Lyft)", "Car Payment", "Car Insurance", "Parking", "Flights", "Hotels", "Vacation Rental", "Online Shopping", "Clothing", "Electronics", "Beauty/Personal Care", "Gym/Fitness", "Medical Expenses", "Health Insurance", "Pharmacy", "Subscriptions", "Childcare", "Tuition", "Student Loans", "Books & Supplies", "Credit Card Payment", "Loan Payment", "Savings", "Investments", "ATM Withdrawal", "Fees & Charges", "Gifts", "Donations", "Pets", "Hobbies", "Games", "Miscellaneous"
+];
+
+// Helper: Map Plaid category array to our taxonomy (granular/general)
+function mapPlaidCategoryToTaxonomy(plaidCategoryArr: string[]): { granular: string; general: string } {
+  // Example mapping logic (expand as needed)
+  if (!plaidCategoryArr || plaidCategoryArr.length === 0) return { granular: 'Miscellaneous', general: 'Miscellaneous' };
+  const joined = plaidCategoryArr.join(' > ').toLowerCase();
+  if (joined.includes('fast food')) return { granular: 'Fast Food', general: 'Food & Dining' };
+  if (joined.includes('restaurants')) return { granular: 'Restaurants', general: 'Food & Dining' };
+  if (joined.includes('coffee')) return { granular: 'Coffee Shops', general: 'Food & Dining' };
+  if (joined.includes('groceries')) return { granular: 'Groceries', general: 'Groceries' };
+  if (joined.includes('gas')) return { granular: 'Gas Station', general: 'Transportation' };
+  if (joined.includes('shopping')) return { granular: 'Online Shopping', general: 'Shopping' };
+  if (joined.includes('travel')) return { granular: 'Flights', general: 'Travel' };
+  // ...add more mappings as needed...
+  return { granular: plaidCategoryArr[plaidCategoryArr.length-1] || 'Miscellaneous', general: plaidCategoryArr[0] || 'Miscellaneous' };
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { transactions } = body;
+    const { transactions, force } = body;
 
     if (!transactions || !Array.isArray(transactions)) {
       return NextResponse.json(
@@ -27,63 +47,83 @@ export async function POST(req: NextRequest) {
     // Step 1: Get existing categories from database
     const transactionIds = transactions.map(t => t.id).filter(Boolean);
     const existingCategories = new Map();
-    
     if (transactionIds.length > 0) {
       const dbTransactions = await prisma.$queryRawUnsafe(`
-        SELECT id, "categoryAi" FROM "Transaction" 
+        SELECT id, "categoryAiGranular", "categoryAiGeneral" FROM "Transaction" 
         WHERE id IN (${transactionIds.map(id => `'${id}'`).join(',')})
       `);
-      
-      (dbTransactions as any[]).forEach((t: { id: string; categoryAi: string | null }) => {
-        if (t.categoryAi) {
-          existingCategories.set(t.id, t.categoryAi);
+      (dbTransactions as any[]).forEach((t: { id: string; categoryAiGranular: string | null; categoryAiGeneral: string | null }) => {
+        if (t.categoryAiGranular && t.categoryAiGeneral) {
+          existingCategories.set(t.id, { granular: t.categoryAiGranular, general: t.categoryAiGeneral });
         }
       });
     }
 
-    // Step 2: Filter out transactions that already have categories
-    const uncategorizedTransactions = transactions.filter(t => !existingCategories.has(t.id));
+    // Step 2: Filter out transactions that already have categories, unless force is true
+    let toCategorize: any[];
+    if (force) {
+      // Only send the most recent 5000 transactions (by date)
+      toCategorize = [...transactions]
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 5000);
+    } else {
+      toCategorize = transactions.filter(t => !existingCategories.has(t.id));
+    }
 
     // If all transactions are already categorized, return existing categories
-    if (uncategorizedTransactions.length === 0) {
-      const categories = transactions.map(t => existingCategories.get(t.id) || 'Miscellaneous');
+    if (toCategorize.length === 0) {
+      const categories = transactions.map(t => existingCategories.get(t.id) || { granular: 'Miscellaneous', general: 'Miscellaneous' });
       return NextResponse.json({ categories, fromCache: true });
     }
 
     // Step 3: Smart filtering - only exclude obvious non-spending transactions
+    // To do this correctly, we need account type for each transaction
+    // If not present, fetch from DB
+    let transactionsWithType = toCategorize;
+    if (!toCategorize[0]?.accountType) {
+      const ids = toCategorize.map(t => `'${t.accountId}'`).join(',');
+      const accountTypes = await prisma.$queryRawUnsafe(`
+        SELECT id, type FROM "Account" WHERE id IN (${ids})
+      `) as any[];
+      const typeMap = new Map(accountTypes.map((a: any) => [a.id, a.type]));
+      transactionsWithType = toCategorize.map(t => ({ ...t, accountType: typeMap.get(t.accountId) }));
+    }
     const filteredOut: any[] = [];
-    const spendingTransactions = uncategorizedTransactions.filter((t) => {
+    const spendingTransactions = transactionsWithType.filter((t) => {
       const name = (t.name || t.merchantName || '').toLowerCase();
       const amount = t.amount;
-      
+      const accountType = t.accountType || '';
       // Basic validation
       if (typeof amount !== 'number' || isNaN(amount)) {
         filteredOut.push({ reason: 'invalid amount', t });
         return false;
       }
-      
       // Handle subscription services that might have positive amounts
       const subscriptionServices = [
         'tidal', 'netflix', 'spotify', 'hulu', 'disney', 'hbo', 'prime video', 
         'youtube premium', 'apple music', 'amazon prime', 'peacock', 'paramount',
         'crunchyroll', 'funimation', 'shudder', 'mubi', 'criterion'
       ];
-      
       const isSubscriptionService = subscriptionServices.some(service => 
         name.includes(service)
       );
-      
-      // If it's a subscription service, include it regardless of amount
       if (isSubscriptionService) {
         return true;
       }
-      
-      // Only process expenses (negative amounts) for non-subscription services
-      if (amount >= 0) {
-        filteredOut.push({ reason: 'income or zero amount', t });
+      // Spend logic: credit = purchases are positive, depository = purchases are negative
+      let isSpend = false;
+      if (accountType.toLowerCase() === 'credit') {
+        isSpend = amount > 0;
+      } else if (accountType.toLowerCase() === 'depository') {
+        isSpend = amount < 0;
+      } else {
+        // fallback: treat negative as spend
+        isSpend = amount < 0;
+      }
+      if (!isSpend) {
+        filteredOut.push({ reason: 'not spend', t });
         return false;
       }
-      
       // Exclude obvious transfers and payments (but let AI handle ambiguous cases)
       const obviousTransfers = [
         'zelle payment from',
@@ -107,12 +147,10 @@ export async function POST(req: NextRequest) {
         'reversal',
         'credit'
       ];
-      
       if (obviousTransfers.some(pattern => new RegExp(pattern).test(name))) {
         filteredOut.push({ reason: 'obvious transfer/payment', t });
         return false;
       }
-      
       return true;
     });
     
@@ -130,26 +168,31 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < spendingTransactions.length; i += batchSize) {
       const batch = spendingTransactions.slice(i, i + batchSize);
 
-      // Enhanced AI prompt that leverages AI's knowledge
+      // Enhanced AI prompt for dual-level categorization
       const prompt = [
-        'You are an expert financial transaction categorizer. Your job is to categorize spending transactions into appropriate budgeting categories.',
+        'You are an expert financial transaction categorizer. Your job is to assign BOTH a granular and a general category to each transaction, using the provided lists.',
         '',
-        'Use ONLY one of these categories:',
-        STANDARD_CATEGORIES.join(', '),
+        'GENERAL CATEGORIES:',
+        GENERAL_CATEGORIES.join(', '),
+        '',
+        'GRANULAR CATEGORIES:',
+        GRANULAR_CATEGORIES.join(', '),
         '',
         'IMPORTANT GUIDELINES:',
-        '- Use your knowledge of companies, brands, and services to make intelligent categorizations',
-        '- Streaming services (Netflix, Spotify, TIDAL, Hulu, Disney+, HBO Max, etc.) → "Streaming Services"',
-        '- Food delivery (Uber Eats, DoorDash, Grubhub, etc.) → "Dining Out"',
-        '- Ride sharing (Uber, Lyft, etc.) → "Uber/Lyft"',
-        '- Online shopping (Amazon, eBay, etc.) → "Shopping"',
-        '- Grocery stores (Walmart, Target, Kroger, etc.) → "Groceries"',
-        '- Gas stations (Shell, Exxon, etc.) → "Gas"',
-        '- Coffee shops (Starbucks, Dunkin, etc.) → "Coffee Shops"',
-        '- Only use "Miscellaneous" if you cannot reasonably determine the category',
+        '- Use your knowledge of companies, brands, and services to make intelligent categorizations.',
+        '- For each transaction, return BOTH a granular and a general category.',
+        '- Only use "Miscellaneous" if, based on general public knowledge of the merchant name, you cannot reasonably determine a more specific category from the provided list.',
+        '- If a transaction could fit multiple categories, choose the most specific and relevant one.',
+        '- Example mappings:',
+        '  - Starbucks → Granular: Coffee Shops, General: Food & Dining',
+        '  - Amazon → Granular: Online Shopping, General: Shopping',
+        '  - Shell → Granular: Gas Station, General: Transportation',
         '',
         'Return ONLY a JSON array like this:',
-        '[{ "name": "Amazon", "category": "Shopping" }, ...]',
+        '[',
+        '  { "name": "Amazon", "granularCategory": "Online Shopping", "generalCategory": "Shopping" },',
+        '  ...',
+        ']',
         '',
         'Transactions to categorize:',
         JSON.stringify(batch.map(t => ({ name: t.name || t.merchantName, amount: t.amount })), null, 2),
@@ -186,25 +229,18 @@ export async function POST(req: NextRequest) {
       const data = await response.json();
       const content = data.choices[0]?.message?.content?.trim();
 
-      if (!content) {
-        throw new Error('Empty response from OpenAI API');
-      }
-
       // Parse the JSON response
       let parsed;
       try {
         // Find the first and last brackets to extract JSON
         const firstBracket = content.indexOf('[');
         const lastBracket = content.lastIndexOf(']');
-        
         if (firstBracket === -1 || lastBracket === -1) {
           console.error('Malformed AI response (no brackets):', content);
           continue;
         }
-        
         const jsonContent = content.slice(firstBracket, lastBracket + 1);
         parsed = JSON.parse(jsonContent);
-        
         if (!Array.isArray(parsed)) {
           console.error('AI response is not an array:', parsed);
           continue;
@@ -218,14 +254,15 @@ export async function POST(req: NextRequest) {
 
       // Process the categorized transactions
       parsed.forEach((item: any) => {
-        if (item.name && item.category) {
-          const category = item.category.trim();
-          if (STANDARD_CATEGORIES.includes(category)) {
-            newCategories.set(item.name, category);
-            categorized.push(category);
+        if (item.name && item.granularCategory && item.generalCategory) {
+          const granularCategory = item.granularCategory.trim();
+          const generalCategory = item.generalCategory.trim();
+          if (GRANULAR_CATEGORIES.includes(granularCategory) && GENERAL_CATEGORIES.includes(generalCategory)) {
+            newCategories.set(item.name, { granular: granularCategory, general: generalCategory });
+            categorized.push(granularCategory);
           } else {
             // If AI returned a non-standard category, map it to Miscellaneous
-            newCategories.set(item.name, 'Miscellaneous');
+            newCategories.set(item.name, { granular: 'Miscellaneous', general: 'Miscellaneous' });
             categorized.push('Miscellaneous');
           }
         }
@@ -235,27 +272,47 @@ export async function POST(req: NextRequest) {
     // Step 5: Update database with new categories
     if (newCategories.size > 0) {
       try {
-        // Get transaction IDs that match the categorized names
+        // Get transaction IDs and Plaid categories for the categorized names
         const categorizedNames = Array.from(newCategories.keys());
-        const dbTransactions = await prisma.$queryRawUnsafe(`
-          SELECT id, name, "merchantName" FROM "Transaction" 
+        const dbTransactions: any[] = await prisma.$queryRawUnsafe(`
+          SELECT id, name, "merchantName", category, "plaidId" FROM "Transaction" 
           WHERE name IN (${categorizedNames.map(name => `'${name.replace(/'/g, "''")}'`).join(',')})
           OR "merchantName" IN (${categorizedNames.map(name => `'${name.replace(/'/g, "''")}'`).join(',')})
         `);
 
-        const dbIds = (dbTransactions as any[]).map(t => t.id);
-        
+        // Prepare update cases for dual-level categories
+        const updateCasesGranular: string[] = [];
+        const updateCasesGeneral: string[] = [];
+        for (const t of dbTransactions) {
+          const aiCat = newCategories.get(t.name) || newCategories.get(t.merchantName);
+          let granular = aiCat?.granular || 'Miscellaneous';
+          let general = aiCat?.general || 'Miscellaneous';
+          // Fallback: If AI returned Miscellaneous, try Plaid
+          if (granular === 'Miscellaneous' && t.category) {
+            const plaidMapped = mapPlaidCategoryToTaxonomy([t.category]);
+            if (plaidMapped.granular !== 'Miscellaneous') {
+              granular = plaidMapped.granular;
+              general = plaidMapped.general;
+            }
+          }
+          updateCasesGranular.push(`WHEN '${t.id}' THEN '${granular.replace(/'/g, "''")}'`);
+          updateCasesGeneral.push(`WHEN '${t.id}' THEN '${general.replace(/'/g, "''")}'`);
+        }
+        const dbIds: string[] = dbTransactions.map((t: any) => t.id);
         if (dbIds.length > 0) {
-          // Build SQL update statement
-          const updateCases = dbIds.map(id => `WHEN '${id}' THEN '${newCategories.get((dbTransactions as any[]).find(t => t.id === id)?.name || (dbTransactions as any[]).find(t => t.id === id)?.merchantName) || 'Miscellaneous'}'`).join(' ');
           const sql = `
             UPDATE "Transaction" 
-            SET "categoryAi" = CASE id ${updateCases} END
-            WHERE id IN (${dbIds.map(id => `'${id}'`).join(',')})
+            SET "categoryAiGranular" = CASE id ${updateCasesGranular.join(' ')} END,
+                "categoryAiGeneral" = CASE id ${updateCasesGeneral.join(' ')} END
+            WHERE id IN (${dbIds.map((id: string) => `'${id}'`).join(',')})
           `;
-          
           await prisma.$executeRawUnsafe(sql);
         }
+        // Log unique categories saved in this batch
+        const uniqueGranular = new Set(Array.from(newCategories.values()).map(v => v.granular));
+        const uniqueGeneral = new Set(Array.from(newCategories.values()).map(v => v.general));
+        console.log('[AI CATEGORIZATION] Saved categories (granular):', Array.from(uniqueGranular));
+        console.log('[AI CATEGORIZATION] Saved categories (general):', Array.from(uniqueGeneral));
       } catch (dbError) {
         console.error('[DATABASE ERROR] Failed to store categories:', dbError);
       }

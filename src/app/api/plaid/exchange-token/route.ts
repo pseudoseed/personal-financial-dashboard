@@ -3,6 +3,7 @@ import { plaidClient } from "@/lib/plaid";
 import { prisma } from "@/lib/db";
 import { CountryCode } from "plaid";
 import { institutionLogos } from "@/lib/institutionLogos";
+import { detectDuplicates, mergeDuplicateAccounts, getMergeMessage } from "@/lib/duplicateDetection";
 
 function formatLogoUrl(
   logo: string | null | undefined,
@@ -135,9 +136,20 @@ export async function POST(request: Request) {
         }
       }
 
+      // Check for and merge duplicates
+      const duplicateGroup = await detectDuplicates(institutionId);
+      let mergeMessage = null;
+      
+      if (duplicateGroup && duplicateGroup.shouldMerge) {
+        const mergeResult = await mergeDuplicateAccounts(duplicateGroup);
+        mergeMessage = getMergeMessage(duplicateGroup, mergeResult);
+        console.log("Auto-merged duplicates:", mergeMessage);
+      }
+
       return NextResponse.json({
         message: "Institution updated successfully",
         institutionId: existingInstitution.id,
+        mergeMessage,
       });
     } else {
       // Create new institution
@@ -173,9 +185,20 @@ export async function POST(request: Request) {
         });
       }
 
+      // Check for and merge duplicates
+      const duplicateGroup = await detectDuplicates(institutionId);
+      let mergeMessage = null;
+      
+      if (duplicateGroup && duplicateGroup.shouldMerge) {
+        const mergeResult = await mergeDuplicateAccounts(duplicateGroup);
+        mergeMessage = getMergeMessage(duplicateGroup, mergeResult);
+        console.log("Auto-merged duplicates:", mergeMessage);
+      }
+
       return NextResponse.json({
         message: "Institution connected successfully",
         institutionId: newInstitution.id,
+        mergeMessage,
       });
     }
   } catch (error) {

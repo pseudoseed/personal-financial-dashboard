@@ -85,9 +85,6 @@ export async function GET(request: NextRequest) {
     const minAmount = searchParams.get("minAmount") ? parseFloat(searchParams.get("minAmount")!) : undefined;
     const maxAmount = searchParams.get("maxAmount") ? parseFloat(searchParams.get("maxAmount")!) : undefined;
 
-    // Debug log the whereClause
-    console.log('VENDORS_ENDPOINT_WHERE', JSON.stringify(whereClause, null, 2));
-
     // Fetch all relevant transactions with account information
     const transactions = await prisma.transaction.findMany({
       where: whereClause,
@@ -105,15 +102,6 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Debug log a sample of transactions
-    console.log('VENDORS_ENDPOINT_SAMPLE_TX', transactions.slice(0, 10));
-    console.log('VENDORS_ENDPOINT_COUNT', transactions.length);
-    if (transactions.length > 0) {
-      const amounts = transactions.map(t => t.amount);
-      console.log('VENDORS_ENDPOINT_MIN_AMOUNT', Math.min(...amounts));
-      console.log('VENDORS_ENDPOINT_MAX_AMOUNT', Math.max(...amounts));
-    }
-
     // Filter transactions based on account type and amount
     const filteredTx = transactions.filter(tx => {
       // Check account type and amount
@@ -129,37 +117,8 @@ export async function GET(request: NextRequest) {
       ];
       const isUnwanted = unwantedPatterns.some(pattern => name.includes(pattern));
       
-      // Debug logging
-      if (!isCorrectAccountType || isUnwanted) {
-        console.log('[VENDORS_FILTER] Filtered out transaction:', {
-          name: tx.merchantName || tx.name,
-          amount: tx.amount,
-          accountType: tx.account.type,
-          reason: !isCorrectAccountType ? 'wrong_account_type_or_amount' : 'unwanted_pattern',
-          pattern: isUnwanted ? unwantedPatterns.find(p => name.includes(p)) : null
-        });
-      }
-      
       return isCorrectAccountType && !isUnwanted;
     });
-
-    console.log('[VENDORS_FILTER] Filtered transactions:', {
-      total: transactions.length,
-      filtered: filteredTx.length,
-      removed: transactions.length - filteredTx.length
-    });
-
-    // If debug param is set, return raw transactions
-    if (searchParams.get('debug') === 'true') {
-      return NextResponse.json({ 
-        transactions: filteredTx,
-        filterStats: {
-          total: transactions.length,
-          filtered: filteredTx.length,
-          removed: transactions.length - filteredTx.length
-        }
-      });
-    }
 
     // Group by raw merchantName (or name if merchantName is missing)
     const vendorTotals: Record<string, number> = {};

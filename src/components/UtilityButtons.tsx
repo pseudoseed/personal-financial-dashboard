@@ -70,24 +70,9 @@ export function UtilityButtons({
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        if (response.status === 429) {
-          // Rate limit exceeded
-          setRefreshError(data.message || "Rate limit exceeded");
-          return;
-        }
-        throw new Error(data.error || "Failed to refresh balances");
+        throw new Error("Failed to refresh balances");
       }
-
-      // Show success message
-      console.log("Refresh completed:", {
-        refreshed: data.accountsRefreshed,
-        skipped: data.accountsSkipped,
-        errors: data.errors,
-        transactionSync: data.transactionSync,
-      });
 
       // Invalidate relevant queries instead of refreshing the page
       await queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -120,24 +105,9 @@ export function UtilityButtons({
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        if (response.status === 429) {
-          // Rate limit exceeded
-          setTransactionSyncError(data.message || "Rate limit exceeded");
-          return;
-        }
-        throw new Error(data.error || "Failed to sync transactions");
+        throw new Error("Failed to sync transactions");
       }
-
-      // Show success message
-      console.log("Transaction sync completed:", {
-        synced: data.accountsSynced,
-        skipped: data.accountsSkipped,
-        errors: data.errors,
-        totalTransactions: data.totalTransactions,
-      });
 
       // Invalidate relevant queries
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });

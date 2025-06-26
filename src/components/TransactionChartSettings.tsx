@@ -76,6 +76,31 @@ export function TransactionChartSettings({
     setAccessibleColors(accessibleColors);
   }, [accessibleColors]);
 
+  useEffect(() => {
+    // On mount, restore date range from localStorage
+    const savedRange = localStorage.getItem('transactionChartDateRange');
+    if (savedRange) {
+      try {
+        const { startDate, endDate } = JSON.parse(savedRange);
+        if (startDate && endDate) {
+          setLocalSettings(prev => ({ ...prev, startDate: new Date(startDate), endDate: new Date(endDate) }));
+          setCustomStartDate(formatDateForInput(new Date(startDate)));
+          setCustomEndDate(formatDateForInput(new Date(endDate)));
+        }
+      } catch {}
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    // Save date range to localStorage when it changes
+    if (localSettings.startDate && localSettings.endDate) {
+      localStorage.setItem('transactionChartDateRange', JSON.stringify({
+        startDate: localSettings.startDate,
+        endDate: localSettings.endDate,
+      }));
+    }
+  }, [localSettings.startDate, localSettings.endDate]);
+
   const handleSave = () => {
     onSettingsChange(localSettings);
     onClose();
@@ -164,8 +189,8 @@ export function TransactionChartSettings({
     const institution = getInstitutionName(account);
     const name = (account.nickname || account.name || '').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     
-    // Extract last 4 digits from account name since mask isn't available in this type
-    const last4 = account.name?.match(/\d{4}$/)?.[0] || '----';
+    // Use mask if available, otherwise fallback to regex
+    const last4 = account.mask || account.name?.match(/\d{4}$/)?.[0] || '----';
     
     // For credit cards, try to extract card name from account name
     // Note: subtype isn't available in this Account type, so we'll check the name for credit card indicators
@@ -306,16 +331,47 @@ export function TransactionChartSettings({
             {/* Prebuilt Filters */}
             <div className="mb-4">
               <div className="flex flex-wrap gap-2 mb-3">
-                {dateFilters.map((filter, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={filter.action}
-                    className="px-3 py-1 text-xs rounded-full border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
-                  >
-                    {filter.label}
-                  </button>
-                ))}
+                {dateFilters.map((filter, index) => {
+                  let isSelected = false;
+                  if (localSettings.startDate && localSettings.endDate) {
+                    switch (filter.label) {
+                      case "This Week":
+                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getThisWeek().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getThisWeek().endDate);
+                        break;
+                      case "This Month":
+                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getThisMonth().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getThisMonth().endDate);
+                        break;
+                      case "This Quarter":
+                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getThisQuarter().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getThisQuarter().endDate);
+                        break;
+                      case "Last Quarter":
+                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getLastQuarter().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getLastQuarter().endDate);
+                        break;
+                      case "Fiscal Year":
+                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getFiscalYear().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getFiscalYear().endDate);
+                        break;
+                      case "Year to Date":
+                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getYearToDate().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getYearToDate().endDate);
+                        break;
+                      default:
+                        isSelected = false;
+                    }
+                  }
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={filter.action}
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                        isSelected
+                          ? 'bg-purple-600 text-white border-purple-600 dark:bg-purple-700 dark:text-white dark:border-purple-700'
+                          : 'border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700'
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  );
+                })}
                 <button
                   type="button"
                   onClick={clearDateRange}
@@ -555,7 +611,7 @@ export function TransactionChartSettings({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-between items-center p-6 border-t border-gray-200 dark:border-zinc-800">
+        <div className="flex justify-between items-center p-6 border-t border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 sticky bottom-0 z-10" style={{ boxShadow: '0 -2px 8px rgba(0,0,0,0.03)' }}>
           <button
             type="button"
             onClick={handleReset}

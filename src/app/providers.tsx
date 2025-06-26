@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useLayoutEffect, createContext, useContext } from "react";
+import { NotificationProvider } from "@/components/ui/Notification";
 
 const ThemeContext = createContext<{
   darkMode: boolean;
@@ -88,7 +89,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <ThemeContext.Provider value={{ darkMode, setDarkMode: handleSetDarkMode }}>
       <SensitiveDataContext.Provider value={{ showSensitiveData, toggleSensitiveData }}>
         <QueryClientProvider client={queryClient}>
-          {children}
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
         </QueryClientProvider>
       </SensitiveDataContext.Provider>
     </ThemeContext.Provider>

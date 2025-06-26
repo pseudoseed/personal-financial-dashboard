@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { usePlaidLink } from "react-plaid-link";
+import { useQueryClient } from "@tanstack/react-query";
 import { PlusIcon } from "@heroicons/react/24/solid";
 import { Menu } from "@headlessui/react";
 import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
@@ -12,8 +13,9 @@ import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { useDialogDismiss } from "@/lib/useDialogDismiss";
 import { Account } from "@/types/account";
 import { Modal } from "@/components/ui/Modal";
-import { BriefcaseIcon, CreditCardIcon, BanknotesIcon, Squares2X2Icon, InformationCircleIcon } from "@heroicons/react/24/outline";
+import { BriefcaseIcon, CreditCardIcon, BanknotesIcon, Squares2X2Icon, InformationCircleIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/Tooltip";
+import { useNotifications } from "@/components/ui/Notification";
 
 interface AccountTypeOption {
   id: string;
@@ -111,6 +113,8 @@ export function AccountConnectionButtons() {
   const [isConnectingCoinbase, setIsConnectingCoinbase] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [selectedAccountType, setSelectedAccountType] = useState<AccountTypeOption | null>(null);
+  const queryClient = useQueryClient();
+  const { addNotification } = useNotifications();
 
   // Use the dialog dismiss hook - Manual account form requires input, so prevent dismissal
   const dialogRef = useDialogDismiss({
@@ -150,13 +154,40 @@ export function AccountConnectionButtons() {
         body: JSON.stringify({ public_token }),
       });
       if (!response.ok) throw new Error("Failed to exchange token");
-      // Optionally refetch accounts here if needed
+      
+      const result = await response.json();
+      
+      // Invalidate the accounts query to refresh the dashboard
+      await queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      
       setShowAccountTypeSelector(false);
       setSelectedAccountType(null);
+      
+      // Show success notification
+      addNotification({
+        type: "success",
+        title: "Account Connected Successfully!",
+        message: "Your account has been connected and is now visible on your dashboard."
+      });
+      
+      // Show merge message if duplicates were handled
+      if (result.mergeMessage) {
+        addNotification({
+          type: "info",
+          title: "Duplicate Accounts Merged",
+          message: result.mergeMessage,
+          duration: 8000, // Show for longer since it's important info
+        });
+      }
     } catch (error) {
       console.error("Error linking account:", error);
+      addNotification({
+        type: "error",
+        title: "Connection Failed",
+        message: "There was an error connecting your account. Please try again."
+      });
     }
-  }, []);
+  }, [queryClient, addNotification]);
 
   const { open, ready } = usePlaidLink({
     token: linkToken,
@@ -192,25 +223,28 @@ export function AccountConnectionButtons() {
         id: "checking-savings",
         label: "Checking & Savings Only",
         description: "Basic bank accounts for daily transactions.",
-        examples: "Examples: Chase Checking, Ally Savings, Wells Fargo Savings",
+        examples: "Examples: Ally Savings, Marcus by Goldman Sachs, Capital One 360",
         icon: <BanknotesIcon className="h-7 w-7 text-blue-500" />,
         price: "$0.30/month",
+        note: "Use for banks that separate checking/savings from credit cards",
       },
       {
         id: "credit-cards",
         label: "Credit Cards",
         description: "Credit cards with liability information.",
-        examples: "Examples: Chase Sapphire, Amex Platinum, Citi Double Cash",
+        examples: "Examples: Amex Platinum, Citi Double Cash, Discover It",
         icon: <CreditCardIcon className="h-7 w-7 text-purple-500" />,
         price: "$0.50/month",
+        note: "Use for standalone credit card issuers",
       },
       {
         id: "investments",
         label: "Investment Accounts",
         description: "Investment accounts with holdings data.",
-        examples: "Examples: 401k, Robinhood, E*TRADE, Fidelity IRA",
+        examples: "Examples: Robinhood, E*TRADE, Fidelity IRA, Vanguard",
         icon: <BriefcaseIcon className="h-7 w-7 text-green-500" />,
         price: "$0.48/month",
+        note: "Use for standalone investment platforms",
       },
       {
         id: "all-accounts",
@@ -224,17 +258,23 @@ export function AccountConnectionButtons() {
                     <InformationCircleIcon className="h-5 w-5 text-gray-400 hover:text-blue-500 cursor-pointer" />
                   </span>
                 </TooltipTrigger>
-                <TooltipContent side="top">
-                  This will pull all accounts under your login. You'll be charged per account. Only use if your bank/brokerage requires it.
+                <TooltipContent side="top" className="max-w-xs">
+                  <div className="space-y-2">
+                    <p className="font-medium">Required for banks with unified logins</p>
+                    <p className="text-sm">Use this for banks like Chase, Bank of America, Wells Fargo, or any institution where checking, savings, and credit cards are all under one login.</p>
+                    <p className="text-sm font-medium text-orange-400">⚠️ Don't use separate connections for these banks - it will create duplicates!</p>
+                  </div>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </span>
         ),
         description: "Complete financial data access for institutions with multiple account types under one login.",
-        examples: "Use for: Chase, Fidelity, or any bank/brokerage with checking, credit, and investments in one login.",
+        examples: "Use for: Chase, Bank of America, Wells Fargo, Fidelity, or any bank/brokerage with checking, credit, and investments in one login.",
         icon: <Squares2X2Icon className="h-7 w-7 text-yellow-500" />,
         price: "$0.68/month",
+        note: "⚠️ Required for banks with unified logins to avoid duplicates",
+        warning: true,
       },
     ];
 
@@ -243,6 +283,23 @@ export function AccountConnectionButtons() {
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-lg w-full mx-2 sm:mx-4 p-4 sm:p-8 relative animate-fadeIn overflow-y-auto max-h-[90vh]">
           <h2 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">Choose Account Type</h2>
           <p className="text-base text-gray-600 dark:text-gray-300 mb-7">Select the type of accounts you want to connect. This affects the data we can access and your monthly costs.</p>
+          
+          {/* Warning about unified logins */}
+          <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+            <div className="flex items-start gap-3">
+              <ExclamationTriangleIcon className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-1">
+                  Important: Avoid Duplicate Accounts
+                </h3>
+                <p className="text-sm text-orange-700 dark:text-orange-300">
+                  If your bank has checking, savings, and credit cards under one login (like Chase, Bank of America, Wells Fargo), 
+                  use "All Account Types" to connect everything at once. Using separate connections will create duplicates.
+                </p>
+              </div>
+            </div>
+          </div>
+          
           <div className="space-y-4">
             {options.map((option) => (
               <button
@@ -251,7 +308,11 @@ export function AccountConnectionButtons() {
                   setShowAccountTypeSelector(false);
                   createLinkToken(ACCOUNT_TYPE_OPTIONS.find(o => o.id === (typeof option.label === 'string' ? option.id : option.id))!);
                 }}
-                className="flex items-center w-full text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 sm:px-5 py-3 sm:py-4 shadow-sm hover:border-primary-500 focus:border-primary-500 transition group"
+                className={`flex items-center w-full text-left bg-white dark:bg-gray-800 border rounded-xl px-4 sm:px-5 py-3 sm:py-4 shadow-sm hover:border-primary-500 focus:border-primary-500 transition group ${
+                  option.warning 
+                    ? 'border-orange-200 dark:border-orange-700 hover:border-orange-500' 
+                    : 'border-gray-200 dark:border-gray-700'
+                }`}
               >
                 <div className="mr-3 sm:mr-4 flex-shrink-0">
                   {option.icon}
@@ -263,6 +324,11 @@ export function AccountConnectionButtons() {
                   </div>
                   <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-1">{option.description}</div>
                   <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{option.examples}</div>
+                  {option.note && (
+                    <div className={`text-xs mt-1 ${option.warning ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {option.note}
+                    </div>
+                  )}
                 </div>
               </button>
             ))}
@@ -349,7 +415,16 @@ export function AccountConnectionButtons() {
       {/* Manual Account Modal */}
       <Modal isOpen={showManualForm} onClose={() => setShowManualForm(false)} title="Add Account">
         <ManualAccountForm
-          onSuccess={() => setShowManualForm(false)}
+          onSuccess={() => {
+            // Invalidate the accounts query to refresh the dashboard
+            queryClient.invalidateQueries({ queryKey: ["accounts"] });
+            setShowManualForm(false);
+            addNotification({
+              type: "success",
+              title: "Account Connected Successfully!",
+              message: "Your account has been connected and is now visible on your dashboard."
+            });
+          }}
           onCancel={() => setShowManualForm(false)}
         />
       </Modal>

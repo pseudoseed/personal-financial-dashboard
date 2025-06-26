@@ -121,7 +121,10 @@ model Transaction {
   sedol                   String?
   transactionCode         String?
   unofficialCurrencyCode  String?
-  categoryAi              String?
+  categoryAiGranular      String?
+  categoryAiGeneral       String?
+  categoryPlaidGranular   String?
+  categoryPlaidGeneral    String?
   anomalies               AnomalyDetectionResult[]
   account                 Account                  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   recurringExpenseTransactions RecurringExpenseTransaction[]
