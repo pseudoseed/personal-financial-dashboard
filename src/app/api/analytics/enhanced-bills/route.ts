@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEnhancedBillsData } from '@/lib/enhancedBills';
 import { getCurrentUserId } from '@/lib/userManagement';
+import { prisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,6 +10,23 @@ export async function GET(request: NextRequest) {
     console.log('Getting enhanced bills data for user:', userId);
 
     // Get enhanced bills data
+    // Add debug logging for raw data
+    const accounts = await prisma.account.findMany({
+      where: { userId, hidden: false, type: { in: ['credit', 'loan'] } },
+      include: {
+        balances: {
+          orderBy: { date: 'desc' },
+          take: 1,
+        },
+      },
+    });
+    const recurringPayments = await prisma.recurringPayment.findMany({ where: { userId } });
+    const recurringExpenses = await prisma.recurringExpense.findMany({ where: { userId } });
+
+    console.log('DEBUG: Raw accounts:', JSON.stringify(accounts, null, 2));
+    console.log('DEBUG: Raw recurringPayments:', JSON.stringify(recurringPayments, null, 2));
+    console.log('DEBUG: Raw recurringExpenses:', JSON.stringify(recurringExpenses, null, 2));
+
     const billsData = await getEnhancedBillsData(userId);
     
     console.log('Enhanced bills data calculated:', {
