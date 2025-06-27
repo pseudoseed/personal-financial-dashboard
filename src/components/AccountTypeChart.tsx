@@ -50,12 +50,12 @@ export function AccountTypeChart({
   accounts,
   isMasked = false,
 }: AccountTypeChartProps) {
-  const accountTypes = accounts.reduce((acc, account) => {
+  const accountTypes = (accounts || []).reduce((acc, account) => {
     const type = account.type.toLowerCase();
     if (!acc[type]) {
       acc[type] = 0;
     }
-    acc[type] += account.balance.current;
+    acc[type] += account.balance?.current || 0;
     return acc;
   }, {} as Record<string, number>);
 

@@ -45,9 +45,9 @@ export function RecurringExpensesCard() {
     fetchExpenses();
   }, []);
 
-  const paginated = expenses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const totalPages = Math.ceil(expenses.length / PAGE_SIZE);
-  const totalMonthly = expenses
+  const paginated = (expenses || []).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil((expenses || []).length / PAGE_SIZE);
+  const totalMonthly = (expenses || [])
     .filter(e => e.isActive && e.frequency === 'monthly')
     .reduce((sum, e) => sum + e.amount, 0);
 

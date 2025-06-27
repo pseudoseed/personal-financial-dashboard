@@ -31,13 +31,13 @@ export function FinancialGroupChart({
 }: FinancialGroupChartProps) {
   const { showSensitiveData } = useSensitiveData();
   
-  const groupData = accounts.reduce(
+  const groupData = (accounts || []).reduce(
     (acc, account) => {
       const group = getFinancialGroup(account.type);
       if (group === "Liabilities") {
-        acc.liabilities += Math.abs(account.balance.current);
+        acc.liabilities += Math.abs(account.balance?.current || 0);
       } else {
-        acc.assets += account.balance.current;
+        acc.assets += account.balance?.current || 0;
       }
       return acc;
     },

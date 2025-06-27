@@ -57,7 +57,7 @@ export function RecurringPaymentsCard() {
     },
   });
 
-  const activePayments = payments.filter(p => p.isActive);
+  const activePayments = (payments || []).filter(p => p.isActive);
   const totalMonthly = activePayments.reduce((sum, payment) => {
     switch (payment.frequency) {
       case 'weekly': return sum + (payment.amount * 4.33); // Average weeks per month

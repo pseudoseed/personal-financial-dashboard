@@ -26,14 +26,14 @@ export function CostOptimizationCard({ accounts }: CostOptimizationCardProps) {
 
   useEffect(() => {
     // Separate Plaid accounts from non-Plaid accounts
-    const plaid = accounts.filter(account => 
+    const plaid = (accounts || []).filter(account => 
       account.plaidItem && 
       account.plaidItem.accessToken && 
       account.plaidItem.accessToken !== 'manual' &&
       account.plaidItem.provider === 'plaid'
     );
     
-    const nonPlaid = accounts.filter(account => 
+    const nonPlaid = (accounts || []).filter(account => 
       !account.plaidItem || 
       !account.plaidItem.accessToken ||
       account.plaidItem.accessToken === 'manual' ||

@@ -21,7 +21,7 @@ interface Metrics {
 function calculateMetrics(accounts: Account[]): Metrics {
   const summary = accounts.reduce(
     (acc, account) => {
-      const balance = account.balance.current;
+      const balance = account.balance?.current || 0;
       if (getFinancialGroup(account.type) === "Liabilities") {
         acc.totalLiabilities += Math.abs(balance);
       } else {
@@ -35,14 +35,14 @@ function calculateMetrics(accounts: Account[]): Metrics {
   const netWorth = summary.totalAssets - summary.totalLiabilities;
 
   const creditAccounts = accounts.filter(
-    (account) => account.type === "credit" && account.balance.limit
+    (account) => account.type === "credit" && account.balance?.limit
   );
   const totalCreditLimit = creditAccounts.reduce(
-    (sum, account) => sum + (account.balance.limit || 0),
+    (sum, account) => sum + (account.balance?.limit || 0),
     0
   );
   const totalCreditBalance = creditAccounts.reduce(
-    (sum, account) => sum + Math.abs(account.balance.current),
+    (sum, account) => sum + Math.abs(account.balance?.current || 0),
     0
   );
   const creditUtilization =

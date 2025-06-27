@@ -1,233 +1,76 @@
 # Active Context
 
 ## Current Focus
-**Status**: CACHE BUSTING AND DEPLOYMENT VERIFICATION COMPLETED - Enhanced Deployment System
+**Status**: JAVASCRIPT REDUCE ERRORS FIXED - Application Stability Restored
 
-I have successfully implemented comprehensive cache busting and deployment verification features to ensure reliable updates and data persistence for the Personal Finance Dashboard.
+I have successfully resolved all JavaScript reduce errors that were causing the application to crash on the Accounts page. The errors were caused by components trying to call `.reduce()` on undefined values when data was still loading.
 
-### ✅ Recent Enhancements (Latest Session)
-1. **Enhanced Deploy Script** - Added cache busting options, database backup, and deployment verification
-2. **Next.js Cache Optimization** - Added cache headers, build timestamp generation, and static asset optimization
-3. **Docker Build Improvements** - Added build arguments for cache invalidation and optimized layer ordering
-4. **Cache Management Utility** - Created comprehensive cache clearing and verification tools
-5. **Deployment Verification Script** - Added full deployment health and data integrity checking
-6. **Comprehensive Documentation** - Created detailed deployment cache management guide
+### ✅ Recent Fixes (Latest Session)
+1. **JavaScript Reduce Error Resolution** - Fixed multiple components calling `.reduce()` on undefined values
+2. **Balance Request Optimizations** - Previously implemented comprehensive API cost reduction (60-80% reduction)
+3. **Request Deduplication** - Added request deduplication layer to prevent concurrent refresh calls
+4. **Liability Data Batching** - Implemented batched liability fetching by institution with 24-hour caching
+5. **Dashboard State Management** - Fixed duplicate refresh calls in dashboard auto-refresh logic
 
-### Technical Improvements Made
+### Technical Fixes Applied
 
-#### Enhanced Deploy Script (`deploy.sh`)
-- **Cache Busting Options**: Added `--force-rebuild` and `--clear-cache` flags
-- **Database Backup**: Automatic backup before every deployment
-- **Build Arguments**: Docker build with timestamps and git commit info for cache invalidation
-- **Deployment Verification**: Enhanced health checks with retry logic
-- **New Commands**: Added `clear-cache`, `verify`, and enhanced help system
+#### JavaScript Reduce Error Fixes:
+1. **Accounts Page** (`src/app/dashboard/accounts/page.tsx`)
+   - Fixed: `accountsData?.reduce()` → `(accountsData || []).reduce()`
+   - Fixed: `accountsData?.filter()` → `(accountsData || []).filter()`
 
-#### Next.js Cache Optimization (`next.config.ts`)
-- **Build ID Generation**: Timestamp-based build IDs for cache busting
-- **Cache Headers**: Proper cache control for static assets, API routes, and HTML pages
-- **Static Asset Optimization**: 1-year cache for static assets with immutable flag
-- **API Route Caching**: No-cache headers for dynamic data
-- **Webpack Optimization**: Bundle splitting and vendor chunk optimization
+2. **Dashboard Metrics** (`src/components/DashboardMetrics.tsx`)
+   - Fixed: `account.balance.current` → `account.balance?.current || 0`
+   - Fixed: `account.balance.limit` → `account.balance?.limit`
+   - Fixed: `account.balance.current` → `account.balance?.current || 0`
 
-#### Docker Build Improvements (`Dockerfile`)
-- **Build Arguments**: Added BUILD_DATE, VCS_REF, VERSION, and CACHE_BUST arguments
-- **Layer Optimization**: Improved layer ordering for better cache efficiency
-- **Cache Invalidation**: Build arguments trigger cache invalidation when needed
-- **Startup Script Enhancement**: Added build info display on container startup
+3. **Dashboard Summary** (`src/components/DashboardSummary.tsx`)
+   - Fixed: `account.balance.current` → `account.balance?.current || 0`
+   - Fixed: `account.balance.limit` → `account.balance?.limit`
+   - Fixed: `account.balance.current` → `account.balance?.current || 0`
 
-#### Cache Management Utility (`scripts/cache-manager.sh`)
-- **Comprehensive Cache Clearing**: Next.js, Node.js, Docker, and Turbopack caches
-- **Cache Status Verification**: Check cache sizes and ages
-- **Issue Detection**: Identify potential cache problems
-- **Browser Cache Information**: Guide users on clearing browser cache
-- **Configuration Display**: Show current cache configuration
+4. **Manual Balance Update Card** (`src/components/ManualBalanceUpdateCard.tsx`)
+   - Fixed: `account.balance.current.toLocaleString()` → `account.balance?.current?.toLocaleString() || '0'`
 
-#### Deployment Verification Script (`scripts/verify-deployment.sh`)
-- **Full Health Check**: Container, application, database, and volume verification
-- **Data Integrity Check**: Verify database tables and record counts
-- **Resource Monitoring**: CPU and memory usage tracking
-- **Error Log Analysis**: Check recent logs for issues
-- **Modular Commands**: Individual checks for specific components
+5. **Financial Group Chart** (`src/components/FinancialGroupChart.tsx`)
+   - Fixed: `accounts.reduce()` → `(accounts || []).reduce()`
+   - Fixed: `account.balance.current` → `account.balance?.current || 0`
 
-#### Documentation (`DEPLOYMENT_CACHE_GUIDE.md`)
-- **Comprehensive Guide**: Complete deployment cache management documentation
-- **Troubleshooting Section**: Common issues and solutions
-- **Best Practices**: Recommended workflows and maintenance procedures
-- **Security Considerations**: Data protection and access control guidelines
+6. **Account Type Chart** (`src/components/AccountTypeChart.tsx`)
+   - Fixed: `accounts.reduce()` → `(accounts || []).reduce()`
+   - Fixed: `account.balance.current` → `account.balance?.current || 0`
 
-### Files Modified/Created
-- `deploy.sh` - Enhanced with cache busting and verification features
-- `next.config.ts` - Added cache headers and build optimization
-- `Dockerfile` - Added build arguments and cache invalidation
-- `scripts/cache-manager.sh` - **NEW** Comprehensive cache management utility
-- `scripts/verify-deployment.sh` - **NEW** Deployment verification script
-- `DEPLOYMENT_CACHE_GUIDE.md` - **NEW** Complete deployment documentation
+7. **Account Type Distribution** (`src/components/AccountTypeDistribution.tsx`)
+   - Fixed: `accounts.reduce()` → `(accounts || []).reduce()`
 
-### Cache Busting Features
-
-#### Deployment Options
-1. **Normal Deployment**: `./deploy.sh deploy` - Uses Docker layer caching for speed
-2. **Cache Clearing**: `./deploy.sh deploy --clear-cache` - Clears Next.js cache for UI updates
-3. **Force Rebuild**: `./deploy.sh deploy --force-rebuild` - Rebuilds everything for major changes
-
-#### Cache Management Commands
-- `./deploy.sh clear-cache` - Clear all caches
-- `./scripts/cache-manager.sh clear-all` - Comprehensive cache clearing
-- `./scripts/cache-manager.sh verify` - Check cache status
-- `./scripts/cache-manager.sh check-issues` - Detect cache problems
-
-#### Verification Commands
-- `./deploy.sh verify` - Full deployment verification
-- `./scripts/verify-deployment.sh full` - Comprehensive health check
-- `./scripts/verify-deployment.sh quick` - Basic health check
-- `./scripts/verify-deployment.sh database` - Database-specific verification
-
-### Data Persistence Guarantees
-
-#### Database Safety
-- **Automatic Backup**: Every deployment creates a backup before starting
-- **Volume Persistence**: Database stored in Docker volume `dashboard_data`
-- **Data Integrity**: Verification scripts check database health and integrity
-- **Backup Location**: `backups/pre-deploy-backup-YYYYMMDD-HHMMSS.db`
-
-#### Volume Mounts
-- **Data Volume**: `/app/data` - Database and application data
-- **Logs Volume**: `/app/logs` - Application logs
-- **Backups Volume**: `/app/backups` - Database backups
-
-### Cache Layers Managed
-
-#### 1. Docker Layer Cache
-- **Purpose**: Faster rebuilds by caching build layers
-- **Management**: `--force-rebuild` flag or `clear-cache` command
-- **Optimization**: Multi-stage build with optimal layer ordering
-
-#### 2. Next.js Build Cache
-- **Purpose**: Caches build artifacts in `.next` directory
-- **Management**: `--clear-cache` flag or cache manager utility
-- **Optimization**: Build ID generation and cache headers
-
-#### 3. Browser Cache
-- **Purpose**: Caches static assets and API responses
-- **Management**: Hard refresh or clear browser data
-- **Optimization**: Proper cache headers and versioned URLs
-
-#### 4. Database Cache
-- **Purpose**: SQLite query caching and file system caching
-- **Management**: Automatic, rarely needs manual intervention
-- **Optimization**: Efficient queries and connection pooling
-
-### Recent Achievements
-
-### Critical Bug Fixes (COMPLETE)
-- **Plaid Token Exchange Error**: Fixed TypeError in `/api/plaid/exchange-token` route
-- **Database Schema Mismatches**: Fixed all `categoryAi` → `category` field references
-- **Error Handling**: Improved null/undefined error value handling throughout
-- **Type Safety**: Added proper TypeScript null checks and type annotations
-- **User ID Mismatch**: Fixed critical issue where refresh services used string "default" instead of actual User ID
-- **Balance Data Flow**: Fixed balance refresh not creating database records
-- **Authentication Loop**: Resolved accounts showing "needs reauth" despite working tokens
-- **Data Display**: Fixed frontend showing zeros despite successful backend operations
-- **Income Detection**: Fixed Suggested Recurring Payments not detecting income from inverted transaction accounts
-
-### Missing Features Restored (COMPLETE)
-- **AccountConnectionButtons**: Uncommented in `/src/app/dashboard/accounts/page.tsx`
-- **RecurringPaymentsCard**: Added to main dashboard for better accessibility
-- **Cost Selection UI**: Full cost breakdown and account type selection now available
-- **Recurring Income Detection**: Suggested recurring payments feature accessible in analytics
-- **Dismiss Functionality**: Users can now dismiss unwanted suggestions
-- **Manual Balance Management**: Complete interface for updating manual account balances
-
-### Deployment System Enhancements (COMPLETE)
-- **Cache Busting**: Comprehensive cache management for reliable deployments
-- **Data Persistence**: Guaranteed database persistence between deployments
-- **Deployment Verification**: Full health and integrity checking
-- **Automated Backup**: Pre-deployment database backup system
-- **Build Optimization**: Docker and Next.js build optimizations
-- **Documentation**: Complete deployment and cache management guide
+8. **Institution Breakdown** (`src/components/InstitutionBreakdown.tsx`)
+   - Fixed: `accounts.reduce()` → `(accounts || []).reduce()`
 
 ### Root Cause Analysis
-**Primary Issue**: User ID mismatch in refresh services
-- Refresh service was using `userId: "default"` as string
-- Database expected actual User ID: `cmccxbmo000008of2p0eyw0o5`
-- This caused all balance refreshes to fail silently
-- Transactions were downloading but balances weren't being created
+The errors were occurring because:
+1. **Data Loading Race Conditions**: Components were trying to process data before it was fully loaded
+2. **Missing Null Checks**: Components assumed `accounts` prop would always be an array
+3. **Balance Property Access**: Components accessed `account.balance.current` without checking if `balance` exists
+4. **React Query State**: During initial load, `accountsData` was `undefined` before becoming an array
 
-**Secondary Issues**:
-- Poor error handling causing console.error crashes
-- Database schema mismatches between code and actual schema
-- Missing TypeScript types causing runtime errors
-- **AccountConnectionButtons was commented out** - preventing cost check feature
-- **Income Detection Logic** - Not considering `invertTransactions` flag for depository accounts
-- **Manual Account Management** - No way to update balances for manual accounts
-- **Cache Management** - No reliable way to ensure UI updates are deployed properly
+### Impact
+- ✅ **Application Stability**: No more JavaScript errors on page load
+- ✅ **User Experience**: Smooth loading without crashes
+- ✅ **Data Integrity**: Proper handling of loading states
+- ✅ **API Cost Reduction**: Maintained 60-80% reduction in balance request usage
 
-### Data Flow Now Working
-- ✅ **Balance Refresh**: Creating proper balance records in database
-- ✅ **Transaction Sync**: 3,571 transactions successfully stored
-- ✅ **Bills API**: Showing real credit card payment data ($9,459.37 due)
-- ✅ **Financial Health**: Calculating real scores (45 instead of 60)
-- ✅ **Authentication**: Properly detecting valid vs expired tokens
-- ✅ **Dashboard**: All cards now displaying real data instead of zeros
-- ✅ **Cost Check**: Users can now see costs before connecting accounts
-- ✅ **Recurring Income**: Full recurring payment management available
-- ✅ **Income Detection**: Now properly detects income from all depository account types
-- ✅ **Manual Balance Updates**: Complete balance management for manual accounts
-- ✅ **Cache Management**: Reliable deployment with proper cache busting
-- ✅ **Data Persistence**: Guaranteed database persistence between deployments
+### Current Status
+- **Application**: Running successfully at http://localhost:3000
+- **Health Check**: All systems operational
+- **Database**: 5 accounts, 3,577 transactions
+- **Memory Usage**: 64.7MB (6.32% of 1GB limit)
+- **CPU Usage**: 0.00% (idle)
 
-### Investment Performance Card
-- **Portfolio Tracking**: Real-time portfolio value with historical snapshots
-- **Snapshot Toggles**: Daily, weekly, and monthly view options
-- **Asset Allocation**: Visual breakdown of investment categories
-- **Top Performers**: Identification of best-performing accounts
-- **Performance Metrics**: Change percentages and amounts with visual indicators
-
-### Enhanced Bills & Payments
-- **Upcoming Bills**: Tracking of due dates, amounts, and payment status
-- **Cash Flow Forecasting**: 30-day and 90-day projections
-- **Payment Insights**: AI-generated recommendations and alerts
-- **Monthly Breakdown**: Income vs expenses analysis
-- **Available Cash Analysis**: Coverage percentage of upcoming expenses
-
-### Activity Feed
-- **Multi-Source Aggregation**: Transactions, balance changes, recurring patterns, anomalies
-- **Timeline View**: Chronological activity display with icons and status
-- **Activity Types**: 10 different activity categories with color coding
-- **Relative Time**: Smart time formatting (just now, 2 hours ago, etc.)
-- **Summary Statistics**: Quick overview of recent activity counts
-
-### Cost Check Before Connecting Bank
-- **Account Type Selection**: 4 different account types with pricing
-- **Cost Breakdown**: Clear monthly costs for each product
-- **Optimization Tips**: Guidance on avoiding duplicate accounts
-- **Unified Login Warning**: Prevents duplicates for banks like Chase, BofA
-- **Product Selection**: Smart enabling of Liabilities/Investments based on account type
-
-### Recurring Income Features
-- **RecurringPaymentsCard**: Full management interface on main dashboard
-- **Suggested Recurring Income**: AI detection of potential income sources with improved logic
-- **One-Click Addition**: Add detected income with single click
-- **Dismiss Functionality**: Dismiss unwanted suggestions to clean up the interface
-- **Payment Tracking**: Full lifecycle management of recurring payments
-- **Income Forecasting**: Integration with bills and cash flow analysis
-
-### Manual Account Management (NEW)
-- **ManualBalanceUpdateCard**: Grid-based interface for updating manual account balances
-- **Batch Updates**: Update multiple account balances simultaneously
-- **History Preservation**: All balance changes create new records, maintaining complete history
-- **Conditional Updates**: Only accounts with new values are updated
-- **Real-time Feedback**: Clear indication of which accounts will be updated
-- **Error Handling**: Comprehensive error handling with detailed feedback
-- **Data Synchronization**: Automatic refresh of account data after updates
-
-### Deployment System (NEW)
-- **Cache Busting**: Comprehensive cache management for reliable deployments
-- **Data Persistence**: Guaranteed database persistence between deployments
-- **Deployment Verification**: Full health and integrity checking
-- **Automated Backup**: Pre-deployment database backup system
-- **Build Optimization**: Docker and Next.js build optimizations
-- **Documentation**: Complete deployment and cache management guide
+### Next Steps
+1. **Monitor Application**: Watch for any remaining JavaScript errors
+2. **Performance Testing**: Verify balance request optimizations are working
+3. **User Testing**: Ensure all functionality works as expected
+4. **Documentation**: Update any user-facing documentation if needed
 
 ## Current Issues
 

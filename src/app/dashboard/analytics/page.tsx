@@ -9,6 +9,7 @@ import { AccountTypeDistribution } from "@/components/AccountTypeDistribution";
 import { InstitutionBreakdown } from "@/components/InstitutionBreakdown";
 import { MonthOverMonthChart } from "@/components/MonthOverMonthChart";
 import { AnomalyAlert } from "@/components/AnomalyAlert";
+import { SubscriptionsCard } from "@/components/SubscriptionsCard";
 import { Account } from "@/types/account";
 import { useTheme } from "../../providers";
 import { useSensitiveData } from "@/app/providers";
@@ -225,6 +226,11 @@ export default function AnalyticsPage() {
         {/* Month-over-Month Comparison */}
         <div className="mb-6">
           <MonthOverMonthChart />
+        </div>
+
+        {/* Subscriptions Card */}
+        <div className="mb-6">
+          <SubscriptionsCard />
         </div>
 
         {/* Suggested Recurring Payments - Now at the end */}

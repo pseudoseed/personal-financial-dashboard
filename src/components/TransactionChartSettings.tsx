@@ -248,11 +248,11 @@ export function TransactionChartSettings({
   }
 
   const filteredAccounts = showSensitiveData 
-    ? accounts.filter(account =>
+    ? (accounts || []).filter(account =>
         account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         getInstitutionName(account).toLowerCase().includes(searchTerm.toLowerCase())
       )
-    : accounts; // Show all accounts when sensitive data is hidden
+    : (accounts || []); // Show all accounts when sensitive data is hidden
 
   const groupedAccounts = filteredAccounts.reduce((groups, account) => {
     const institutionName = getInstitutionName(account);

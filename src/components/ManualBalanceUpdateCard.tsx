@@ -43,7 +43,8 @@ export function ManualBalanceUpdateCard() {
         name: account.name,
         type: account.type,
         plaidItem: account.plaidItem,
-        accessToken: account.plaidItem?.accessToken
+        accessToken: account.plaidItem?.accessToken,
+        balance: account.balance
       });
     });
   }
@@ -210,7 +211,7 @@ export function ManualBalanceUpdateCard() {
                     {account.nickname || account.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    ${account.balance.current.toLocaleString()}
+                    ${account.balance?.current?.toLocaleString() || '0'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <input

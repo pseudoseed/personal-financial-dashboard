@@ -23,14 +23,22 @@ export function EnhancedBillsCard({ className = '' }: EnhancedBillsCardProps) {
       setLoading(true);
       setError(null);
       
+      console.log('DEBUG: Fetching enhanced bills data...');
       const response = await fetch('/api/analytics/enhanced-bills');
       if (!response.ok) {
         throw new Error('Failed to fetch enhanced bills data');
       }
       
       const billsData = await response.json();
+      console.log('DEBUG: Enhanced bills data received:', {
+        upcomingBillsCount: billsData.upcomingBills?.length || 0,
+        paymentHistoryCount: billsData.paymentHistory?.length || 0,
+        cashFlow: billsData.cashFlowForecast,
+        insightsCount: billsData.paymentInsights?.length || 0
+      });
       setData(billsData);
     } catch (err) {
+      console.error('DEBUG: Error fetching enhanced bills:', err);
       setError(err instanceof Error ? err.message : 'Failed to load enhanced bills data');
     } finally {
       setLoading(false);
@@ -143,6 +151,14 @@ export function EnhancedBillsCard({ className = '' }: EnhancedBillsCardProps) {
         <div>
           <div className="mb-4">
             <h4 className="text-sm font-medium text-surface-700 dark:text-surface-300 mb-2">Upcoming Bills</h4>
+            {(() => {
+              console.log('DEBUG: Rendering upcoming bills tab, data:', {
+                hasData: !!data,
+                upcomingBillsLength: data?.upcomingBills?.length || 0,
+                upcomingBills: data?.upcomingBills || []
+              });
+              return null;
+            })()}
             {data.upcomingBills.length === 0 ? (
               <p className="text-surface-500 dark:text-surface-400 text-sm">No upcoming bills</p>
             ) : (

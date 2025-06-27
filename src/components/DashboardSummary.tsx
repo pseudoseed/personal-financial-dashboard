@@ -73,7 +73,7 @@ export function DashboardSummary({
   const summary = useMemo(() => {
     return accounts.reduce(
       (acc, account) => {
-        const balance = account.balance.current;
+        const balance = account.balance?.current || 0;
         
         if (account.type === "credit" || account.type === "loan") {
           acc.totalLiabilities += Math.abs(balance);
@@ -91,16 +91,16 @@ export function DashboardSummary({
 
   // Calculate credit utilization
   const creditAccounts = accounts.filter(
-    (account) => account.type === "credit" && account.balance.limit
+    (account) => account.type === "credit" && account.balance?.limit
   );
   
   const totalCreditLimit = creditAccounts.reduce(
-    (sum, account) => sum + (account.balance.limit || 0),
+    (sum, account) => sum + (account.balance?.limit || 0),
     0
   );
   
   const totalCreditBalance = creditAccounts.reduce(
-    (sum, account) => sum + Math.abs(account.balance.current),
+    (sum, account) => sum + Math.abs(account.balance?.current || 0),
     0
   );
   

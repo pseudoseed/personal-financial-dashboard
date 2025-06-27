@@ -7,6 +7,13 @@ import { getCurrentUserId } from "./userManagement";
 const refreshCache = new Map<string, { timestamp: number; data: any }>();
 const manualRefreshCounts = new Map<string, { count: number; resetTime: number }>();
 
+// Request deduplication - prevent concurrent requests for same institution
+const activeRequests = new Map<string, Promise<any>>();
+
+// Liability data cache - cache liability data for 24 hours
+const liabilityCache = new Map<string, { timestamp: number; data: any }>();
+const LIABILITY_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
 // Configuration
 const REFRESH_CONFIG = {
   // Cache TTL in milliseconds
@@ -103,6 +110,26 @@ function shouldSyncTransactions(): boolean {
   return Math.random() < REFRESH_CONFIG.TRANSACTION_SYNC_FREQUENCY;
 }
 
+// Request deduplication function
+async function deduplicateRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T> {
+  // Check if there's already an active request for this key
+  if (activeRequests.has(key)) {
+    console.log(`Request deduplication: waiting for existing request for ${key}`);
+    return await activeRequests.get(key)!;
+  }
+  
+  // Create new request
+  const requestPromise = requestFn().finally(() => {
+    // Clean up the active request when it completes
+    activeRequests.delete(key);
+  });
+  
+  // Store the request promise
+  activeRequests.set(key, requestPromise);
+  
+  return requestPromise;
+}
+
 export async function smartRefreshAccounts(
   _userId?: string, 
   forceRefresh: boolean = false,
@@ -148,37 +175,46 @@ export async function smartRefreshAccounts(
     accountsByInstitution.get(institutionKey)!.push(account);
   }
   
-  // Process each institution
-  for (const [institutionId, institutionAccounts] of accountsByInstitution) {
-    try {
-      const firstAccount = institutionAccounts[0];
-      const cacheKey = getCacheKey(institutionId, "balance");
-      const activityLevel = getAccountActivityLevel(firstAccount.type);
-      const ttl = REFRESH_CONFIG.CACHE_TTL[activityLevel];
+  // Process each institution with deduplication
+  const institutionPromises = Array.from(accountsByInstitution.entries()).map(
+    async ([institutionId, institutionAccounts]) => {
+      const deduplicationKey = `refresh_${institutionId}`;
       
-      // Check if we should refresh this institution
-      const needsRefresh = forceRefresh || 
-        !isCacheValid(cacheKey, ttl) ||
-        institutionAccounts.some(account => shouldAutoRefresh(account));
-      
-      if (!needsRefresh) {
-        institutionAccounts.forEach(account => results.skipped.push(account.id));
-        continue;
-      }
-      
-      // Perform the refresh
-      await refreshInstitutionAccounts(institutionAccounts, results);
-      
-      // Update cache
-      refreshCache.set(cacheKey, { timestamp: Date.now(), data: { refreshed: true } });
-      
-    } catch (error) {
-      console.error(`Error refreshing institution ${institutionId}:`, error);
-      institutionAccounts.forEach(account => {
-        results.errors.push({ accountId: account.id, error: error instanceof Error ? error.message : "Unknown error" });
+      return deduplicateRequest(deduplicationKey, async () => {
+        try {
+          const firstAccount = institutionAccounts[0];
+          const cacheKey = getCacheKey(institutionId, "balance");
+          const activityLevel = getAccountActivityLevel(firstAccount.type);
+          const ttl = REFRESH_CONFIG.CACHE_TTL[activityLevel];
+          
+          // Check if we should refresh this institution
+          const needsRefresh = forceRefresh || 
+            !isCacheValid(cacheKey, ttl) ||
+            institutionAccounts.some(account => shouldAutoRefresh(account));
+          
+          if (!needsRefresh) {
+            institutionAccounts.forEach(account => results.skipped.push(account.id));
+            return;
+          }
+          
+          // Perform the refresh
+          await refreshInstitutionAccounts(institutionAccounts, results);
+          
+          // Update cache
+          refreshCache.set(cacheKey, { timestamp: Date.now(), data: { refreshed: true } });
+          
+        } catch (error) {
+          console.error(`Error refreshing institution ${institutionId}:`, error);
+          institutionAccounts.forEach(account => {
+            results.errors.push({ accountId: account.id, error: error instanceof Error ? error.message : "Unknown error" });
+          });
+        }
       });
     }
-  }
+  );
+  
+  // Wait for all institution refreshes to complete
+  await Promise.all(institutionPromises);
   
   // Optionally sync transactions
   if (includeTransactions || shouldSyncTransactions()) {
@@ -218,6 +254,21 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
         access_token: firstAccount.plaidItem.accessToken,
       });
       
+      // Get credit/loan accounts that need liability data
+      const creditLoanAccounts = accounts.filter(account => 
+        account.type === "credit" || account.type === "loan"
+      );
+      
+      // Batch fetch liability data for all credit/loan accounts in this institution
+      let liabilityData = null;
+      if (creditLoanAccounts.length > 0) {
+        try {
+          liabilityData = await fetchBatchedLiabilities(firstAccount.plaidItem.accessToken, creditLoanAccounts);
+        } catch (error) {
+          console.error(`Error fetching liability data for institution ${firstAccount.plaidItem.institutionName}:`, error);
+        }
+      }
+      
       for (const account of accounts) {
         try {
           const plaidAccount = response.data.accounts.find(
@@ -239,12 +290,12 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
             },
           });
           
-          // Fetch liability data for credit/loan accounts
-          if ((account.type === "credit" || account.type === "loan")) {
+          // Update liability data if available
+          if (liabilityData && (account.type === "credit" || account.type === "loan")) {
             try {
-              await refreshPlaidLiabilities(account);
+              await updateAccountLiabilities(account, liabilityData);
             } catch (error) {
-              console.error(`Error fetching liability data for ${account.name}:`, error);
+              console.error(`Error updating liability data for ${account.name}:`, error);
             }
           }
           
@@ -266,19 +317,43 @@ async function refreshCoinbaseAccount(account: any) {
   // Add your Coinbase refresh implementation here
 }
 
-async function refreshPlaidLiabilities(account: any) {
+// Batched liability fetching with caching
+async function fetchBatchedLiabilities(accessToken: string, accounts: any[]) {
+  const institutionKey = accounts[0].plaidItem.id;
+  const cacheKey = `liability_${institutionKey}`;
+  
+  // Check cache first
+  const cached = liabilityCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < LIABILITY_CACHE_TTL) {
+    console.log(`Using cached liability data for institution ${institutionKey}`);
+    return cached.data;
+  }
+  
+  // Fetch fresh liability data
+  const accountIds = accounts.map(account => account.plaidId);
   const response = await plaidClient.liabilitiesGet({
-    access_token: account.plaidItem.accessToken,
+    access_token: accessToken,
     options: {
-      account_ids: [account.plaidId],
+      account_ids: accountIds,
     },
   });
   
-  const liabilities = response.data.liabilities;
-  if (!liabilities) return;
+  // Cache the response
+  liabilityCache.set(cacheKey, { 
+    timestamp: Date.now(), 
+    data: response.data.liabilities 
+  });
+  
+  console.log(`Fetched and cached liability data for ${accountIds.length} accounts in institution ${institutionKey}`);
+  return response.data.liabilities;
+}
+
+// Update account with liability data from batched response
+async function updateAccountLiabilities(account: any, liabilityData: any) {
+  if (!liabilityData) return;
   
   // Handle credit card liabilities
-  const credit = liabilities.credit?.find((c: any) => c.account_id === account.plaidId);
+  const credit = liabilityData.credit?.find((c: any) => c.account_id === account.plaidId);
   if (credit) {
     await prisma.account.update({
       where: { id: account.id },
@@ -293,7 +368,7 @@ async function refreshPlaidLiabilities(account: any) {
   }
   
   // Handle mortgage liabilities
-  const mortgage = liabilities.mortgage?.find((m: any) => m.account_id === account.plaidId);
+  const mortgage = liabilityData.mortgage?.find((m: any) => m.account_id === account.plaidId);
   if (mortgage) {
     await prisma.account.update({
       where: { id: account.id },
@@ -301,6 +376,23 @@ async function refreshPlaidLiabilities(account: any) {
         nextMonthlyPayment: mortgage.next_monthly_payment || null,
         originationDate: mortgage.origination_date ? new Date(mortgage.origination_date) : null,
         originationPrincipalAmount: mortgage.origination_principal_amount || null,
+      },
+    });
+  }
+  
+  // Handle student loan liabilities
+  const student = liabilityData.student?.find((s: any) => s.account_id === account.plaidId);
+  if (student) {
+    await prisma.account.update({
+      where: { id: account.id },
+      data: {
+        lastStatementBalance: student.last_payment_amount || null,
+        minimumPaymentAmount: student.minimum_payment_amount || null,
+        nextPaymentDueDate: student.next_payment_due_date ? new Date(student.next_payment_due_date) : null,
+        lastPaymentDate: student.last_payment_date ? new Date(student.last_payment_date) : null,
+        lastPaymentAmount: student.last_payment_amount || null,
+        originationDate: student.origination_date ? new Date(student.origination_date) : null,
+        originationPrincipalAmount: student.origination_principal_amount || null,
       },
     });
   }
@@ -318,4 +410,6 @@ export async function getManualRefreshCount(_userId?: string): Promise<{ count: 
 export function clearCache(): void {
   refreshCache.clear();
   manualRefreshCounts.clear();
+  liabilityCache.clear();
+  activeRequests.clear();
 } 

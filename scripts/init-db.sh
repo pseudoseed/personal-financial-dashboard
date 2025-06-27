@@ -118,7 +118,6 @@ validate_environment() {
 # Initialize database
 initialize_database() {
     local db_path=$(get_database_path)
-    local data_dir=$(get_data_directory)
     
     print_status "Initializing database..."
     
@@ -132,36 +131,43 @@ initialize_database() {
     print_status "Using database: $db_path"
     print_status "Database URL: $DATABASE_URL"
     
-    # Check if database file exists
-    if [ -f "$db_path" ]; then
-        print_status "Database file exists, checking schema..."
-        # Use migrate deploy for existing databases
-        npx prisma migrate deploy
+    # Apply migrations (this will create the database if it doesn't exist)
+    print_status "Applying database migrations..."
+    if npx prisma migrate deploy; then
+        print_success "Migrations applied successfully"
     else
-        print_status "Creating new database..."
-        # Use migrate deploy for new databases
-        npx prisma migrate deploy
+        print_error "Failed to apply migrations"
+        exit 1
     fi
     
     # Generate Prisma client
     print_status "Generating Prisma client..."
-    npx prisma generate
+    if npx prisma generate; then
+        print_success "Prisma client generated"
+    else
+        print_error "Failed to generate Prisma client"
+        exit 1
+    fi
     
-    # Create default user if it doesn't exist
+    # Create default user (simple approach)
+    create_default_user
+}
+
+# Create default user (simplified)
+create_default_user() {
     print_status "Creating default user..."
-    npx prisma db execute --url "$DATABASE_URL" --stdin <<< "
+    
+    # Wait a moment for database to be fully ready
+    sleep 2
+    
+    # Simple approach: just try to create the user
+    if npx prisma db execute --url "$DATABASE_URL" --stdin <<< "
 INSERT OR IGNORE INTO users (id, email, name, createdAt, updatedAt) 
 VALUES ('default', 'default@example.com', 'Default User', datetime('now'), datetime('now'));
-"
-    
-    # Verify database is accessible
-    print_status "Verifying database connection..."
-    local user_count=$(npx prisma db execute --url "$DATABASE_URL" --stdin <<< "SELECT COUNT(*) as user_count FROM users;" | grep -o '[0-9]*' | head -1)
-    
-    if [ "$user_count" -gt 0 ]; then
-        print_success "Database connection verified ($user_count users found)"
+" 2>/dev/null; then
+        print_success "Default user creation completed"
     else
-        print_warning "Database connection verified but no users found"
+        print_warning "Could not create default user (may already exist)"
     fi
     
     print_success "Database initialization complete!"

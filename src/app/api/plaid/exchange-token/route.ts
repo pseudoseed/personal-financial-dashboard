@@ -5,6 +5,7 @@ import { CountryCode } from "plaid";
 import { institutionLogos } from "@/lib/institutionLogos";
 import { detectDuplicates, mergeDuplicateAccounts, getMergeMessage } from "@/lib/duplicateDetection";
 import { getCurrentUserId } from "@/lib/userManagement";
+import { ensureDefaultUser } from '@/lib/startupValidation';
 
 function formatLogoUrl(
   logo: string | null | undefined,
@@ -41,6 +42,13 @@ function findMatchingAccount(account: any, existingAccounts: any[]) {
 
 export async function POST(request: Request) {
   try {
+    // Ensure default user exists before processing request
+    const userExists = await ensureDefaultUser();
+    if (!userExists) {
+      console.error('[PLAID] Default user not found and could not be created');
+      return NextResponse.json({ error: 'System not properly initialized' }, { status: 503 });
+    }
+
     const body = await request.json();
     
     // Accept both public_token and publicToken field names

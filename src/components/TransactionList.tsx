@@ -19,7 +19,7 @@ export function TransactionList({
   downloadLogs,
 }: TransactionListProps) {
   const { showSensitiveData } = useSensitiveData();
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions || []);
   const [isTableExpanded, setIsTableExpanded] = useState(false);
   const [isDownloadHistoryExpanded, setIsDownloadHistoryExpanded] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,7 +33,7 @@ export function TransactionList({
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   useEffect(() => {
-    setTransactions(initialTransactions);
+    setTransactions(initialTransactions || []);
   }, [initialTransactions]);
 
   // Get unique categories for filtering
