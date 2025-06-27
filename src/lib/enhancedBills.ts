@@ -58,9 +58,9 @@ export interface PaymentInsight {
   action?: string;
 }
 
-export async function getEnhancedBillsData(_userId: string): Promise<EnhancedBillData> {
-  // Force use of 'default' user ID since that's where the accounts are stored
-  const userId = 'default';
+export async function getEnhancedBillsData(userId: string): Promise<EnhancedBillData> {
+  console.log('DEBUG: getEnhancedBillsData called with userId:', userId);
+  
   // Get accounts with bills data
   const accounts = await prisma.account.findMany({
     where: { userId, hidden: false, type: { in: ['credit', 'loan'] } },
@@ -72,11 +72,17 @@ export async function getEnhancedBillsData(_userId: string): Promise<EnhancedBil
     },
   });
 
+  console.log('DEBUG: Found accounts:', accounts.length);
+  console.log('DEBUG: Account details:', JSON.stringify(accounts.map(a => ({ id: a.id, name: a.name, type: a.type, balances: a.balances.length })), null, 2));
+
   // Get recurring payments for income forecasting
   const recurringPayments = await prisma.recurringPayment.findMany({ where: { userId } });
 
   // Get recurring expenses for expense forecasting
   const recurringExpenses = await prisma.recurringExpense.findMany({ where: { userId } });
+
+  console.log('DEBUG: Found recurringPayments:', recurringPayments.length);
+  console.log('DEBUG: Found recurringExpenses:', recurringExpenses.length);
 
   // Calculate upcoming bills
   const upcomingBills = calculateUpcomingBills(accounts);
@@ -94,6 +100,10 @@ export async function getEnhancedBillsData(_userId: string): Promise<EnhancedBil
   
   // Generate payment insights
   const paymentInsights = generatePaymentInsights(upcomingBills, cashFlowForecast);
+
+  console.log('DEBUG: Calculated upcomingBills:', upcomingBills.length);
+  console.log('DEBUG: Calculated paymentHistory:', paymentHistory.length);
+  console.log('DEBUG: Calculated paymentInsights:', paymentInsights.length);
 
   return {
     upcomingBills,
