@@ -219,7 +219,7 @@ export function ManualBalanceUpdateCard() {
                       placeholder="Enter new balance"
                       value={updates[account.id] || ""}
                       onChange={(e) => handleBalanceChange(account.id, e.target.value)}
-                      className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
+                      className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none"
                     />
                   </td>
                 </tr>

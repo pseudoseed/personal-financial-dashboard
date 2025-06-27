@@ -412,7 +412,7 @@ export function TransactionChartSettings({
                       }
                     }
                   }}
-                  className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-sm"
+                  className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:outline-none bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-sm"
                 />
               </div>
               <div>
@@ -436,7 +436,7 @@ export function TransactionChartSettings({
                       }
                     }
                   }}
-                  className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-sm"
+                  className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:outline-none bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 text-sm"
                 />
               </div>
             </div>
@@ -455,7 +455,7 @@ export function TransactionChartSettings({
                   onChange={(e) =>
                     setLocalSettings(prev => ({ ...prev, showIncome: e.target.checked }))
                   }
-                  className="rounded border-gray-300 dark:border-zinc-700 text-purple-600 focus:ring-purple-500"
+                  className="rounded border-gray-300 dark:border-zinc-700 text-purple-600 focus:outline-none"
                 />
                 <span className="text-sm">Income</span>
               </label>
@@ -466,7 +466,7 @@ export function TransactionChartSettings({
                   onChange={(e) =>
                     setLocalSettings(prev => ({ ...prev, showExpenses: e.target.checked }))
                   }
-                  className="rounded border-gray-300 dark:border-zinc-700 text-purple-600 focus:ring-purple-500"
+                  className="rounded border-gray-300 dark:border-zinc-700 text-purple-600 focus:outline-none"
                 />
                 <span className="text-sm">Expenses</span>
               </label>
@@ -505,7 +505,7 @@ export function TransactionChartSettings({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               disabled={!showSensitiveData}
-              className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:outline-none bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
             />
 
             <div className="max-h-48 overflow-y-auto space-y-2 bg-gray-100 dark:bg-zinc-800 rounded-lg p-2 border border-gray-200 dark:border-zinc-700">
@@ -525,7 +525,7 @@ export function TransactionChartSettings({
                           type="checkbox"
                           checked={localSettings.selectedAccountIds.includes(account.id)}
                           onChange={() => toggleAccount(account.id)}
-                          className="rounded border-gray-300 dark:border-zinc-700 text-purple-600 focus:ring-purple-500"
+                          className="rounded border-gray-300 dark:border-zinc-700 text-purple-600 focus:outline-none"
                         />
                         <label className="flex-1 text-sm cursor-pointer text-gray-900 dark:text-gray-200">
                           {formattedName}
@@ -587,7 +587,7 @@ export function TransactionChartSettings({
                     minAmount: e.target.value ? parseFloat(e.target.value) : undefined,
                   }))
                 }
-                className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100"
+                className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:outline-none bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100"
               />
             </div>
             <div>
@@ -604,7 +604,7 @@ export function TransactionChartSettings({
                     maxAmount: e.target.value ? parseFloat(e.target.value) : undefined,
                   }))
                 }
-                className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:border-purple-500 focus:ring-purple-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100"
+                className="block w-full rounded-md border-gray-300 dark:border-zinc-700 shadow-sm focus:outline-none bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100"
               />
             </div>
           </div>

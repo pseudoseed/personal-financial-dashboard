@@ -232,7 +232,7 @@ export function TransactionList({
                       placeholder="Search transactions..."
                       value={searchTerm}
                       onChange={handleSearchChange}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none"
                     />
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -282,7 +282,7 @@ export function TransactionList({
                     <select
                       value={dateFilter}
                       onChange={handleDateFilterChange}
-                      className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none"
                     >
                       <option value="all">All Time</option>
                       <option value="30days">Last 30 Days</option>
@@ -294,7 +294,7 @@ export function TransactionList({
                     <select
                       value={categoryFilter}
                       onChange={handleCategoryFilterChange}
-                      className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none"
                     >
                       <option value="all">All Categories</option>
                       {uniqueCategories.map(category => (

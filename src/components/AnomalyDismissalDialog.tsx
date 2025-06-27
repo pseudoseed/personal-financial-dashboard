@@ -111,7 +111,7 @@ export function AnomalyDismissalDialog({
             <select
               value={patternType}
               onChange={(e) => setPatternType(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none"
             >
               <option value="exact_name">Exact Transaction Name</option>
               <option value="merchant_name">Merchant Name</option>
@@ -131,7 +131,7 @@ export function AnomalyDismissalDialog({
               value={customPattern || getDefaultPattern()}
               onChange={(e) => setCustomPattern(e.target.value)}
               disabled={patternType !== "custom"}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none disabled:bg-gray-100 dark:disabled:bg-gray-600"
               placeholder="Enter pattern to match..."
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -152,7 +152,7 @@ export function AnomalyDismissalDialog({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none"
               placeholder="Why are you dismissing this anomaly?"
             />
           </div>

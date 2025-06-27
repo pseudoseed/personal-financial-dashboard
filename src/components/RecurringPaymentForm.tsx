@@ -189,7 +189,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
           required
           value={formData.name}
           onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
           placeholder="e.g., Bi-weekly Paycheck"
         />
       </div>
@@ -209,7 +209,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
             min="0"
             value={formData.amount}
             onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-            className="pl-7 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            className="pl-7 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
             placeholder="0.00"
           />
         </div>
@@ -223,7 +223,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
           required
           value={formData.paymentType}
           onChange={(e) => setFormData(prev => ({ ...prev, paymentType: e.target.value }))}
-          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
         >
           {paymentTypes.map((type) => (
             <option key={type.value} value={type.value}>
@@ -241,7 +241,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
           required
           value={formData.frequency}
           onChange={(e) => handleFrequencyChange(e.target.value)}
-          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
         >
           {frequencies.map((freq) => (
             <option key={freq.value} value={freq.value}>
@@ -260,7 +260,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
             required
             value={formData.dayOfWeek}
             onChange={(e) => setFormData(prev => ({ ...prev, dayOfWeek: e.target.value }))}
-            className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
           >
             <option value="">Select day</option>
             {daysOfWeek.map((day) => (
@@ -281,7 +281,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
             required
             value={formData.dayOfMonth}
             onChange={(e) => setFormData(prev => ({ ...prev, dayOfMonth: e.target.value }))}
-            className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
           >
             <option value="">Select day</option>
             {daysOfMonth.map((day) => (
@@ -302,7 +302,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
           required
           value={formData.nextPaymentDate}
           onChange={(e) => setFormData(prev => ({ ...prev, nextPaymentDate: e.target.value }))}
-          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
         />
       </div>
 
@@ -314,7 +314,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
           type="date"
           value={formData.lastPaymentDate}
           onChange={(e) => setFormData(prev => ({ ...prev, lastPaymentDate: e.target.value }))}
-          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
         />
       </div>
 
@@ -325,7 +325,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
         <select
           value={formData.targetAccountId}
           onChange={(e) => setFormData(prev => ({ ...prev, targetAccountId: e.target.value }))}
-          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
         >
           <option value="">Select account (optional)</option>
           {depositoryAccounts.map((account) => (
@@ -342,7 +342,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
             type="checkbox"
             checked={formData.isActive}
             onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 text-blue-600 focus:outline-none"
           />
           <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Active</span>
         </label>
@@ -352,7 +352,7 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
             type="checkbox"
             checked={formData.isConfirmed}
             onChange={(e) => setFormData(prev => ({ ...prev, isConfirmed: e.target.checked }))}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 text-blue-600 focus:outline-none"
           />
           <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Confirmed</span>
         </label>
