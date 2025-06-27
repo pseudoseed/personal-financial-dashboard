@@ -121,7 +121,6 @@ export function RecurringPaymentForm({ payment, onSuccess, onCancel }: Recurring
 
       onSuccess();
     } catch (error) {
-      console.error("Error saving recurring payment:", error);
       alert("Failed to save recurring payment. Please try again.");
     } finally {
       setIsSubmitting(false);

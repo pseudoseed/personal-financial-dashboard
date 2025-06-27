@@ -139,7 +139,6 @@ export function CalculationDetailsDialog({
             // Move to first pay date in this month
             while (paymentDate < monthStart) {
               if (iterations++ > 50) {
-                console.error('Infinite loop detected in pay date pre-loop', { payment, paymentDate, monthStart });
                 break;
               }
               paymentDate = calculateNextPaymentDate(
@@ -153,7 +152,6 @@ export function CalculationDetailsDialog({
             // Collect all pay dates in this month
             while (paymentDate <= monthEnd) {
               if (iterations++ > 50) {
-                console.error('Infinite loop detected in pay date main loop', { payment, paymentDate, monthEnd });
                 break;
               }
               payDates.push(new Date(paymentDate));

@@ -74,14 +74,14 @@ async function handleRegularTransactions(
     const validAddedTransactions = addedTransactions.filter(tx => typeof tx.amount === 'number' && !isNaN(tx.amount));
     const invalidAddedTransactions = addedTransactions.filter(tx => typeof tx.amount !== 'number' || isNaN(tx.amount));
     if (invalidAddedTransactions.length > 0) {
-      console.warn('[PLAID SYNC] Skipping transactions with invalid amount:', invalidAddedTransactions.map(tx => ({ transaction_id: tx.transaction_id, name: tx.name, amount: tx.amount })));
+      // console.warn('[PLAID SYNC] Skipping transactions with invalid amount:', invalidAddedTransactions.map(tx => ({ transaction_id: tx.transaction_id, name: tx.name, amount: tx.amount })));
     }
     allTransactions = [...allTransactions, ...validAddedTransactions];
 
     // Process modified transactions (update existing ones)
     for (const modifiedTx of modifiedTransactions) {
       if (typeof modifiedTx.amount !== 'number' || isNaN(modifiedTx.amount)) {
-        console.warn('[PLAID SYNC] Skipping modified transaction with invalid amount:', { transaction_id: modifiedTx.transaction_id, name: modifiedTx.name, amount: modifiedTx.amount });
+        // console.warn('[PLAID SYNC] Skipping modified transaction with invalid amount:', { transaction_id: modifiedTx.transaction_id, name: modifiedTx.name, amount: modifiedTx.amount });
         continue;
       }
       

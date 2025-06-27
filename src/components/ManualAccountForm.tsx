@@ -145,7 +145,6 @@ export function ManualAccountForm({
 
       onSuccess();
     } catch (error) {
-      console.error("Error creating account/payment:", error);
       alert("Failed to create account/payment. Please try again.");
     } finally {
       setIsSubmitting(false);

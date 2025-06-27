@@ -26,7 +26,6 @@ export function EmptyStateDashboard() {
   const handleQuickAction = (accountType: string) => {
     // For now, we'll just show a message that directs users to the main connection buttons
     // In a future enhancement, we could add a ref to the AccountConnectionButtons component
-    console.log(`Quick action triggered for: ${accountType}`);
   };
 
   return (

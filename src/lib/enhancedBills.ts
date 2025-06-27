@@ -59,8 +59,6 @@ export interface PaymentInsight {
 }
 
 export async function getEnhancedBillsData(userId: string): Promise<EnhancedBillData> {
-  console.log('DEBUG: getEnhancedBillsData called with userId:', userId);
-  
   // Get accounts with bills data (credit and loan accounts)
   const billAccounts = await prisma.account.findMany({
     where: { userId, hidden: false, type: { in: ['credit', 'loan'] } },
@@ -83,19 +81,11 @@ export async function getEnhancedBillsData(userId: string): Promise<EnhancedBill
     },
   });
 
-  console.log('DEBUG: Found bill accounts:', billAccounts.length);
-  console.log('DEBUG: Found depository accounts:', depositoryAccounts.length);
-  console.log('DEBUG: Bill account details:', JSON.stringify(billAccounts.map(a => ({ id: a.id, name: a.name, type: a.type, balances: a.balances.length })), null, 2));
-  console.log('DEBUG: Depository account details:', JSON.stringify(depositoryAccounts.map(a => ({ id: a.id, name: a.name, type: a.type, balances: a.balances.length })), null, 2));
-
   // Get recurring payments for income forecasting
   const recurringPayments = await prisma.recurringPayment.findMany({ where: { userId } });
 
   // Get recurring expenses for expense forecasting
   const recurringExpenses = await prisma.recurringExpense.findMany({ where: { userId } });
-
-  console.log('DEBUG: Found recurringPayments:', recurringPayments.length);
-  console.log('DEBUG: Found recurringExpenses:', recurringExpenses.length);
 
   // Calculate upcoming bills from bill accounts
   const upcomingBills = calculateUpcomingBills(billAccounts);
@@ -114,10 +104,6 @@ export async function getEnhancedBillsData(userId: string): Promise<EnhancedBill
   
   // Generate payment insights
   const paymentInsights = generatePaymentInsights(upcomingBills, cashFlowForecast);
-
-  console.log('DEBUG: Calculated upcomingBills:', upcomingBills.length);
-  console.log('DEBUG: Calculated paymentHistory:', paymentHistory.length);
-  console.log('DEBUG: Calculated paymentInsights:', paymentInsights.length);
 
   return {
     upcomingBills,
@@ -296,11 +282,9 @@ function calculateAvailableCash(depositoryAccounts: any[]): number {
   const availableCash = depositoryAccounts
     .reduce((total, account) => {
       const balance = account.balances?.[0]?.current || 0;
-      console.log(`DEBUG: Account ${account.name} (${account.type}) balance: ${balance}`);
       return total + balance;
     }, 0);
   
-  console.log(`DEBUG: Total available cash calculated: ${availableCash}`);
   return availableCash;
 }
 
