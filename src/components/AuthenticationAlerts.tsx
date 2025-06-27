@@ -139,7 +139,7 @@ export function AuthenticationAlerts() {
 
   // Group authStatus by institutionId
   const groupedAuthStatus: AuthStatus[] = Object.values(
-    authStatus.reduce((acc, curr) => {
+    (authStatus || []).reduce((acc, curr) => {
       if (!acc[curr.institutionId]) {
         acc[curr.institutionId] = { ...curr };
       } else {

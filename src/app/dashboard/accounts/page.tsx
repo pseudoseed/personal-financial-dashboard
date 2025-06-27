@@ -45,7 +45,7 @@ export default function AccountsPage() {
 
   // Group accounts by institution
   const accountsByInstitution =
-    accountsData?.reduce((acc, account) => {
+    (accountsData || []).reduce((acc, account) => {
       if (account.institution && !acc[account.institution]) {
         acc[account.institution] = [];
       }
@@ -53,9 +53,9 @@ export default function AccountsPage() {
         acc[account.institution].push(account);
       }
       return acc;
-    }, {} as Record<string, Account[]>) || {};
+    }, {} as Record<string, Account[]>);
 
-  const hiddenAccounts = accountsData?.filter((account) => account.hidden) || [];
+  const hiddenAccounts = (accountsData || []).filter((account) => account.hidden);
 
   const refreshInstitutions = async () => {
     try {

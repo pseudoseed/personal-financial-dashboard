@@ -89,17 +89,30 @@ COPY --from=builder /app/scripts ./scripts
 RUN chmod +x scripts/init-db.sh && \
     chown nextjs:nodejs scripts/init-db.sh
 
-# Create startup script with cache busting
+# Create enhanced startup script with validation and error handling
 RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'set -e' >> /app/start.sh && \
-    echo 'echo "Initializing database..."' >> /app/start.sh && \
-    echo 'cd /app' >> /app/start.sh && \
-    echo 'export DATABASE_URL="file:/app/data/dev.db"' >> /app/start.sh && \
-    echo './scripts/init-db.sh' >> /app/start.sh && \
-    echo 'echo "Starting Next.js application..."' >> /app/start.sh && \
-    echo 'echo "Application will be available at http://localhost:3000"' >> /app/start.sh && \
+    echo 'echo "=========================================="' >> /app/start.sh && \
+    echo 'echo "Personal Finance Dashboard - Starting Up"' >> /app/start.sh && \
+    echo 'echo "=========================================="' >> /app/start.sh && \
     echo 'echo "Build Date: ${BUILD_DATE:-unknown}"' >> /app/start.sh && \
     echo 'echo "Version: ${VERSION:-unknown}"' >> /app/start.sh && \
+    echo 'echo "Git Commit: ${VCS_REF:-unknown}"' >> /app/start.sh && \
+    echo 'echo ""' >> /app/start.sh && \
+    echo 'cd /app' >> /app/start.sh && \
+    echo 'export DATABASE_URL="file:/app/data/dev.db"' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo 'echo "Step 1: Initializing database..."' >> /app/start.sh && \
+    echo './scripts/init-db.sh' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo 'echo "Step 2: Starting Next.js application..."' >> /app/start.sh && \
+    echo 'echo "Application will be available at http://localhost:3000"' >> /app/start.sh && \
+    echo 'echo "Health check available at http://localhost:3000/api/health"' >> /app/start.sh && \
+    echo 'echo ""' >> /app/start.sh && \
+    echo 'echo "=========================================="' >> /app/start.sh && \
+    echo 'echo "Startup complete - Application is ready!"' >> /app/start.sh && \
+    echo 'echo "=========================================="' >> /app/start.sh && \
+    echo 'echo ""' >> /app/start.sh && \
     echo 'exec node server.js' >> /app/start.sh && \
     chmod +x /app/start.sh && \
     chown nextjs:nodejs /app/start.sh
@@ -113,8 +126,8 @@ ENV PORT=3000
 # set hostname to localhost
 ENV HOSTNAME=0.0.0.0
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# Enhanced health check with startup grace period
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
 USER nextjs

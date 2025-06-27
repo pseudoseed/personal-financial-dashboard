@@ -69,7 +69,7 @@ const isPlaidAccount = (account: any) => {
 
 // Cost optimization helper
 const calculateMonthlyCost = (accounts: Account[]) => {
-  const plaidAccounts = accounts.filter(isPlaidAccount);
+  const plaidAccounts = (accounts || []).filter(isPlaidAccount);
   
   if (plaidAccounts.length === 0) {
     return { total: 0, breakdown: [], note: "No Plaid accounts found" };
@@ -102,7 +102,7 @@ const calculateMonthlyCost = (accounts: Account[]) => {
   return {
     total,
     breakdown,
-    note: `${plaidAccounts.length} Plaid accounts • ${accounts.length - plaidAccounts.length} other accounts (no cost)`
+    note: `${plaidAccounts.length} Plaid accounts • ${(accounts || []).length - plaidAccounts.length} other accounts (no cost)`
   };
 };
 

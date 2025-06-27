@@ -6,55 +6,56 @@ import { useSensitiveData } from "@/app/providers";
 import { CalculationDetailsDialog } from "./CalculationDetailsDialog";
 import { maskSensitiveValue } from '@/lib/ui';
 
-interface BillsData {
-  totalBillsDueThisMonth: number;
-  totalBillsDueNext30Days?: number;
-  availableCash: number;
-  expectedIncome?: number;
-  accounts: Array<{
-    id: string;
-    name: string;
-    type: string;
-    balances: Array<{
-      available: number;
-      current: number;
-    }>;
-    lastStatementBalance?: number;
-    minimumPaymentAmount?: number;
-    nextPaymentDueDate?: string;
-    pendingTransactions?: Array<{
-      id: string;
-      name: string;
-      amount: number;
-      date: string;
-      merchantName?: string;
-    }>;
-  }>;
-  recurringPayments?: Array<{
-    id: string;
-    name: string;
-    amount: number;
-    date: string;
-    merchantName?: string;
-  }>;
+interface UpcomingBill {
+  id: string;
+  accountName: string;
+  dueDate: string;
+  amount: number;
+  minPayment: number;
+  isOverdue: boolean;
+  daysUntilDue: number;
+  paymentStatus: string;
+  category: string;
+}
+
+interface CashFlowForecast {
+  next30Days: {
+    income: number;
+    expenses: number;
+    netFlow: number;
+    availableCash: number;
+  };
+}
+
+interface EnhancedBillsData {
+  upcomingBills: UpcomingBill[];
+  cashFlowForecast: CashFlowForecast;
+  recurringPayments?: any[];
+  accounts?: any[];
+}
+
+function sumAllPendingBills(upcomingBills: UpcomingBill[]): number {
+  return (upcomingBills || [])
+    .filter((bill) => bill.paymentStatus === 'pending')
+    .reduce((sum, bill) => sum + bill.amount, 0);
 }
 
 export function BillsVsCashCard() {
   const { showSensitiveData } = useSensitiveData();
-  const [data, setData] = useState<BillsData | null>(null);
+  const [data, setData] = useState<EnhancedBillsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedMetric, setSelectedMetric] = useState<"bills" | "cash" | "net" | "income">("bills");
-  const [recurringPayments, setRecurringPayments] = useState<any[]>([]);
+  const [selectedMetric, setSelectedMetric] = useState<'bills' | 'cash' | 'net' | 'income'>('bills');
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await fetch("/api/bills");
+        const response = await fetch("/api/analytics/enhanced-bills");
         const result = await response.json();
+        console.log('DEBUG: BillsVsCashCard enhanced bills data:', result);
         setData(result);
       } catch (error) {
-        console.error("Error fetching bills data:", error);
+        console.error("Error fetching enhanced bills data:", error);
       } finally {
         setIsLoading(false);
       }
@@ -62,27 +63,35 @@ export function BillsVsCashCard() {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    async function fetchRecurringPayments() {
-      try {
-        const response = await fetch("/api/recurring-payments");
-        const result = await response.json();
-        setRecurringPayments(result);
-      } catch (error) {
-        // ignore
-      }
-    }
-    fetchRecurringPayments();
-  }, []);
+  let totalBillsDueThisMonth = 0;
+  let expectedIncome = 0;
+  let availableCash = 0;
+  let netPosition = 0;
 
-  const netPosition = data ? (data.availableCash + (data.expectedIncome || 0)) - data.totalBillsDueThisMonth : 0;
+  if (data) {
+    totalBillsDueThisMonth = sumAllPendingBills(data.upcomingBills);
+    expectedIncome = data.cashFlowForecast?.next30Days?.income || 0;
+    availableCash = data.cashFlowForecast?.next30Days?.availableCash || 0;
+    netPosition = expectedIncome + availableCash - totalBillsDueThisMonth;
+    console.log('DEBUG: BillsVsCashCard calculated values:', { totalBillsDueThisMonth, expectedIncome, availableCash, netPosition });
+  }
+
   const isNetPositive = netPosition >= 0;
   const isHealthy = netPosition >= 0;
 
-  const handleMetricClick = (metric: "bills" | "cash" | "net" | "income") => {
+  const handleMetricClick = (metric: 'bills' | 'cash' | 'net' | 'income') => {
     setSelectedMetric(metric);
     setDialogOpen(true);
   };
+
+  // Filter upcoming bills for the current month
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const upcomingBillsThisMonth = data?.upcomingBills?.filter(bill => {
+    const due = new Date(bill.dueDate);
+    return due.getMonth() === currentMonth && due.getFullYear() === currentYear;
+  }) || [];
 
   if (isLoading) {
     return (
@@ -133,8 +142,21 @@ export function BillsVsCashCard() {
               Upcoming Bills
             </p>
             <p className={`text-lg font-bold ${isHealthy ? 'text-green-700 dark:text-green-300' : 'text-pink-700 dark:text-pink-300'}`}>
-              {maskSensitiveValue(formatBalance(data.totalBillsDueThisMonth), showSensitiveData)}
+              {maskSensitiveValue(formatBalance(totalBillsDueThisMonth), showSensitiveData)}
             </p>
+            {/* List individual upcoming bills for this month */}
+            {upcomingBillsThisMonth.length > 0 ? (
+              <ul className="mt-2 space-y-1">
+                {upcomingBillsThisMonth.map(bill => (
+                  <li key={bill.id} className="flex justify-between text-xs text-gray-700 dark:text-gray-300">
+                    <span>{bill.accountName} ({bill.dueDate}):</span>
+                    <span>{maskSensitiveValue(formatBalance(bill.amount), showSensitiveData)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-gray-500 mt-2">No bills due this month.</p>
+            )}
           </div>
 
           {/* Expected Income */}
@@ -154,7 +176,7 @@ export function BillsVsCashCard() {
               Expected Income
             </p>
             <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
-              {maskSensitiveValue(formatBalance(data.expectedIncome || 0), showSensitiveData)}
+              {maskSensitiveValue(formatBalance(expectedIncome), showSensitiveData)}
             </p>
           </div>
 
@@ -175,7 +197,7 @@ export function BillsVsCashCard() {
               Available Cash
             </p>
             <p className="text-lg font-bold text-green-700 dark:text-green-300">
-              {maskSensitiveValue(formatBalance(data.availableCash), showSensitiveData)}
+              {maskSensitiveValue(formatBalance(availableCash), showSensitiveData)}
             </p>
           </div>
 
@@ -200,19 +222,18 @@ export function BillsVsCashCard() {
           </div>
         </div>
       </div>
-
-      {/* Calculation Details Dialog */}
-      {data && (
-        <CalculationDetailsDialog
-          isOpen={dialogOpen}
-          onClose={() => setDialogOpen(false)}
-          metricType={selectedMetric}
-          data={{
-            ...data,
-            recurringPayments: recurringPayments,
-          }}
-        />
-      )}
+      <CalculationDetailsDialog
+        isOpen={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        metricType={selectedMetric}
+        data={{
+          totalBillsDueThisMonth,
+          availableCash,
+          expectedIncome,
+          recurringPayments: data.recurringPayments || [],
+          accounts: data.accounts || [],
+        }}
+      />
     </>
   );
 } 

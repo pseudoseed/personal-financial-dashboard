@@ -10,7 +10,7 @@ interface InstitutionBreakdownProps {
 export function InstitutionBreakdown({ accounts }: InstitutionBreakdownProps) {
   const { showSensitiveData } = useSensitiveData();
   
-  const institutionCounts = accounts.reduce((acc, account) => {
+  const institutionCounts = (accounts || []).reduce((acc, account) => {
     const institution = account.institution || 'Manual';
     acc[institution] = (acc[institution] || 0) + 1;
     return acc;

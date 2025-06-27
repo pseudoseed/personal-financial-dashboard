@@ -183,6 +183,9 @@ function groupDatesBySnapshotType(dates: string[], snapshotType: SnapshotType): 
         }
       }
       return grouped.reverse();
+      
+    default:
+      return dates.slice(0, 10); // Default to last 10 dates
   }
 }
 

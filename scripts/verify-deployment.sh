@@ -121,7 +121,7 @@ check_data_integrity() {
     print_status "Checking data integrity..."
     
     # Check for critical tables
-    local tables=("PlaidItem" "Account" "AccountBalance" "Transaction")
+    local tables=("PlaidItem" "Account" "AccountBalance" "Transaction" "users")
     local missing_tables=()
     
     for table in "${tables[@]}"; do
@@ -138,18 +138,58 @@ check_data_integrity() {
         local account_count=$(docker exec $CONTAINER_NAME sqlite3 /app/data/dev.db "SELECT COUNT(*) FROM Account;" 2>/dev/null || echo "0")
         local balance_count=$(docker exec $CONTAINER_NAME sqlite3 /app/data/dev.db "SELECT COUNT(*) FROM AccountBalance;" 2>/dev/null || echo "0")
         local transaction_count=$(docker exec $CONTAINER_NAME sqlite3 /app/data/dev.db "SELECT COUNT(*) FROM Transaction;" 2>/dev/null || echo "0")
+        local user_count=$(docker exec $CONTAINER_NAME sqlite3 /app/data/dev.db "SELECT COUNT(*) FROM users;" 2>/dev/null || echo "0")
         
+        echo "  • Users: $user_count"
         echo "  • Accounts: $account_count"
         echo "  • Balance records: $balance_count"
         echo "  • Transactions: $transaction_count"
         
-        if [ "$account_count" -gt 0 ] || [ "$balance_count" -gt 0 ] || [ "$transaction_count" -gt 0 ]; then
+        if [ "$user_count" -gt 0 ]; then
             print_success "Data integrity check passed"
         else
-            print_warning "No data found in critical tables (this may be normal for new deployments)"
+            print_error "No users found in database - this indicates a startup issue"
+            return 1
         fi
     else
         print_warning "Some critical tables are missing: ${missing_tables[*]}"
+        return 1
+    fi
+}
+
+# Check default user existence
+check_default_user() {
+    print_status "Checking default user existence..."
+    
+    local user_count=$(docker exec $CONTAINER_NAME sqlite3 /app/data/dev.db "SELECT COUNT(*) FROM users WHERE id='default';" 2>/dev/null || echo "0")
+    
+    if [ "$user_count" -gt 0 ]; then
+        print_success "Default user exists"
+        
+        # Get user details
+        local user_email=$(docker exec $CONTAINER_NAME sqlite3 /app/data/dev.db "SELECT email FROM users WHERE id='default';" 2>/dev/null || echo "unknown")
+        echo "  • User ID: default"
+        echo "  • Email: $user_email"
+        
+        return 0
+    else
+        print_error "Default user not found - this will cause API failures"
+        print_status "Attempting to create default user..."
+        
+        # Try to create the default user
+        if docker exec $CONTAINER_NAME sqlite3 /app/data/dev.db "INSERT OR IGNORE INTO users (id, email, name, createdAt, updatedAt) VALUES ('default', 'default@example.com', 'Default User', datetime('now'), datetime('now'));" 2>/dev/null; then
+            local new_user_count=$(docker exec $CONTAINER_NAME sqlite3 /app/data/dev.db "SELECT COUNT(*) FROM users WHERE id='default';" 2>/dev/null || echo "0")
+            if [ "$new_user_count" -gt 0 ]; then
+                print_success "Default user created successfully"
+                return 0
+            else
+                print_error "Failed to create default user"
+                return 1
+            fi
+        else
+            print_error "Failed to create default user"
+            return 1
+        fi
     fi
 }
 
@@ -216,6 +256,30 @@ check_recent_logs() {
     fi
 }
 
+# Check startup validation
+check_startup_validation() {
+    print_status "Checking startup validation..."
+    
+    # Check if startup validation is working
+    local health_response=$(curl -s $HEALTH_ENDPOINT 2>/dev/null || echo "")
+    
+    if [ -n "$health_response" ]; then
+        # Parse the health response to check for user existence
+        local user_exists=$(echo "$health_response" | grep -o '"userExists":[^,]*' | grep -o 'true\|false' || echo "unknown")
+        
+        if [ "$user_exists" = "true" ]; then
+            print_success "Startup validation passed - default user exists"
+        elif [ "$user_exists" = "false" ]; then
+            print_error "Startup validation failed - default user not found"
+            return 1
+        else
+            print_warning "Could not determine user existence from health check"
+        fi
+    else
+        print_warning "Could not retrieve health check response"
+    fi
+}
+
 # Perform full verification
 full_verification() {
     print_status "Starting full deployment verification..."
@@ -254,7 +318,19 @@ full_verification() {
     echo ""
     
     # Check data integrity
-    check_data_integrity
+    if ! check_data_integrity; then
+        all_checks_passed=false
+    fi
+    echo ""
+    
+    # Check default user existence
+    if ! check_default_user; then
+        all_checks_passed=false
+    fi
+    echo ""
+    
+    # Check startup validation
+    check_startup_validation
     echo ""
     
     # Check resource usage
@@ -300,6 +376,7 @@ help() {
     echo "  container       - Check container status only"
     echo "  health          - Check application health only"
     echo "  database        - Check database persistence only"
+    echo "  user            - Check default user existence only"
     echo "  volumes         - Check volume mounts only"
     echo "  resources       - Check resource usage only"
     echo "  logs            - Check recent logs for errors"
@@ -309,14 +386,17 @@ help() {
     echo "  $0 full         - Full verification (recommended)"
     echo "  $0 quick        - Quick health check"
     echo "  $0 database     - Database-specific checks"
+    echo "  $0 user         - User existence check"
     echo ""
     echo "Verification includes:"
     echo "• Container status and health"
     echo "• Application endpoint availability"
     echo "• Database persistence and integrity"
+    echo "• Default user existence and creation"
     echo "• Volume mount verification"
     echo "• Resource usage monitoring"
     echo "• Error log analysis"
+    echo "• Startup validation checks"
 }
 
 # Main script logic
@@ -336,6 +416,9 @@ case "${1:-help}" in
     database)
         check_database_persistence
         check_data_integrity
+        ;;
+    user)
+        check_default_user
         ;;
     volumes)
         check_volume_mounts

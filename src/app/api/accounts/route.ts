@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { downloadTransactions } from '@/lib/transactions';
+import { ensureDefaultUser } from '@/lib/startupValidation';
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    // Ensure default user exists before processing request
+    const userExists = await ensureDefaultUser();
+    if (!userExists) {
+      console.error('[ACCOUNTS] Default user not found and could not be created');
+      return NextResponse.json({ error: 'System not properly initialized' }, { status: 503 });
+    }
+
     const accounts = await prisma.account.findMany({
       include: {
         plaidItem: {
@@ -77,6 +85,13 @@ export async function GET() {
 export async function POST(request: Request) {
   const { firstTime } = await request.json().catch(() => ({ firstTime: false }));
   try {
+    // Ensure default user exists before processing request
+    const userExists = await ensureDefaultUser();
+    if (!userExists) {
+      console.error('[ACCOUNTS] Default user not found and could not be created');
+      return NextResponse.json({ error: 'System not properly initialized' }, { status: 503 });
+    }
+
     // Get all accounts with Plaid items
     const accounts = await prisma.account.findMany({
       where: {

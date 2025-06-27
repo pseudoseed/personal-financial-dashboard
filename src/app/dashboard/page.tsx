@@ -57,6 +57,7 @@ function shouldAutoSyncTransactions(accounts: Account[]): boolean {
 export default function DashboardPage() {
   const [hasAutoRefreshed, setHasAutoRefreshed] = useState(false);
   const [hasAutoSyncedTransactions, setHasAutoSyncedTransactions] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const {
     data: accounts,
@@ -70,35 +71,51 @@ export default function DashboardPage() {
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
-  // Auto-refresh logic
+  // Auto-refresh logic with proper state management
   useEffect(() => {
-    if (accounts && !hasAutoRefreshed) {
+    if (accounts && !hasAutoRefreshed && !isRefreshing) {
       const needsRefresh = shouldAutoRefresh(accounts);
       const needsTransactionSync = shouldAutoSyncTransactions(accounts);
       
       if (needsRefresh) {
-        // Perform auto-refresh
+        // Perform auto-refresh with proper state management
+        setIsRefreshing(true);
         fetch("/api/accounts/refresh", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ includeTransactionSync: true }),
-        }).catch(error => {
+        })
+        .then(() => {
+          setHasAutoRefreshed(true);
+          setHasAutoSyncedTransactions(needsTransactionSync);
+          refetch(); // Refresh the accounts data
+        })
+        .catch(error => {
           console.error("Auto-refresh failed:", error);
+        })
+        .finally(() => {
+          setIsRefreshing(false);
         });
-        setHasAutoRefreshed(true);
-        setHasAutoSyncedTransactions(needsTransactionSync);
-      } else if (needsTransactionSync && !hasAutoSyncedTransactions) {
+      } else if (needsTransactionSync && !hasAutoSyncedTransactions && !isRefreshing) {
         // Only sync transactions if balance data is fresh
+        setIsRefreshing(true);
         fetch("/api/transactions/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-        }).catch(error => {
+        })
+        .then(() => {
+          setHasAutoSyncedTransactions(true);
+          refetch(); // Refresh the accounts data
+        })
+        .catch(error => {
           console.error("Transaction sync failed:", error);
+        })
+        .finally(() => {
+          setIsRefreshing(false);
         });
-        setHasAutoSyncedTransactions(true);
       }
     }
-  }, [accounts, hasAutoRefreshed, hasAutoSyncedTransactions]);
+  }, [accounts, hasAutoRefreshed, hasAutoSyncedTransactions, isRefreshing, refetch]);
 
   if (isLoading) {
     return <DashboardSkeleton />;

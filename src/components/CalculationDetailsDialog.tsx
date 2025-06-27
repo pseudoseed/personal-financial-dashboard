@@ -255,7 +255,7 @@ export function CalculationDetailsDialog({
 
           {/* Pending Charges Summary for Bills */}
           {metricType === "bills" && (() => {
-            const totalPendingCharges = data.accounts
+            const totalPendingCharges = (data.accounts || [])
               .filter(account => account.type === "credit")
               .reduce((sum, account) => sum + getPendingCharges(account), 0);
             
@@ -276,7 +276,7 @@ export function CalculationDetailsDialog({
                     </p>
                     <p>
                       <strong>Current Total Credit Balance:</strong> {showSensitiveData ? formatBalance(
-                        data.accounts
+                        (data.accounts || [])
                           .filter(account => account.type === "credit")
                           .reduce((sum, account) => sum + (account.balances[0]?.current || 0), 0)
                       ) : "••••••"}

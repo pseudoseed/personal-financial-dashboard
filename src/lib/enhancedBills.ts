@@ -61,8 +61,8 @@ export interface PaymentInsight {
 export async function getEnhancedBillsData(userId: string): Promise<EnhancedBillData> {
   console.log('DEBUG: getEnhancedBillsData called with userId:', userId);
   
-  // Get accounts with bills data
-  const accounts = await prisma.account.findMany({
+  // Get accounts with bills data (credit and loan accounts)
+  const billAccounts = await prisma.account.findMany({
     where: { userId, hidden: false, type: { in: ['credit', 'loan'] } },
     include: {
       balances: {
@@ -72,8 +72,21 @@ export async function getEnhancedBillsData(userId: string): Promise<EnhancedBill
     },
   });
 
-  console.log('DEBUG: Found accounts:', accounts.length);
-  console.log('DEBUG: Account details:', JSON.stringify(accounts.map(a => ({ id: a.id, name: a.name, type: a.type, balances: a.balances.length })), null, 2));
+  // Get depository accounts for available cash calculation
+  const depositoryAccounts = await prisma.account.findMany({
+    where: { userId, hidden: false, type: 'depository' },
+    include: {
+      balances: {
+        orderBy: { date: 'desc' },
+        take: 1,
+      },
+    },
+  });
+
+  console.log('DEBUG: Found bill accounts:', billAccounts.length);
+  console.log('DEBUG: Found depository accounts:', depositoryAccounts.length);
+  console.log('DEBUG: Bill account details:', JSON.stringify(billAccounts.map(a => ({ id: a.id, name: a.name, type: a.type, balances: a.balances.length })), null, 2));
+  console.log('DEBUG: Depository account details:', JSON.stringify(depositoryAccounts.map(a => ({ id: a.id, name: a.name, type: a.type, balances: a.balances.length })), null, 2));
 
   // Get recurring payments for income forecasting
   const recurringPayments = await prisma.recurringPayment.findMany({ where: { userId } });
@@ -84,15 +97,16 @@ export async function getEnhancedBillsData(userId: string): Promise<EnhancedBill
   console.log('DEBUG: Found recurringPayments:', recurringPayments.length);
   console.log('DEBUG: Found recurringExpenses:', recurringExpenses.length);
 
-  // Calculate upcoming bills
-  const upcomingBills = calculateUpcomingBills(accounts);
+  // Calculate upcoming bills from bill accounts
+  const upcomingBills = calculateUpcomingBills(billAccounts);
   
   // Calculate payment history (simulated for now)
-  const paymentHistory = calculatePaymentHistory(accounts);
+  const paymentHistory = calculatePaymentHistory(billAccounts);
   
-  // Calculate cash flow forecast
+  // Calculate cash flow forecast using both account types
   const cashFlowForecast = calculateCashFlowForecast(
-    accounts, 
+    billAccounts, 
+    depositoryAccounts,
     recurringPayments, 
     recurringExpenses, 
     upcomingBills
@@ -116,32 +130,43 @@ export async function getEnhancedBillsData(userId: string): Promise<EnhancedBill
 function calculateUpcomingBills(accounts: any[]): UpcomingBill[] {
   const bills: UpcomingBill[] = [];
   const now = new Date();
-  
+
   accounts.forEach(account => {
-    if (account.balances && account.balances.length > 0) {
+    // Use statement balance and due date if available
+    const statementBalance = account.lastStatementBalance;
+    const statementDueDate = account.nextPaymentDueDate;
+    let amount = 0;
+    let dueDate: string | null = null;
+    let minPayment = account.minimumPaymentAmount || 0;
+
+    if (typeof statementBalance === 'number' && statementDueDate) {
+      amount = statementBalance;
+      dueDate = new Date(statementDueDate).toISOString().split('T')[0];
+    } else if (account.balances && account.balances.length > 0) {
+      // Fallback to previous logic
       const balance = account.balances[0];
-      
-      // Simulate bill data based on account type and balance
-      if (account.type === 'credit') {
-        // Credit card bills typically due 21-25 days after statement
-        const dueDate = new Date(now);
-        dueDate.setDate(dueDate.getDate() + 15 + Math.floor(Math.random() * 10));
-        
-        const amount = balance.current || 0;
-        const minPayment = Math.max(amount * 0.02, 25); // 2% or $25 minimum
-        
-        bills.push({
-          id: `${account.id}-${dueDate.toISOString().split('T')[0]}`,
-          accountName: account.nickname || account.name,
-          dueDate: dueDate.toISOString().split('T')[0],
-          amount,
-          minPayment,
-          isOverdue: dueDate < now,
-          daysUntilDue: Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
-          paymentStatus: dueDate < now ? 'overdue' : 'pending',
-          category: 'Credit Card',
-        });
+      amount = balance.current || 0;
+      const fallbackDue = new Date(now);
+      fallbackDue.setDate(fallbackDue.getDate() + 15 + Math.floor(Math.random() * 10));
+      dueDate = fallbackDue.toISOString().split('T')[0];
+      if (!minPayment) {
+        minPayment = Math.max(amount * 0.02, 25); // 2% or $25 minimum
       }
+    }
+
+    if (amount > 0 && dueDate) {
+      const due = new Date(dueDate);
+      bills.push({
+        id: `${account.id}-${dueDate}`,
+        accountName: account.nickname || account.name,
+        dueDate,
+        amount,
+        minPayment,
+        isOverdue: due < now,
+        daysUntilDue: Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+        paymentStatus: due < now ? 'overdue' : 'pending',
+        category: account.type === 'credit' ? 'Credit Card' : 'Loan',
+      });
     }
   });
 
@@ -181,7 +206,8 @@ function calculatePaymentHistory(accounts: any[]): PaymentHistory[] {
 }
 
 function calculateCashFlowForecast(
-  accounts: any[],
+  billAccounts: any[],
+  depositoryAccounts: any[],
   recurringPayments: any[],
   recurringExpenses: any[],
   upcomingBills: UpcomingBill[]
@@ -193,7 +219,7 @@ function calculateCashFlowForecast(
     income: calculateIncome(recurringPayments, 30),
     expenses: calculateExpenses(recurringExpenses, upcomingBills, 30),
     netFlow: 0,
-    availableCash: calculateAvailableCash(accounts),
+    availableCash: calculateAvailableCash(depositoryAccounts),
   };
   next30Days.netFlow = next30Days.income - next30Days.expenses;
   
@@ -266,13 +292,16 @@ function calculateExpenses(recurringExpenses: any[], upcomingBills: UpcomingBill
   return recurringTotal + billsTotal;
 }
 
-function calculateAvailableCash(accounts: any[]): number {
-  return accounts
-    .filter(account => account.type === 'depository')
+function calculateAvailableCash(depositoryAccounts: any[]): number {
+  const availableCash = depositoryAccounts
     .reduce((total, account) => {
       const balance = account.balances?.[0]?.current || 0;
+      console.log(`DEBUG: Account ${account.name} (${account.type}) balance: ${balance}`);
       return total + balance;
     }, 0);
+  
+  console.log(`DEBUG: Total available cash calculated: ${availableCash}`);
+  return availableCash;
 }
 
 function calculateMonthlyBreakdown(

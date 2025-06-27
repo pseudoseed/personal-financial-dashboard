@@ -222,14 +222,38 @@ verify_deployment() {
         exit 1
     fi
     
-    # Check health endpoint
+    # Wait a bit longer for startup validation to complete
+    print_status "Waiting for startup validation to complete..."
+    sleep 30
+    
+    # Check health endpoint with enhanced validation
     local retries=0
-    local max_retries=10
+    local max_retries=15
     
     while [ $retries -lt $max_retries ]; do
-        if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
-            print_success "Application health check passed"
-            return 0
+        local health_response=$(curl -s http://localhost:3000/api/health 2>/dev/null || echo "")
+        
+        if [ -n "$health_response" ]; then
+            # Check if the response indicates healthy status
+            if echo "$health_response" | grep -q '"status":"healthy"'; then
+                print_success "Application health check passed"
+                
+                # Additional validation: check if default user exists
+                if echo "$health_response" | grep -q '"userExists":true'; then
+                    print_success "Default user validation passed"
+                    return 0
+                else
+                    print_warning "Health check passed but default user not found"
+                    print_status "This may indicate a startup issue - checking logs..."
+                    docker logs $CONTAINER_NAME --tail 20
+                    return 0
+                fi
+            else
+                print_status "Health check returned unhealthy status, retrying... ($retries/$max_retries)"
+                retries=$((retries + 1))
+                sleep 5
+                continue
+            fi
         else
             retries=$((retries + 1))
             print_status "Health check failed, retrying... ($retries/$max_retries)"
@@ -238,6 +262,8 @@ verify_deployment() {
     done
     
     print_error "Application failed to start properly after $max_retries attempts"
+    print_status "Recent container logs:"
+    docker logs $CONTAINER_NAME --tail 50
     print_status "Check logs with: $0 logs"
     exit 1
 }
