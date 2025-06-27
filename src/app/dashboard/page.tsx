@@ -141,19 +141,10 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-surface-900 dark:text-surface-100 mb-2">
-          Financial Dashboard
-        </h1>
-        <p className="text-surface-600 dark:text-surface-400">
-          Your complete financial overview
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <div className="max-w-screen-xl mx-auto px-4 lg:px-8">
+      <div className="flex flex-col lg:flex-row gap-8">
         {/* Main Content */}
-        <div className="lg:col-span-3 space-y-8">
+        <div className="flex-1 min-w-0 space-y-8">
           <DashboardSummary accounts={visibleAccounts} />
           <InvestmentPerformanceCard />
           <EnhancedBillsCard />
@@ -162,7 +153,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="lg:col-span-1">
+        <div className="w-full max-w-full lg:w-[420px] lg:max-w-[420px] flex-shrink-0">
           <DashboardSidebarCards accountStatusStats={accountStatusStats} />
         </div>
       </div>

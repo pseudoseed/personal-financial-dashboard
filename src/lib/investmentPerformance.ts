@@ -1,7 +1,7 @@
 import { prisma } from './db';
 import { Account } from '@prisma/client';
 
-export type SnapshotType = 'daily' | 'weekly' | 'monthly';
+export type SnapshotType = 'all' | 'daily' | 'weekly' | 'monthly';
 
 export interface InvestmentPerformanceData {
   snapshotType: SnapshotType;
@@ -44,7 +44,7 @@ export async function calculateInvestmentPerformance(
     include: {
       balances: {
         orderBy: { date: 'desc' },
-        take: 30, // Get more data for historical analysis
+        take: 100, // Get more data for historical analysis
       },
     },
   });
@@ -56,10 +56,34 @@ export async function calculateInvestmentPerformance(
   }, 0);
 
   // Calculate historical data based on snapshot type
-  const historicalData = calculateHistoricalData(accounts, snapshotType);
+  let historicalData: HistoricalDataPoint[];
+  if (snapshotType === 'all') {
+    // Return every balance update, sorted by timestamp
+    // Flatten all balances, keep accountId for uniqueness, then sort
+    const allBalances = accounts.flatMap(account =>
+      account.balances.map(balance => ({
+        date: balance.date.toISOString(),
+        value: balance.current,
+        accountId: account.id,
+      }))
+    );
+    // Sort by date ascending
+    allBalances.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Remove duplicates (same timestamp for same account)
+    // For portfolio, sum all account balances at each unique timestamp
+    const groupedByTimestamp: {[key: string]: number} = {};
+    allBalances.forEach(({date, value}) => {
+      groupedByTimestamp[date] = (groupedByTimestamp[date] || 0) + value;
+    });
+    historicalData = Object.entries(groupedByTimestamp).map(([date, value]) => ({ date, value }));
+    // Sort by date ascending
+    historicalData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  } else {
+    historicalData = calculateHistoricalData(accounts, snapshotType);
+  }
   
   // Calculate change metrics
-  const previousValue = historicalData.length > 1 ? historicalData[1].value : currentValue;
+  const previousValue = historicalData.length > 1 ? historicalData[historicalData.length - 2].value : currentValue;
   const changeAmount = currentValue - previousValue;
   const changePercent = previousValue > 0 ? (changeAmount / previousValue) * 100 : 0;
 
@@ -120,7 +144,8 @@ function groupDatesBySnapshotType(dates: string[], snapshotType: SnapshotType): 
   
   switch (snapshotType) {
     case 'daily':
-      return dates.slice(0, 30); // Last 30 days
+      const dailyResult = dates.slice(0, 30); // Last 30 days
+      return dailyResult;
       
     case 'weekly':
       // Group by week (Sunday to Saturday)

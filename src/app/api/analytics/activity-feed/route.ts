@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivityFeedData } from '@/lib/activityFeed';
+import { getCurrentUserId } from '@/lib/userManagement';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = "cmccxbmo000008of2p0eyw0o5"; // Default user for now
+    const userId = await getCurrentUserId();
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '20');
 

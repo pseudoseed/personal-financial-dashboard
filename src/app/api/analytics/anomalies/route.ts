@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/db';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { getCurrentUserId } from '@/lib/userManagement';
 
 // Known bad actors and suspicious patterns
 const SUSPICIOUS_PATTERNS = [
@@ -96,21 +97,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     
-    // Get or create default user (same logic as dismiss-pattern route)
-    let user = await (prisma as any).user.findFirst({
-      where: { email: 'default@example.com' }
-    });
-
-    if (!user) {
-      user = await (prisma as any).user.create({
-        data: {
-          email: 'default@example.com',
-          name: 'Default User'
-        }
-      });
-    }
-    
-    const userId = user.id;
+    // Get the current user ID
+    const userId = await getCurrentUserId();
     
     // Get or create user settings
     let settings = await (prisma as any).anomalyDetectionSettings.findUnique({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { safeErrorLog, createErrorResponse } from '@/lib/errorHandling';
+import { getCurrentUserId } from '@/lib/userManagement';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,22 +18,10 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating dismissal rule:', { pattern, patternType, reason, anomalyId });
 
-    // Get or create default user
-    let user = await (prisma as any).user.findFirst({
-      where: { email: 'default@example.com' }
-    });
+    // Get the current user ID
+    const userId = await getCurrentUserId();
 
-    if (!user) {
-      console.log('Creating default user');
-      user = await (prisma as any).user.create({
-        data: {
-          email: 'default@example.com',
-          name: 'Default User'
-        }
-      });
-    }
-
-    console.log('Using user:', user.id);
+    console.log('Using user:', userId);
 
     // Create dismissal rule using the correct schema
     const ruleValue = JSON.stringify({
@@ -43,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     const dismissalRule = await (prisma as any).anomalyDismissalRule.create({
       data: {
-        userId: user.id,
+        userId: userId,
         ruleType: patternType, // Use patternType as ruleType
         ruleValue: ruleValue,  // Store pattern data as JSON string
       }
@@ -85,18 +74,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get or create default user
-    let user = await (prisma as any).user.findFirst({
-      where: { email: 'default@example.com' }
-    });
-
-    if (!user) {
-      return NextResponse.json({ dismissalRules: [] });
-    }
+    // Get the current user ID
+    const userId = await getCurrentUserId();
 
     // Get all dismissal rules for the user
     const dismissalRules = await (prisma as any).anomalyDismissalRule.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       orderBy: { createdAt: 'desc' }
     });
 

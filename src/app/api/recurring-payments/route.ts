@@ -1,38 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from '@/lib/userManagement';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const isActive = searchParams.get('isActive');
-    const isConfirmed = searchParams.get('isConfirmed');
-
-    const whereClause: any = {
-      userId: "default", // Default user for now
-    };
-
-    if (isActive !== null) {
-      whereClause.isActive = isActive === 'true';
-    }
-
-    if (isConfirmed !== null) {
-      whereClause.isConfirmed = isConfirmed === 'true';
-    }
-
+    const userId = await getCurrentUserId();
+    
     const recurringPayments = await prisma.recurringPayment.findMany({
-      where: whereClause,
-      include: {
-        targetAccount: {
-          select: {
-            id: true,
-            name: true,
-            nickname: true,
-          },
-        },
-      },
-      orderBy: {
-        nextPaymentDate: 'asc',
-      },
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json(recurringPayments);
@@ -47,6 +23,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getCurrentUserId();
     const body = await request.json();
     const {
       name,
@@ -88,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     const recurringPayment = await prisma.recurringPayment.create({
       data: {
-        userId: "default", // Default user for now
+        userId,
         name,
         amount: parseFloat(amount),
         frequency,

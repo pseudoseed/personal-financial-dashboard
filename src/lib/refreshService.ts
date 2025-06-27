@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 import { plaidClient } from "./plaid";
 import { smartSyncTransactions } from "./transactionSyncService";
+import { getCurrentUserId } from "./userManagement";
 
 // Cache for storing refresh timestamps and data
 const refreshCache = new Map<string, { timestamp: number; data: any }>();
@@ -55,7 +56,7 @@ function isCacheValid(cacheKey: string, ttl: number): boolean {
   return (now - cached.timestamp) < ttl;
 }
 
-function canManualRefresh(userId: string = "default"): boolean {
+function canManualRefresh(userId: string): boolean {
   const now = Date.now();
   const userData = manualRefreshCounts.get(userId);
   
@@ -102,22 +103,16 @@ function shouldSyncTransactions(): boolean {
 }
 
 export async function smartRefreshAccounts(
-  userId: string = "default", 
+  userId?: string, 
   forceRefresh: boolean = false,
   includeTransactions: boolean = false
 ) {
   console.log("Starting smart refresh process...");
   
-  // Get the actual user ID if "default" is passed
+  // Get the actual user ID if not provided
   let actualUserId = userId;
-  if (userId === "default") {
-    const defaultUser = await prisma.user.findFirst({
-      where: { email: 'default@example.com' }
-    });
-    if (!defaultUser) {
-      throw new Error("Default user not found");
-    }
-    actualUserId = defaultUser.id;
+  if (!actualUserId) {
+    actualUserId = await getCurrentUserId();
   }
   
   // Get all accounts with their latest balance
@@ -196,7 +191,7 @@ export async function smartRefreshAccounts(
   if (includeTransactions || shouldSyncTransactions()) {
     try {
       console.log("Including transaction sync in refresh...");
-      const transactionResults = await smartSyncTransactions(userId, false);
+      const transactionResults = await smartSyncTransactions(actualUserId, false);
       results.transactionSync = transactionResults;
     } catch (error) {
       console.error("Error during transaction sync:", error);
@@ -318,14 +313,14 @@ async function refreshPlaidLiabilities(account: any) {
   }
 }
 
-export function canUserManualRefresh(userId: string = "default"): boolean {
-  // For now, always allow manual refresh for the default user
+export async function canUserManualRefresh(userId?: string): Promise<boolean> {
+  // For now, always allow manual refresh
   // In a real app, you'd check the actual user ID
   return true;
 }
 
-export function getManualRefreshCount(userId: string = "default"): { count: number; limit: number; resetTime: number } {
-  // For now, return default values for the default user
+export async function getManualRefreshCount(userId?: string): Promise<{ count: number; limit: number; resetTime: number }> {
+  // For now, return default values
   // In a real app, you'd check the actual user ID
   return { count: 0, limit: REFRESH_CONFIG.MANUAL_REFRESH_LIMIT, resetTime: Date.now() + REFRESH_CONFIG.MANUAL_REFRESH_WINDOW };
 }

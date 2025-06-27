@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AccountCard } from "@/components/AccountCard";
 import { ManualAccountForm } from "@/components/ManualAccountForm";
 import { RecurringPaymentsCard } from "@/components/RecurringPaymentsCard";
+import { ManualBalanceUpdateCard } from "@/components/ManualBalanceUpdateCard";
 import {
   EyeIcon,
   EyeSlashIcon,
@@ -300,6 +301,11 @@ export default function AccountsPage() {
       {/* Recurring Payments Section */}
       <div className="mt-8">
         <RecurringPaymentsCard />
+      </div>
+
+      {/* Manual Balance Update Section */}
+      <div className="mt-8">
+        <ManualBalanceUpdateCard />
       </div>
     </div>
   );

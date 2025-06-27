@@ -1,21 +1,48 @@
 # Active Context
 
 ## Current Focus
-**Status**: MISSING FEATURES RESTORED - All UI Features Now Available
+**Status**: MANUAL BALANCE UPDATE FEATURE COMPLETED - Full Manual Account Management
 
-I have successfully restored all the missing features that were accidentally disabled:
+I have successfully implemented a comprehensive manual balance update feature that allows users to easily update balances for their manual accounts while preserving balance history.
 
-### ✅ Restored Features
-1. **Cost Check Before Connecting Bank** - Uncommented `AccountConnectionButtons` in accounts page
-2. **Recurring Income Features** - Added `RecurringPaymentsCard` to main dashboard
-3. **All Enhanced Features** - Confirmed all major features are properly integrated:
-   - Investment Performance Card
-   - Enhanced Bills & Payments  
-   - Activity Feed
-   - Financial Health Score
-   - Cost Optimization Card
-   - Anomaly Detection
-   - Suggested Recurring Income (in analytics page)
+### ✅ Recent Enhancements (Latest Session)
+1. **Fixed Income Detection Logic** - Now properly handles `invertTransactions` flag for depository accounts
+2. **Improved Account Filtering** - Only considers checking and savings accounts for income detection
+3. **Moved Card Position** - Suggested Recurring Payments card is now the last card on the analytics page
+4. **Added Dismiss Functionality** - Users can now dismiss suggestions without adding them
+5. **Enhanced User Experience** - Better button layout with dismiss and add options
+6. **Manual Balance Update Feature** - Complete grid-based interface for updating manual account balances
+
+### Technical Improvements Made
+
+#### Income Detection Fix
+- **Problem**: Previous logic only looked for `amount > 0` transactions, missing income when `invertTransactions` was enabled
+- **Solution**: Now gets all depository transactions and applies the `invertTransactions` logic to determine actual income direction
+- **Code Change**: Updated `/api/analytics/suggested-recurring-income/route.ts` to filter transactions properly
+
+#### Account Type Filtering
+- **Enhanced**: Now specifically filters for `subtype: ['checking', 'savings']` to only consider actual cash accounts
+- **Benefit**: Excludes CDs, money market accounts, and other depository subtypes that aren't typical income sources
+
+#### UI/UX Improvements
+- **Card Position**: Moved from top of analytics page to the very end for better flow
+- **Dismiss Feature**: Added localStorage-based dismissal tracking to prevent dismissed suggestions from reappearing
+- **Button Layout**: Improved button arrangement with separate dismiss and add actions
+
+#### Manual Balance Update Feature (NEW)
+- **Grid Interface**: Clean table layout showing all manual accounts with current balances
+- **Batch Updates**: Update multiple account balances with a single submit button
+- **History Preservation**: All balance updates create new `AccountBalance` records, preserving complete history
+- **Conditional Updates**: Only accounts with new values entered are updated
+- **Real-time Feedback**: Shows which accounts will be updated and provides success/error notifications
+- **Data Refresh**: Automatically refreshes account data after successful updates
+
+### Files Modified
+- `src/app/api/analytics/suggested-recurring-income/route.ts` - Fixed income detection logic
+- `src/app/dashboard/analytics/page.tsx` - Moved card position and added dismiss functionality
+- `src/app/api/accounts/manual/batch-update-balances/route.ts` - **NEW** Batch balance update API
+- `src/components/ManualBalanceUpdateCard.tsx` - **NEW** Manual balance update component
+- `src/app/dashboard/accounts/page.tsx` - **NEW** Added manual balance update card
 
 ### Recent Achievements
 
@@ -28,12 +55,15 @@ I have successfully restored all the missing features that were accidentally dis
 - **Balance Data Flow**: Fixed balance refresh not creating database records
 - **Authentication Loop**: Resolved accounts showing "needs reauth" despite working tokens
 - **Data Display**: Fixed frontend showing zeros despite successful backend operations
+- **Income Detection**: Fixed Suggested Recurring Payments not detecting income from inverted transaction accounts
 
 ### Missing Features Restored (COMPLETE)
 - **AccountConnectionButtons**: Uncommented in `/src/app/dashboard/accounts/page.tsx`
 - **RecurringPaymentsCard**: Added to main dashboard for better accessibility
 - **Cost Selection UI**: Full cost breakdown and account type selection now available
 - **Recurring Income Detection**: Suggested recurring payments feature accessible in analytics
+- **Dismiss Functionality**: Users can now dismiss unwanted suggestions
+- **Manual Balance Management**: Complete interface for updating manual account balances
 
 ### Root Cause Analysis
 **Primary Issue**: User ID mismatch in refresh services
@@ -47,6 +77,8 @@ I have successfully restored all the missing features that were accidentally dis
 - Database schema mismatches between code and actual schema
 - Missing TypeScript types causing runtime errors
 - **AccountConnectionButtons was commented out** - preventing cost check feature
+- **Income Detection Logic** - Not considering `invertTransactions` flag for depository accounts
+- **Manual Account Management** - No way to update balances for manual accounts
 
 ### Data Flow Now Working
 - ✅ **Balance Refresh**: Creating proper balance records in database
@@ -57,19 +89,8 @@ I have successfully restored all the missing features that were accidentally dis
 - ✅ **Dashboard**: All cards now displaying real data instead of zeros
 - ✅ **Cost Check**: Users can now see costs before connecting accounts
 - ✅ **Recurring Income**: Full recurring payment management available
-
-### Files Fixed:
-- `src/app/api/plaid/exchange-token/route.ts` - Fixed console.error crash
-- `scripts/send-test-email.ts` - Fixed categoryAi → category
-- `scripts/test-categorization.ts` - Fixed categoryAi → category  
-- `src/app/api/accounts/[accountId]/transactions/route.ts` - Fixed error handling
-- `src/app/api/accounts/history/route.ts` - Added missing invertTransactions field
-- `src/app/api/analytics/anomalies/route.ts` - Added proper TypeScript types
-- `src/app/api/analytics/anomalies/dismiss-pattern/route.ts` - Fixed implicit any types
-- `src/app/api/transactions/[transactionId]/update-category/route.ts` - Fixed categoryAi → category
-- `src/lib/duplicateDetection.ts` - Fixed null subtype handling
-- `src/app/dashboard/accounts/page.tsx` - **Uncommented AccountConnectionButtons**
-- `src/app/dashboard/page.tsx` - **Added RecurringPaymentsCard**
+- ✅ **Income Detection**: Now properly detects income from all depository account types
+- ✅ **Manual Balance Updates**: Complete balance management for manual accounts
 
 ### Investment Performance Card
 - **Portfolio Tracking**: Real-time portfolio value with historical snapshots
@@ -101,10 +122,20 @@ I have successfully restored all the missing features that were accidentally dis
 
 ### Recurring Income Features
 - **RecurringPaymentsCard**: Full management interface on main dashboard
-- **Suggested Recurring Income**: AI detection of potential income sources
+- **Suggested Recurring Income**: AI detection of potential income sources with improved logic
 - **One-Click Addition**: Add detected income with single click
+- **Dismiss Functionality**: Dismiss unwanted suggestions to clean up the interface
 - **Payment Tracking**: Full lifecycle management of recurring payments
 - **Income Forecasting**: Integration with bills and cash flow analysis
+
+### Manual Account Management (NEW)
+- **ManualBalanceUpdateCard**: Grid-based interface for updating manual account balances
+- **Batch Updates**: Update multiple account balances simultaneously
+- **History Preservation**: All balance changes create new records, maintaining complete history
+- **Conditional Updates**: Only accounts with new values are updated
+- **Real-time Feedback**: Clear indication of which accounts will be updated
+- **Error Handling**: Comprehensive error handling with detailed feedback
+- **Data Synchronization**: Automatic refresh of account data after updates
 
 ## Current Issues
 
@@ -119,6 +150,8 @@ I have successfully restored all the missing features that were accidentally dis
 - ✅ **Performance**: No blocking issues
 - ✅ **Documentation**: Updated with all fixes
 - ✅ **Missing Features**: All UI features restored
+- ✅ **Income Detection**: Fixed Suggested Recurring Payments logic
+- ✅ **Manual Account Management**: Complete balance update functionality
 
 ## Next Steps
 
@@ -144,6 +177,8 @@ I have successfully restored all the missing features that were accidentally dis
 - ✅ **Data Flow Working**: All APIs returning real data
 - ✅ **Authentication Stable**: Proper token management
 - ✅ **Missing Features Restored**: All UI features now available
+- ✅ **Income Detection Fixed**: Suggested Recurring Payments now works correctly
+- ✅ **Manual Account Management**: Complete balance update functionality implemented
 
 ## Technical Decisions
 
@@ -157,12 +192,14 @@ I have successfully restored all the missing features that were accidentally dis
 - **No Schema Changes**: All new features use existing models
 - **Efficient Queries**: Optimized database queries for performance
 - **Data Relationships**: Proper foreign key relationships maintained
+- **History Preservation**: All balance updates create new records for complete audit trail
 
 ### UI/UX Patterns
 - **Consistent Design**: All new components follow existing design system
 - **Responsive Layout**: Mobile-friendly responsive design
 - **Loading States**: Proper loading and error states for all components
 - **Interactive Elements**: Appropriate use of buttons, tabs, and toggles
+- **Grid Interfaces**: Clean table layouts for data management
 
 ## Key Files Modified
 
@@ -170,13 +207,22 @@ I have successfully restored all the missing features that were accidentally dis
 - `src/components/InvestmentPerformanceCard.tsx`
 - `src/components/EnhancedBillsCard.tsx`
 - `src/components/ActivityFeedCard.tsx`
+- `src/components/ManualBalanceUpdateCard.tsx` - **NEW**
 
 ### New Utilities
 - `src/lib/investmentPerformance.ts`
 - `src/lib/enhancedBills.ts`
 - `src/lib/activityFeed.ts`
 
+### New API Endpoints
+- `src/app/api/accounts/manual/batch-update-balances/route.ts` - **NEW**
+
 ### Restored Features
 - `src/app/dashboard/accounts/page.tsx` - **Uncommented AccountConnectionButtons**
 - `src/app/dashboard/page.tsx` - **Added RecurringPaymentsCard**
 - `src/app/dashboard/analytics/page.tsx` - **SuggestedRecurringPaymentsCard already present**
+
+### Enhanced Features
+- `src/app/api/analytics/suggested-recurring-income/route.ts` - **Fixed income detection logic**
+- `src/app/dashboard/analytics/page.tsx` - **Moved card position and added dismiss functionality**
+- `src/app/dashboard/accounts/page.tsx` - **Added ManualBalanceUpdateCard**

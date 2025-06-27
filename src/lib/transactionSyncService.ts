@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 import { plaidClient } from "./plaid";
 import { downloadTransactions } from "./transactions";
+import { getCurrentUserId } from "./userManagement";
 
 // Cache for storing transaction sync timestamps and data
 const transactionSyncCache = new Map<string, { timestamp: number; data: any }>();
@@ -43,18 +44,16 @@ function getAccountActivityLevel(accountType: string): keyof typeof TRANSACTION_
 }
 
 function getCacheKey(accountId: string, operation: string): string {
-  return `tx_${accountId}:${operation}`;
+  return `${operation}_${accountId}`;
 }
 
 function isCacheValid(cacheKey: string, ttl: number): boolean {
   const cached = transactionSyncCache.get(cacheKey);
   if (!cached) return false;
-  
-  const now = Date.now();
-  return (now - cached.timestamp) < ttl;
+  return Date.now() - cached.timestamp < ttl;
 }
 
-function canManualTransactionSync(userId: string = "default"): boolean {
+function canManualTransactionSync(userId: string): boolean {
   const now = Date.now();
   const userData = transactionSyncCounts.get(userId);
   
@@ -79,55 +78,39 @@ function canManualTransactionSync(userId: string = "default"): boolean {
 }
 
 function shouldAutoSyncTransactions(account: any): boolean {
-  if (!account.lastSyncTime) {
-    return true; // No sync data, need sync
-  }
+  if (!account.lastSyncTime) return true;
   
-  const lastSyncTime = new Date(account.lastSyncTime).getTime();
   const now = Date.now();
+  const lastSync = new Date(account.lastSyncTime).getTime();
+  const timeSinceLastSync = now - lastSync;
+  const ttl = TRANSACTION_SYNC_CONFIG.AUTO_SYNC_THRESHOLD;
   
-  return (now - lastSyncTime) > TRANSACTION_SYNC_CONFIG.AUTO_SYNC_THRESHOLD;
+  return timeSinceLastSync > ttl;
 }
 
 function shouldForceSync(account: any): boolean {
-  if (!account.lastSyncTime) {
-    return true; // No sync data, force sync
-  }
+  if (!account.lastSyncTime) return true;
   
-  const lastSyncTime = new Date(account.lastSyncTime).getTime();
   const now = Date.now();
+  const lastSync = new Date(account.lastSyncTime).getTime();
+  const timeSinceLastSync = now - lastSync;
   
-  return (now - lastSyncTime) > TRANSACTION_SYNC_CONFIG.FORCE_SYNC_THRESHOLD;
+  return timeSinceLastSync > TRANSACTION_SYNC_CONFIG.FORCE_SYNC_THRESHOLD;
 }
 
-// Helper function to extract transaction count from downloadTransactions result
 function getTransactionCount(result: any): number {
-  if ('transactionsAdded' in result) {
-    return result.transactionsAdded || 0;
-  } else if ('numTransactions' in result) {
-    return result.numTransactions || 0;
-  }
-  return 0;
+  return result.numTransactions || 0;
 }
 
 export async function smartSyncTransactions(
-  userId: string = "default", 
+  userId?: string, 
   forceSync: boolean = false,
   accountIds?: string[]
 ) {
   console.log("Starting smart transaction sync process...");
   
-  // Get the actual user ID if "default" is passed
-  let actualUserId = userId;
-  if (userId === "default") {
-    const defaultUser = await prisma.user.findFirst({
-      where: { email: 'default@example.com' }
-    });
-    if (!defaultUser) {
-      throw new Error("Default user not found");
-    }
-    actualUserId = defaultUser.id;
-  }
+  // Get the current user ID if not provided
+  const actualUserId = userId || await getCurrentUserId();
   
   // Build where clause
   const whereClause: any = {
@@ -261,11 +244,11 @@ export async function syncTransactionsForAccount(
   };
 }
 
-export function canUserManualTransactionSync(userId: string = "default"): boolean {
+export function canUserManualTransactionSync(userId: string): boolean {
   return canManualTransactionSync(userId);
 }
 
-export function getManualTransactionSyncCount(userId: string = "default"): { count: number; limit: number; resetTime: number } {
+export function getManualTransactionSyncCount(userId: string): { count: number; limit: number; resetTime: number } {
   const userData = transactionSyncCounts.get(userId);
   if (!userData) {
     return { 

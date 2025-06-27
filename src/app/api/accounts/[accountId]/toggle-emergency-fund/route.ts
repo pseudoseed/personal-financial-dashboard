@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getCurrentUserId } from '@/lib/userManagement';
 
 // TODO: Replace with real user session logic
 const getUserId = async (req: NextRequest) => {
-  // For now, create or get default user
-  const defaultUser = await prisma.user.upsert({
-    where: { email: 'default@example.com' },
-    update: {},
-    create: {
-      email: 'default@example.com',
-      name: 'Default User',
-    },
-  });
-  return defaultUser.id;
+  // Get the current user ID
+  return await getCurrentUserId();
 };
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ accountId: string }> }) {

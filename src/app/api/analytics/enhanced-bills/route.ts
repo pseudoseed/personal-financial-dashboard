@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEnhancedBillsData } from '@/lib/enhancedBills';
+import { getCurrentUserId } from '@/lib/userManagement';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = "cmccxbmo000008of2p0eyw0o5"; // Default user for now
+    const userId = await getCurrentUserId();
 
     console.log('Getting enhanced bills data for user:', userId);
 

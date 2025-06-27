@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
 import { smartRefreshAccounts, canUserManualRefresh, getManualRefreshCount } from "@/lib/refreshService";
+import { getCurrentUserId } from "@/lib/userManagement";
 
 export async function POST(request: Request) {
   try {
     // Check if this is a manual refresh request
     const body = await request.json().catch(() => ({}));
     const isManualRefresh = body.manual === true;
-    const userId = body.userId || "default";
+    const userId = body.userId || await getCurrentUserId();
     const includeTransactions = body.includeTransactions === true;
     
     if (isManualRefresh) {
       // Check rate limiting for manual refreshes
-      if (!canUserManualRefresh(userId)) {
-        const refreshInfo = getManualRefreshCount(userId);
+      if (!(await canUserManualRefresh(userId))) {
+        const refreshInfo = await getManualRefreshCount(userId);
         const resetTime = new Date(refreshInfo.resetTime).toLocaleString();
         
         return NextResponse.json(
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     const results = await smartRefreshAccounts(userId, isManualRefresh, includeTransactions);
     
     // Get refresh count info for manual refreshes
-    const refreshInfo = isManualRefresh ? getManualRefreshCount(userId) : null;
+    const refreshInfo = isManualRefresh ? await getManualRefreshCount(userId) : null;
     
     return NextResponse.json({
       success: true,

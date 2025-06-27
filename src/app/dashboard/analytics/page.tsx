@@ -29,6 +29,13 @@ function SuggestedRecurringPaymentsCard() {
     },
   });
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('dismissedRecurringSuggestions');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    }
+    return new Set();
+  });
 
   const handleAdd = async (suggestion: any) => {
     setAddingId(suggestion.name + suggestion.amount + suggestion.frequency);
@@ -50,27 +57,48 @@ function SuggestedRecurringPaymentsCard() {
     refetch();
   };
 
+  const handleDismiss = (suggestion: any) => {
+    const suggestionKey = `${suggestion.name}|${suggestion.amount}|${suggestion.frequency}`;
+    const newDismissed = new Set(dismissedSuggestions).add(suggestionKey);
+    setDismissedSuggestions(newDismissed);
+    localStorage.setItem('dismissedRecurringSuggestions', JSON.stringify([...newDismissed]));
+  };
+
+  // Filter out dismissed suggestions
+  const filteredSuggestions = suggestions.filter((s: any) => {
+    const suggestionKey = `${s.name}|${s.amount}|${s.frequency}`;
+    return !dismissedSuggestions.has(suggestionKey);
+  });
+
   if (isLoading) return <div className="card p-4 mb-6">Loading suggestions...</div>;
-  if (!suggestions.length) return null;
+  if (!filteredSuggestions.length) return null;
 
   return (
     <div className="card p-4 mb-6">
       <h2 className="text-lg font-semibold mb-2">Suggested Recurring Payments</h2>
       <p className="text-sm text-gray-500 mb-4">Based on your transaction history, we found these possible recurring income sources. Add them with one click!</p>
       <div className="space-y-3">
-        {suggestions.map((s: any) => (
+        {filteredSuggestions.map((s: any) => (
           <div key={s.name + s.amount + s.frequency} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-800 rounded-lg">
             <div>
               <div className="font-medium">{s.name}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">{s.frequency} • ${s.amount.toLocaleString()} • Last: {new Date(s.lastDate).toLocaleDateString()}</div>
             </div>
-            <button
-              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              onClick={() => handleAdd(s)}
-              disabled={addingId === s.name + s.amount + s.frequency}
-            >
-              {addingId === s.name + s.amount + s.frequency ? "Adding..." : "Add as Recurring Payment"}
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm"
+                onClick={() => handleDismiss(s)}
+              >
+                Dismiss
+              </button>
+              <button
+                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                onClick={() => handleAdd(s)}
+                disabled={addingId === s.name + s.amount + s.frequency}
+              >
+                {addingId === s.name + s.amount + s.frequency ? "Adding..." : "Add as Recurring Payment"}
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -134,7 +162,6 @@ export default function AnalyticsPage() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Analytics & Insights</h1>
         </div>
-        <SuggestedRecurringPaymentsCard />
         <div className="mb-6">
           <DashboardMetrics accounts={accountsData || []} />
         </div>
@@ -199,6 +226,9 @@ export default function AnalyticsPage() {
         <div className="mb-6">
           <MonthOverMonthChart />
         </div>
+
+        {/* Suggested Recurring Payments - Now at the end */}
+        <SuggestedRecurringPaymentsCard />
       </div>
     </div>
   );

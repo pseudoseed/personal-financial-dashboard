@@ -5,6 +5,7 @@ import handlebars from "handlebars";
 import fs from "fs";
 import path from "path";
 import { downloadTransactions } from "../src/lib/transactions";
+import { getCurrentUserId } from "../src/lib/userManagement";
 
 interface AccountChange {
   name: string;
@@ -313,7 +314,7 @@ async function refreshCoinbaseAccounts(
             type: "investment",
             subtype: "crypto",
             itemId: item.id,
-            userId: "default",
+            userId: await getCurrentUserId(),
           },
         });
 

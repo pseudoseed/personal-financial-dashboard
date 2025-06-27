@@ -1,31 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { calculateFinancialHealth, getFinancialHealthTrend } from '@/lib/financialHealth';
+import { calculateFinancialHealth } from '@/lib/financialHealth';
+import { getCurrentUserId } from '@/lib/userManagement';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = "default"; // Use the default user ID that matches database initialization
+    const userId = await getCurrentUserId();
 
     console.log('Calculating financial health for user:', userId);
 
-    // Calculate current financial health
-    const metrics = await calculateFinancialHealth(userId);
+    // Calculate financial health
+    const healthData = await calculateFinancialHealth(userId);
     
-    console.log('Financial health metrics calculated:', metrics);
-    
-    // Get trend data
-    const trend = await getFinancialHealthTrend(userId);
-
-    return NextResponse.json({
-      ...metrics,
-      trend,
+    console.log('Financial health calculated:', {
+      overallScore: healthData.overallScore,
+      emergencyFundRatio: healthData.emergencyFundRatio,
+      debtToIncomeRatio: healthData.debtToIncomeRatio,
+      savingsRate: healthData.savingsRate,
+      creditUtilization: healthData.creditUtilization,
+      recommendationsCount: healthData.recommendations.length,
     });
+
+    return NextResponse.json(healthData);
   } catch (error) {
-    const errMsg = error instanceof Error ? error.message : JSON.stringify(error);
-    const errStack = error instanceof Error ? error.stack : undefined;
-    console.error('Error calculating financial health:', errMsg);
-    if (errStack) console.error('Error stack:', errStack);
+    console.error('Error calculating financial health:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
-      { error: 'Failed to calculate financial health metrics', details: errMsg },
+      { error: 'Failed to calculate financial health', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
