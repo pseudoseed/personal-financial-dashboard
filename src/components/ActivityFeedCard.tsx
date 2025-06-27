@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { DashboardCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { formatCurrency } from '@/lib/ui';
+import { formatCurrency, maskSensitiveValue } from '@/lib/ui';
 import { ActivityFeedData, Activity, getActivityIcon, getActivityColor, getRelativeTime } from '@/lib/activityFeed';
 import { Modal } from '@/components/ui/Modal';
 import { clsx } from 'clsx';
 import React from 'react';
+import { useSensitiveData } from '@/app/providers';
 
 interface ActivityFeedCardProps {
   className?: string;
@@ -18,8 +19,8 @@ export function ActivityFeedCard({ className = '' }: ActivityFeedCardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [hideSensitiveData, setHideSensitiveData] = useState(false);
   const [detailsActivity, setDetailsActivity] = useState<Activity | null>(null);
+  const { showSensitiveData } = useSensitiveData();
 
   const fetchData = async () => {
     try {
@@ -45,28 +46,13 @@ export function ActivityFeedCard({ className = '' }: ActivityFeedCardProps) {
     fetchData();
   }, [showAll]);
 
-  // Check for hide sensitive data preference
-  useEffect(() => {
-    const checkHideSensitiveData = () => {
-      const stored = localStorage.getItem('hideSensitiveData');
-      setHideSensitiveData(stored === 'true');
-    };
-    
-    checkHideSensitiveData();
-    window.addEventListener('storage', checkHideSensitiveData);
-    return () => window.removeEventListener('storage', checkHideSensitiveData);
-  }, []);
-
   // Sanitize sensitive data
   const sanitizeText = (text: string) => {
-    if (hideSensitiveData) {
-      return '••••••••';
-    }
-    return text;
+    return maskSensitiveValue(text, showSensitiveData, '••••••••');
   };
 
   const sanitizeAmount = (amount: number | undefined) => {
-    if (hideSensitiveData) {
+    if (!showSensitiveData) {
       return undefined;
     }
     return amount;
@@ -135,7 +121,7 @@ export function ActivityFeedCard({ className = '' }: ActivityFeedCardProps) {
   const headerAction = (
     <div className="flex items-center space-x-2">
       <span className="text-xs text-surface-600 dark:text-surface-400">
-        {hideSensitiveData ? '••••••••' : `${data.summary.totalActivities} activities`}
+        {maskSensitiveValue(`${data.summary.totalActivities} activities`, showSensitiveData, '••••••••')}
       </span>
       <Button
         variant="secondary"
@@ -156,7 +142,7 @@ export function ActivityFeedCard({ className = '' }: ActivityFeedCardProps) {
             key={activity.id}
             activity={activity}
             isLast={idx === displayedActivities.length - 1}
-            hideSensitiveData={hideSensitiveData}
+            showSensitiveData={showSensitiveData}
             sanitizeText={sanitizeText}
             sanitizeAmount={sanitizeAmount}
             onViewDetails={() => setDetailsActivity(activity)}
@@ -168,8 +154,8 @@ export function ActivityFeedCard({ className = '' }: ActivityFeedCardProps) {
           isOpen={!!detailsActivity}
           onClose={() => setDetailsActivity(null)}
           icon={<div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${getActivityColor(detailsActivity.type)}`}>{getActivityIcon(detailsActivity.type)}</div>}
-          title={detailsActivity.title}
-          subtitle={getRelativeTime(detailsActivity.date)}
+          title={sanitizeText(detailsActivity.title)}
+          subtitle={maskSensitiveValue(getRelativeTime(detailsActivity.date), showSensitiveData, '••••••••')}
           maxWidth="max-w-md"
         >
           <div className="space-y-6">
@@ -178,13 +164,19 @@ export function ActivityFeedCard({ className = '' }: ActivityFeedCardProps) {
               <div className="text-xs font-semibold text-surface-500 dark:text-surface-400 mb-2 uppercase tracking-wide">Summary</div>
               <div className="flex flex-col items-center gap-1">
                 <span className={`text-2xl font-bold ${typeof detailsActivity.amount === 'number' ? (detailsActivity.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-surface-400 dark:text-surface-500'}`}>
-                  {typeof detailsActivity.amount === 'number' ? `${detailsActivity.amount >= 0 ? '+' : ''}${formatCurrency(detailsActivity.amount)}` : '--'}
+                  {showSensitiveData && typeof detailsActivity.amount === 'number' 
+                    ? `${detailsActivity.amount >= 0 ? '+' : ''}${formatCurrency(detailsActivity.amount)}` 
+                    : maskSensitiveValue('--', showSensitiveData, '••••••••')}
                 </span>
                 {detailsActivity.metadata?.frequency && (
-                  <div className="text-sm text-surface-700 dark:text-surface-300 font-medium">{detailsActivity.metadata.frequency}</div>
+                  <div className="text-sm text-surface-700 dark:text-surface-300 font-medium">
+                    {maskSensitiveValue(detailsActivity.metadata.frequency, showSensitiveData, '••••••••')}
+                  </div>
                 )}
                 {detailsActivity.description && (
-                  <div className="text-sm text-surface-500 dark:text-surface-400 mt-1">{detailsActivity.description}</div>
+                  <div className="text-sm text-surface-500 dark:text-surface-400 mt-1">
+                    {sanitizeText(detailsActivity.description)}
+                  </div>
                 )}
               </div>
             </div>
@@ -193,8 +185,12 @@ export function ActivityFeedCard({ className = '' }: ActivityFeedCardProps) {
             <div>
               <div className="text-xs font-semibold text-surface-500 dark:text-surface-400 mb-2 uppercase tracking-wide">Status & Category</div>
               <div className="flex flex-wrap gap-2">
-                <span className="text-xs px-3 py-1 rounded-full bg-surface-100 dark:bg-surface-700 text-surface-700 dark:text-surface-200 font-semibold border border-surface-200 dark:border-surface-600">Status: {detailsActivity.status}</span>
-                <span className="text-xs px-3 py-1 rounded-full bg-surface-100 dark:bg-surface-700 text-surface-700 dark:text-surface-200 font-semibold border border-surface-200 dark:border-surface-600">Category: {detailsActivity.category}</span>
+                <span className="text-xs px-3 py-1 rounded-full bg-surface-100 dark:bg-surface-700 text-surface-700 dark:text-surface-200 font-semibold border border-surface-200 dark:border-surface-600">
+                  Status: {maskSensitiveValue(detailsActivity.status, showSensitiveData, '••••')}
+                </span>
+                <span className="text-xs px-3 py-1 rounded-full bg-surface-100 dark:bg-surface-700 text-surface-700 dark:text-surface-200 font-semibold border border-surface-200 dark:border-surface-600">
+                  Category: {maskSensitiveValue(detailsActivity.category, showSensitiveData, '••••')}
+                </span>
               </div>
             </div>
 
@@ -203,11 +199,15 @@ export function ActivityFeedCard({ className = '' }: ActivityFeedCardProps) {
               <div className="text-xs font-semibold text-surface-500 dark:text-surface-400 mb-2 uppercase tracking-wide">Details</div>
               <div className="bg-surface-50 dark:bg-surface-900 rounded-lg p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
                 <div className="font-medium text-surface-600 dark:text-surface-400">Date</div>
-                <div className="text-surface-900 dark:text-surface-100 text-right">{new Date(detailsActivity.date).toLocaleString()}</div>
+                <div className="text-surface-900 dark:text-surface-100 text-right">
+                  {maskSensitiveValue(new Date(detailsActivity.date).toLocaleString(), showSensitiveData, '••••••••••••••••')}
+                </div>
                 {detailsActivity.metadata && Object.keys(detailsActivity.metadata ?? {}).map(key => (
                   <React.Fragment key={key}>
                     <div className="font-medium text-surface-600 dark:text-surface-400">{key.charAt(0).toUpperCase() + key.slice(1)}</div>
-                    <div className="text-surface-900 dark:text-surface-100 text-right">{String(detailsActivity.metadata?.[key])}</div>
+                    <div className="text-surface-900 dark:text-surface-100 text-right">
+                      {maskSensitiveValue(String(detailsActivity.metadata?.[key]), showSensitiveData, '••••••••')}
+                    </div>
                   </React.Fragment>
                 ))}
               </div>
@@ -229,13 +229,13 @@ export function ActivityFeedCard({ className = '' }: ActivityFeedCardProps) {
 interface ActivityItemProps {
   activity: Activity;
   isLast: boolean;
-  hideSensitiveData: boolean;
+  showSensitiveData: boolean;
   sanitizeText: (text: string) => string;
   sanitizeAmount: (amount: number | undefined) => number | undefined;
   onViewDetails: () => void;
 }
 
-function ActivityItem({ activity, isLast, hideSensitiveData, sanitizeText, sanitizeAmount, onViewDetails }: ActivityItemProps) {
+function ActivityItem({ activity, isLast, showSensitiveData, sanitizeText, sanitizeAmount, onViewDetails }: ActivityItemProps) {
   const sanitizedAmount = sanitizeAmount(activity.amount);
   const isPositive = sanitizedAmount && sanitizedAmount >= 0;
   const amountColor = sanitizedAmount ? (isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-surface-600 dark:text-surface-400';
@@ -263,7 +263,7 @@ function ActivityItem({ activity, isLast, hideSensitiveData, sanitizeText, sanit
               <span className={`text-base font-bold ${amountColor}`}>{isPositive ? '+' : ''}{formatCurrency(sanitizedAmount)}</span>
             )}
             <span className="text-xs text-surface-500 dark:text-surface-500 mt-0.5">
-              {hideSensitiveData ? '••••' : getRelativeTime(activity.date)}
+              {maskSensitiveValue(getRelativeTime(activity.date), showSensitiveData, '••••')}
             </span>
           </div>
         </div>
@@ -274,10 +274,10 @@ function ActivityItem({ activity, isLast, hideSensitiveData, sanitizeText, sanit
             activity.status === 'pending' ? 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20' :
             'text-red-600 bg-red-50 dark:bg-red-900/20'
           }`}>
-            {hideSensitiveData ? '••••' : activity.status}
+            {maskSensitiveValue(activity.status, showSensitiveData, '••••')}
           </span>
           <span className="text-xs px-2 py-0.5 rounded-full bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300">
-            {hideSensitiveData ? '••••' : activity.category}
+            {maskSensitiveValue(activity.category, showSensitiveData, '••••')}
           </span>
           {activity.metadata?.accountName && (
             <span className="text-xs text-surface-500 dark:text-surface-500 truncate" title={activity.metadata.accountName}>
