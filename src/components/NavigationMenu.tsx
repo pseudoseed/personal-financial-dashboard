@@ -59,7 +59,7 @@ export function NavigationMenu() {
   return (
     <Menu as="div" className="relative inline-block text-left">
       <div>
-        <Menu.Button as={Button} variant="ghost" size="sm" className="gap-2 px-4 py-2 h-auto border border-gray-300 shadow-sm hover:bg-gray-200 dark:bg-surface-800 dark:border-surface-700 dark:shadow-md dark:hover:bg-surface-900 transition-all duration-200">
+        <Menu.Button as={Button} variant="ghost" size="sm" className="gap-2 px-4 py-2 h-auto border border-gray-300 shadow-sm hover:bg-gray-200 dark:bg-surface-800 dark:border-surface-700 dark:shadow-md dark:hover:bg-surface-900 transition-all duration-200 focus:outline-none">
           <BanknotesIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
           <div className="flex flex-col items-start">
             <span className="text-sm font-semibold text-surface-900 dark:text-surface-100">
@@ -82,7 +82,7 @@ export function NavigationMenu() {
         leaveFrom="transform opacity-100 scale-100 translate-y-0"
         leaveTo="transform opacity-0 scale-95 translate-y-2"
       >
-        <Menu.Items className="absolute left-0 mt-3 w-64 origin-top-left z-50 rounded-2xl shadow-xl bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 p-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-surface-900">
+        <Menu.Items className="absolute left-0 mt-3 w-64 origin-top-left z-50 rounded-2xl shadow-xl bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 p-3 focus:outline-none">
           <div className="space-y-1">
             {navigation.map((item, idx) => {
               const Icon = item.icon;

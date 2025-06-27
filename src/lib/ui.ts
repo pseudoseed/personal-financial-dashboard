@@ -13,16 +13,16 @@ export function cn(...inputs: ClassValue[]) {
  * Button component variants using class-variance-authority
  */
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation",
+  "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation",
   {
     variants: {
       variant: {
-        primary: "bg-primary-500 text-white border border-primary-500 hover:bg-primary-600 hover:border-primary-600 hover:shadow-lg hover:-translate-y-0.5 focus:ring-primary-500 active:scale-95",
-        secondary: "bg-surface-0 text-foreground border border-gray-200 hover:bg-surface-100 hover:border-gray-300 hover:shadow-sm hover:-translate-y-0.5 focus:ring-primary-500 active:scale-95 dark:bg-surface-100 dark:border-gray-700 dark:hover:bg-surface-200 dark:hover:border-gray-600",
-        ghost: "bg-transparent text-secondary-600 border border-transparent hover:bg-surface-100 hover:text-foreground focus:ring-primary-500 active:scale-95 dark:text-secondary-400 dark:hover:bg-surface-200",
-        success: "bg-success-500 text-white border border-success-500 hover:bg-success-600 hover:border-success-600 hover:shadow-lg hover:-translate-y-0.5 focus:ring-success-500 active:scale-95",
-        error: "bg-error-500 text-white border border-error-500 hover:bg-error-600 hover:border-error-600 hover:shadow-lg hover:-translate-y-0.5 focus:ring-error-500 active:scale-95",
-        warning: "bg-warning-500 text-white border border-warning-500 hover:bg-warning-600 hover:border-warning-600 hover:shadow-lg hover:-translate-y-0.5 focus:ring-warning-500 active:scale-95",
+        primary: "bg-primary-500 text-white border border-primary-500 hover:bg-primary-600 hover:border-primary-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-95",
+        secondary: "bg-surface-0 text-foreground border border-gray-200 hover:bg-surface-100 hover:border-gray-300 hover:shadow-sm hover:-translate-y-0.5 active:scale-95 dark:bg-surface-100 dark:border-gray-700 dark:hover:bg-surface-200 dark:hover:border-gray-600",
+        ghost: "bg-transparent text-secondary-600 border border-transparent hover:bg-surface-100 hover:text-foreground active:scale-95 dark:text-secondary-400 dark:hover:bg-surface-200",
+        success: "bg-success-500 text-white border border-success-500 hover:bg-success-600 hover:border-success-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-95",
+        error: "bg-error-500 text-white border border-error-500 hover:bg-error-600 hover:border-error-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-95",
+        warning: "bg-warning-500 text-white border border-warning-500 hover:bg-warning-600 hover:border-warning-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-95",
       },
       size: {
         sm: "px-3 py-2 text-sm min-h-[44px]",
