@@ -44,8 +44,9 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Create necessary directories
-RUN mkdir -p /app/data /app/logs /app/backups
+# Create necessary directories with proper ownership
+RUN mkdir -p /app/data /app/logs /app/backups && \
+    chown -R nextjs:nodejs /app/data /app/logs /app/backups
 
 # Copy the public folder
 COPY --from=builder /app/public ./public
@@ -65,7 +66,8 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy scripts and compile TypeScript
 COPY --from=builder /app/scripts ./scripts
-RUN chmod +x scripts/init-db.sh
+RUN chmod +x scripts/init-db.sh && \
+    chown nextjs:nodejs scripts/init-db.sh
 
 # Create startup script
 RUN echo '#!/bin/bash' > /app/start.sh && \
@@ -77,7 +79,8 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'echo "Starting Next.js application..."' >> /app/start.sh && \
     echo 'echo "Application will be available at http://localhost:3000"' >> /app/start.sh && \
     echo 'exec node server.js' >> /app/start.sh && \
-    chmod +x /app/start.sh
+    chmod +x /app/start.sh && \
+    chown nextjs:nodejs /app/start.sh
 
 # Set ownership of app directories
 RUN chown -R nextjs:nodejs /app

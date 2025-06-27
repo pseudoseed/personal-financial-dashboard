@@ -10,11 +10,9 @@ echo "Initializing database..."
 # Set database URL for Docker environment
 export DATABASE_URL="file:/app/data/dev.db"
 
-# Create database directory if it doesn't exist
+# Create database directory if it doesn't exist (without chown)
+echo "Creating database directory..."
 mkdir -p /app/data
-
-# Set proper permissions
-chown -R nextjs:nodejs /app/data
 
 # Check if database file exists
 if [ -f /app/data/dev.db ]; then
