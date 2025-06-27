@@ -23,7 +23,8 @@ export interface FinancialHealthTrend {
   period: string;
 }
 
-export async function calculateFinancialHealth(userId: string): Promise<FinancialHealthMetrics> {
+export async function calculateFinancialHealth(_userId: string): Promise<FinancialHealthMetrics> {
+  const userId = 'default';
   // Get all user data
   const accounts = await prisma.account.findMany({
     where: { userId, hidden: false },
@@ -328,7 +329,8 @@ function generateRecommendations(metrics: {
   return recommendations.slice(0, 3); // Return top 3 recommendations
 }
 
-export async function getFinancialHealthTrend(userId: string): Promise<FinancialHealthTrend | null> {
+export async function getFinancialHealthTrend(): Promise<FinancialHealthTrend | null> {
+  const userId = 'default';
   const metrics = await prisma.financialHealthMetrics.findMany({
     where: { userId },
     orderBy: { calculatedAt: 'desc' },

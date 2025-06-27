@@ -30,10 +30,8 @@ export interface TopPerformer {
   value: number;
 }
 
-export async function calculateInvestmentPerformance(
-  userId: string,
-  snapshotType: SnapshotType = 'weekly'
-): Promise<InvestmentPerformanceData> {
+export async function calculateInvestmentPerformance(snapshotType: SnapshotType = 'weekly'): Promise<InvestmentPerformanceData> {
+  const userId = 'default';
   // Get investment accounts
   const accounts = await prisma.account.findMany({
     where: { 
