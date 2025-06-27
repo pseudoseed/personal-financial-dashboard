@@ -7,6 +7,7 @@ import { AccountConnectionButtons } from "@/components/AccountConnectionButtons"
 import { UtilityButtons } from "@/components/UtilityButtons";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NotificationProvider } from "@/components/ui/Notification";
+import { useEffect } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,6 +21,18 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      document.addEventListener("focusin", (e) => {
+        if (e.target instanceof HTMLElement) {
+          e.target.style.outline = "none";
+          e.target.style.boxShadow = "none";
+          e.target.style.borderColor = "";
+        }
+      });
+    }
+  }, []);
+
   return (
     <html lang="en" className="h-full">
       <head>
