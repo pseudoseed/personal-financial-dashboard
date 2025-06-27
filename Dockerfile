@@ -7,6 +7,11 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
+# Add build arguments for cache invalidation
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+
 # Install ALL dependencies (including dev dependencies) for build
 COPY package.json package-lock.json* ./
 RUN npm ci --legacy-peer-deps
@@ -14,18 +19,33 @@ RUN npm ci --legacy-peer-deps
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
+
+# Add build arguments for cache invalidation
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+ARG CACHE_BUST
+
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source code with cache busting
 COPY . .
 
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build the application
+# Build the application with cache busting
 RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
+
+# Add build arguments for cache invalidation
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
 
 # Install necessary packages
 RUN apk add --no-cache \
@@ -69,7 +89,7 @@ COPY --from=builder /app/scripts ./scripts
 RUN chmod +x scripts/init-db.sh && \
     chown nextjs:nodejs scripts/init-db.sh
 
-# Create startup script
+# Create startup script with cache busting
 RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'set -e' >> /app/start.sh && \
     echo 'echo "Initializing database..."' >> /app/start.sh && \
@@ -78,6 +98,8 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
     echo './scripts/init-db.sh' >> /app/start.sh && \
     echo 'echo "Starting Next.js application..."' >> /app/start.sh && \
     echo 'echo "Application will be available at http://localhost:3000"' >> /app/start.sh && \
+    echo 'echo "Build Date: ${BUILD_DATE:-unknown}"' >> /app/start.sh && \
+    echo 'echo "Version: ${VERSION:-unknown}"' >> /app/start.sh && \
     echo 'exec node server.js' >> /app/start.sh && \
     chmod +x /app/start.sh && \
     chown nextjs:nodejs /app/start.sh
