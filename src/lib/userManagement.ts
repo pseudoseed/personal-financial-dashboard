@@ -8,18 +8,9 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL);
  */
 export async function getCurrentUserId(): Promise<string> {
   try {
-    // Try to find the default user
-    let user = await prisma.user.findUnique({ where: { id: 'default' } });
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          id: 'default',
-          email: 'default@example.com',
-          name: 'Default User',
-        },
-      });
-    }
-    return user.id;
+    // Force return 'default' since that's where all accounts are stored
+    console.log('DEBUG: getCurrentUserId called, forcing return of "default"');
+    return 'default';
   } catch (error) {
     console.error('Error getting current user ID:', error instanceof Error ? error.message : String(error));
     throw new Error('Failed to get current user ID');

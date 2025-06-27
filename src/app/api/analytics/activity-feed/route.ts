@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '20');
 
+    console.log('DEBUG: User ID from getCurrentUserId:', userId);
     console.log('Getting activity feed data for user:', userId, 'with limit:', limit);
 
     // Get activity feed data
