@@ -59,6 +59,7 @@ export interface PaymentInsight {
 }
 
 export async function getEnhancedBillsData(_userId: string): Promise<EnhancedBillData> {
+  // Force use of 'default' user ID since that's where the accounts are stored
   const userId = 'default';
   // Get accounts with bills data
   const accounts = await prisma.account.findMany({

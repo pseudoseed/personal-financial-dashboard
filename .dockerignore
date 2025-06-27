@@ -124,4 +124,8 @@ temp/
 *.sqlite3
 
 # Memory bank (not needed in production)
-memory-bank/ 
+memory-bank/
+
+# Ignore all SQLite DBs in prisma
+prisma/*.db
+prisma/**/*.db 
