@@ -87,7 +87,8 @@ function isLikelyRecurring(transactions: any[]): boolean {
   return coefficientOfVariation < 0.1;
 }
 
-export async function detectRecurringExpenses(userId: string) {
+export async function detectRecurringExpenses(_userId: string) {
+  const userId = 'default';
   console.log(`Starting recurring expense detection for user: ${userId}`);
   
   // Look at the last year of transactions
@@ -192,7 +193,8 @@ export async function detectRecurringExpenses(userId: string) {
 }
 
 // Helper: save detected expenses to database
-export async function saveDetectedExpenses(userId: string, detectedExpenses: any[]) {
+export async function saveDetectedExpenses(_userId: string, detectedExpenses: any[]) {
+  const userId = 'default';
   const savedExpenses = [];
   
   for (const expense of detectedExpenses) {

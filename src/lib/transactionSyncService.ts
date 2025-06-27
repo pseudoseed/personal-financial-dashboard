@@ -53,7 +53,8 @@ function isCacheValid(cacheKey: string, ttl: number): boolean {
   return Date.now() - cached.timestamp < ttl;
 }
 
-function canManualTransactionSync(userId: string): boolean {
+function canManualTransactionSync(_userId: string): boolean {
+  const userId = 'default';
   const now = Date.now();
   const userData = transactionSyncCounts.get(userId);
   
@@ -103,10 +104,11 @@ function getTransactionCount(result: any): number {
 }
 
 export async function smartSyncTransactions(
-  userId?: string, 
+  _userId?: string, 
   forceSync: boolean = false,
   accountIds?: string[]
 ) {
+  const userId = 'default';
   console.log("Starting smart transaction sync process...");
   
   // Get the current user ID if not provided
@@ -114,7 +116,7 @@ export async function smartSyncTransactions(
   
   // Build where clause
   const whereClause: any = {
-    userId: actualUserId,
+    userId,
     hidden: false,
     plaidItem: {
       accessToken: {
@@ -244,25 +246,12 @@ export async function syncTransactionsForAccount(
   };
 }
 
-export function canUserManualTransactionSync(userId: string): boolean {
-  return canManualTransactionSync(userId);
+export function canUserManualTransactionSync(_userId: string): boolean {
+  return true;
 }
 
-export function getManualTransactionSyncCount(userId: string): { count: number; limit: number; resetTime: number } {
-  const userData = transactionSyncCounts.get(userId);
-  if (!userData) {
-    return { 
-      count: 0, 
-      limit: TRANSACTION_SYNC_CONFIG.MANUAL_SYNC_LIMIT, 
-      resetTime: Date.now() + TRANSACTION_SYNC_CONFIG.MANUAL_SYNC_WINDOW 
-    };
-  }
-  
-  return {
-    count: userData.count,
-    limit: TRANSACTION_SYNC_CONFIG.MANUAL_SYNC_LIMIT,
-    resetTime: userData.resetTime,
-  };
+export function getManualTransactionSyncCount(_userId: string): { count: number; limit: number; resetTime: number } {
+  return { count: 0, limit: TRANSACTION_SYNC_CONFIG.MANUAL_SYNC_LIMIT, resetTime: Date.now() + TRANSACTION_SYNC_CONFIG.MANUAL_SYNC_WINDOW };
 }
 
 // Get transaction sync status for an account

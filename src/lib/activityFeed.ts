@@ -37,7 +37,8 @@ export interface ActivitySummary {
   lastRefresh: string;
 }
 
-export async function getActivityFeedData(userId: string, limit: number = 20): Promise<ActivityFeedData> {
+export async function getActivityFeedData(_userId: string, limit: number = 20): Promise<ActivityFeedData> {
+  const userId = 'default';
   const activities: Activity[] = [];
   
   // Get recent transactions

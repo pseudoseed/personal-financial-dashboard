@@ -4,14 +4,13 @@ import { getCurrentUserId } from '@/lib/userManagement';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await getCurrentUserId();
     const { searchParams } = new URL(request.url);
     const snapshotType = (searchParams.get('snapshotType') as SnapshotType) || 'weekly';
 
-    console.log('Calculating investment performance for user:', userId, 'with snapshot type:', snapshotType);
+    console.log('Calculating investment performance for snapshot type:', snapshotType);
 
     // Calculate investment performance
-    const performance = await calculateInvestmentPerformance(userId, snapshotType);
+    const performance = await calculateInvestmentPerformance(snapshotType);
     
     console.log('Investment performance calculated:', {
       portfolioValue: performance.portfolioValue,
