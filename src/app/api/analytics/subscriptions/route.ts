@@ -118,7 +118,11 @@ export async function GET() {
       }
     });
   } catch (error) {
-    console.error('Error fetching subscriptions:', error);
+    if (error && typeof error === 'object') {
+      console.error('Error fetching subscriptions:', error);
+    } else {
+      console.error('Error fetching subscriptions:', String(error));
+    }
     return NextResponse.json(
       { error: 'Failed to fetch subscriptions' },
       { status: 500 }

@@ -135,7 +135,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
       const data = await response.json();
       setAccounts(data || []);
     } catch (error) {
-      console.error('Failed to fetch accounts:', error);
+        console.error('Failed to fetch accounts:', error);
     }
   };
 

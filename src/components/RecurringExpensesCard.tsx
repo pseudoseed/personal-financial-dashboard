@@ -37,7 +37,6 @@ export function RecurringExpensesCard() {
         setExpenses(data.expenses || []);
       } catch (err) {
         setError('Failed to load recurring expenses');
-        console.error('Error fetching recurring expenses:', err);
       } finally {
         setLoading(false);
       }

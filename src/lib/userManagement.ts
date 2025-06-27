@@ -1,15 +1,11 @@
 import { prisma } from './db';
 
-// Debug: Print the database URL being used
-console.log('DATABASE_URL:', process.env.DATABASE_URL);
-
 /**
  * Always return the default user ID, creating the user if missing.
  */
 export async function getCurrentUserId(): Promise<string> {
   try {
     // Force return 'default' since that's where all accounts are stored
-    console.log('DEBUG: getCurrentUserId called, forcing return of "default"');
     return 'default';
   } catch (error) {
     console.error('Error getting current user ID:', error instanceof Error ? error.message : String(error));

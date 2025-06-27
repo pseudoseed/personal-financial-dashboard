@@ -52,7 +52,6 @@ export function BillsVsCashCard() {
       try {
         const response = await fetch("/api/analytics/enhanced-bills");
         const result = await response.json();
-        console.log('DEBUG: BillsVsCashCard enhanced bills data:', result);
         setData(result);
       } catch (error) {
         console.error("Error fetching enhanced bills data:", error);
@@ -73,7 +72,6 @@ export function BillsVsCashCard() {
     expectedIncome = data.cashFlowForecast?.next30Days?.income || 0;
     availableCash = data.cashFlowForecast?.next30Days?.availableCash || 0;
     netPosition = expectedIncome + availableCash - totalBillsDueThisMonth;
-    console.log('DEBUG: BillsVsCashCard calculated values:', { totalBillsDueThisMonth, expectedIncome, availableCash, netPosition });
   }
 
   const isNetPositive = netPosition >= 0;

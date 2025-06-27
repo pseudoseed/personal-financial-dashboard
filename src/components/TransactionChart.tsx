@@ -209,7 +209,6 @@ export function TransactionChart({}: TransactionChartProps) {
       );
       
       if (!hasAiCategories && allTxData.transactions.length > 0) {
-        console.log('[FRONTEND] No AI categories found, triggering AI categorization...');
         triggerAICategorization();
       }
     }
@@ -227,11 +226,6 @@ export function TransactionChart({}: TransactionChartProps) {
   const spendCategories = [
     "Rent/Mortgage", "Home Maintenance", "Electricity", "Water/Sewer", "Gas Utility", "Internet", "Cell Phone", "Streaming Services", "Groceries", "Fast Food", "Restaurants", "Coffee Shops", "Alcohol/Bars", "Gas Station", "Public Transit", "Ride Sharing (Uber/Lyft)", "Car Payment", "Car Insurance", "Parking", "Flights", "Hotels", "Vacation Rental", "Online Shopping", "Clothing", "Electronics", "Beauty/Personal Care", "Gym/Fitness", "Medical Expenses", "Health Insurance", "Pharmacy", "Subscriptions", "Childcare", "Tuition", "Student Loans", "Books & Supplies", "Fees & Charges", "Gifts", "Donations", "Pets", "Hobbies", "Games"
   ];
-  // Log all categories present before filtering
-  useEffect(() => {
-    const allCats = Object.keys(aiCategoryTotals);
-    console.log('[FRONTEND] All AI categories:', allCats);
-  }, [aiCategoryTotals]);
   const filteredAiCategoryTotals = aiCategoryTotals;
 
   const aiPieData: ChartData<"pie"> = useMemo(() => {

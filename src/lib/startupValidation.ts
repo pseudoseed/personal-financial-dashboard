@@ -14,7 +14,6 @@ export async function ensureDefaultUser(): Promise<boolean> {
       return true;
     }
 
-    console.log('[STARTUP] Creating default user...');
     await prisma.user.create({
       data: {
         id: 'default',
@@ -23,10 +22,8 @@ export async function ensureDefaultUser(): Promise<boolean> {
       },
     });
 
-    console.log('[STARTUP] Default user created successfully');
     return true;
   } catch (error) {
-    console.error('[STARTUP] Failed to ensure default user:', error);
     return false;
   }
 }
@@ -67,7 +64,6 @@ export async function performHealthCheck(): Promise<{
       },
     };
   } catch (error) {
-    console.error('[HEALTH] Health check failed:', error);
     return {
       healthy: false,
       details: {

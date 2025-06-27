@@ -114,7 +114,6 @@ function shouldSyncTransactions(): boolean {
 async function deduplicateRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T> {
   // Check if there's already an active request for this key
   if (activeRequests.has(key)) {
-    console.log(`Request deduplication: waiting for existing request for ${key}`);
     return await activeRequests.get(key)!;
   }
   
@@ -136,7 +135,6 @@ export async function smartRefreshAccounts(
   includeTransactions: boolean = false
 ) {
   const userId = 'default';
-  console.log("Starting smart refresh process...");
   
   // Get all accounts with their latest balance
   const accounts = await prisma.account.findMany({
@@ -204,7 +202,6 @@ export async function smartRefreshAccounts(
           refreshCache.set(cacheKey, { timestamp: Date.now(), data: { refreshed: true } });
           
         } catch (error) {
-          console.error(`Error refreshing institution ${institutionId}:`, error);
           institutionAccounts.forEach(account => {
             results.errors.push({ accountId: account.id, error: error instanceof Error ? error.message : "Unknown error" });
           });
@@ -219,18 +216,15 @@ export async function smartRefreshAccounts(
   // Optionally sync transactions
   if (includeTransactions || shouldSyncTransactions()) {
     try {
-      console.log("Including transaction sync in refresh...");
       const transactionResults = await smartSyncTransactions(userId, false);
       results.transactionSync = transactionResults;
     } catch (error) {
-      console.error("Error during transaction sync:", error);
       results.transactionSync = {
         error: error instanceof Error ? error.message : "Unknown error"
       };
     }
   }
   
-  console.log(`Smart refresh completed: ${results.refreshed.length} refreshed, ${results.skipped.length} skipped, ${results.errors.length} errors`);
   return results;
 }
 
@@ -265,7 +259,6 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
         try {
           liabilityData = await fetchBatchedLiabilities(firstAccount.plaidItem.accessToken, creditLoanAccounts);
         } catch (error) {
-          console.error(`Error fetching liability data for institution ${firstAccount.plaidItem.institutionName}:`, error);
         }
       }
       
@@ -295,7 +288,6 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
             try {
               await updateAccountLiabilities(account, liabilityData);
             } catch (error) {
-              console.error(`Error updating liability data for ${account.name}:`, error);
             }
           }
           
@@ -313,8 +305,6 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
 async function refreshCoinbaseAccount(account: any) {
   // Implementation for Coinbase refresh
   // This would be similar to your existing Coinbase refresh logic
-  console.log(`Refreshing Coinbase account: ${account.name}`);
-  // Add your Coinbase refresh implementation here
 }
 
 // Batched liability fetching with caching
@@ -325,7 +315,6 @@ async function fetchBatchedLiabilities(accessToken: string, accounts: any[]) {
   // Check cache first
   const cached = liabilityCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp) < LIABILITY_CACHE_TTL) {
-    console.log(`Using cached liability data for institution ${institutionKey}`);
     return cached.data;
   }
   
@@ -344,7 +333,6 @@ async function fetchBatchedLiabilities(accessToken: string, accounts: any[]) {
     data: response.data.liabilities 
   });
   
-  console.log(`Fetched and cached liability data for ${accountIds.length} accounts in institution ${institutionKey}`);
   return response.data.liabilities;
 }
 

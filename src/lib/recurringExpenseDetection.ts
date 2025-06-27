@@ -89,7 +89,6 @@ function isLikelyRecurring(transactions: any[]): boolean {
 
 export async function detectRecurringExpenses(_userId: string) {
   const userId = 'default';
-  console.log(`Starting recurring expense detection for user: ${userId}`);
   
   // Look at the last year of transactions
   const since = subYears(new Date(), 1);
@@ -109,8 +108,6 @@ export async function detectRecurringExpenses(_userId: string) {
       }
     }
   });
-
-  console.log(`Found ${transactions.length} transactions to analyze`);
 
   const groups = groupTransactions(transactions);
   const detected: any[] = [];
@@ -166,7 +163,6 @@ export async function detectRecurringExpenses(_userId: string) {
     });
     
     if (existingExpense) {
-      console.log(`Skipping existing expense: ${txs[0].merchantName || txs[0].name}`);
       continue;
     }
     
@@ -185,10 +181,8 @@ export async function detectRecurringExpenses(_userId: string) {
     };
     
     detected.push(detectedExpense);
-    console.log(`Detected recurring expense: ${detectedExpense.merchantName} - ${detectedExpense.amount} (${detectedExpense.frequency}) - ${detectedExpense.confidence}% confidence`);
   }
   
-  console.log(`Detection complete: found ${detected.length} new recurring expenses`);
   return detected;
 }
 

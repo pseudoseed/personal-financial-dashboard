@@ -109,7 +109,6 @@ export async function smartSyncTransactions(
   accountIds?: string[]
 ) {
   const userId = 'default';
-  console.log("Starting smart transaction sync process...");
   
   // Get the current user ID if not provided
   const actualUserId = userId || await getCurrentUserId();
@@ -183,9 +182,7 @@ export async function smartSyncTransactions(
           const transactionCount = getTransactionCount(syncResult);
           results.totalTransactions += transactionCount;
           
-          console.log(`Synced ${transactionCount} transactions for ${account.name}`);
         } catch (error) {
-          console.error(`Error syncing transactions for ${account.name}:`, error);
           results.errors.push({ 
             accountId: account.id, 
             error: error instanceof Error ? error.message : "Unknown error" 
@@ -197,7 +194,6 @@ export async function smartSyncTransactions(
       transactionSyncCache.set(cacheKey, { timestamp: Date.now(), data: { synced: true } });
       
     } catch (error) {
-      console.error(`Error syncing institution ${institutionId}:`, error);
       institutionAccounts.forEach(account => {
         results.errors.push({ 
           accountId: account.id, 
@@ -207,7 +203,6 @@ export async function smartSyncTransactions(
     }
   }
   
-  console.log(`Smart transaction sync completed: ${results.synced.length} synced, ${results.skipped.length} skipped, ${results.errors.length} errors, ${results.totalTransactions} total transactions`);
   return results;
 }
 
@@ -215,8 +210,6 @@ export async function syncTransactionsForAccount(
   accountId: string,
   forceSync: boolean = false
 ) {
-  console.log(`Syncing transactions for account: ${accountId}`);
-  
   const account = await prisma.account.findUnique({
     where: { id: accountId },
     include: {

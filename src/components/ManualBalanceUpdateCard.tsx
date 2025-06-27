@@ -31,24 +31,6 @@ export function ManualBalanceUpdateCard() {
     account.plaidItem?.accessToken === "manual"
   ) || [];
 
-  // Temporary debugging
-  console.log("=== Manual Balance Update Debug ===");
-  console.log("All accounts:", accountsData);
-  console.log("Manual accounts found:", manualAccounts);
-  console.log("Manual accounts count:", manualAccounts.length);
-  if (accountsData) {
-    accountsData.forEach((account, index) => {
-      console.log(`Account ${index}:`, {
-        id: account.id,
-        name: account.name,
-        type: account.type,
-        plaidItem: account.plaidItem,
-        accessToken: account.plaidItem?.accessToken,
-        balance: account.balance
-      });
-    });
-  }
-
   if (isLoading) {
     return (
       <div className="card p-6">
@@ -65,14 +47,11 @@ export function ManualBalanceUpdateCard() {
   }
 
   if (manualAccounts.length === 0) {
-    console.log("No manual accounts found, hiding component");
-    // Temporary: Show a debug message instead of returning null
     return (
       <div className="card p-6">
         <div className="text-red-600">
           <h3>Debug: Manual Balance Update Card</h3>
           <p>No manual accounts found. Total accounts: {accountsData?.length || 0}</p>
-          <p>Check console for detailed account information.</p>
         </div>
       </div>
     );
