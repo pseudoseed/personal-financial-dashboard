@@ -66,7 +66,6 @@ export function UtilityButtons({
         },
         body: JSON.stringify({
           manual: true,
-          userId: "default",
         }),
       });
 
@@ -101,7 +100,6 @@ export function UtilityButtons({
         },
         body: JSON.stringify({
           manual: true,
-          userId: "default",
         }),
       });
 

@@ -102,7 +102,7 @@ export function InvestmentPerformanceCard({ className = '' }: InvestmentPerforma
           </p>
         </div>
         <div className="flex space-x-1">
-          {(['daily', 'weekly', 'monthly'] as SnapshotType[]).map((type) => (
+          {(['all', 'daily', 'weekly', 'monthly'] as SnapshotType[]).map((type) => (
             <Button
               key={type}
               variant={snapshotType === type ? 'primary' : 'secondary'}
@@ -110,7 +110,7 @@ export function InvestmentPerformanceCard({ className = '' }: InvestmentPerforma
               onClick={() => handleSnapshotChange(type)}
               className="text-xs px-2 py-1"
             >
-              {type.charAt(0).toUpperCase() + type.slice(1)}
+              {type === 'all' ? 'Live' : type.charAt(0).toUpperCase() + type.slice(1)}
             </Button>
           ))}
         </div>
@@ -186,7 +186,9 @@ export function InvestmentPerformanceCard({ className = '' }: InvestmentPerforma
       {data.historicalData.length > 0 && (
         <div className="mt-4 pt-4 border-t border-surface-200 dark:border-surface-700">
           <div className="text-xs text-surface-500 dark:text-surface-400">
-            Data based on {data.historicalData.length} {snapshotType} snapshots
+            {snapshotType === 'all'
+              ? `Data based on all balance updates (real-time view)`
+              : `Data based on ${data.historicalData.length} ${snapshotType} snapshots`}
           </div>
         </div>
       )}

@@ -1,26 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from '@/lib/userManagement';
 
 async function getSpotPrice(currency: string): Promise<number | null> {
   try {
     const response = await fetch(
-      `https://api.coinbase.com/v2/prices/${currency}-USD/spot`,
-      {
-        headers: {
-          "CB-VERSION": "2024-02-07",
-        },
-      }
+      `https://api.coinbase.com/v2/prices/${currency}-USD/spot`
     );
-
-    if (!response.ok) {
-      console.warn(`No USD spot price available for ${currency}`);
-      return null;
-    }
-
-    const { data } = await response.json();
-    return parseFloat(data.amount);
+    const data = await response.json();
+    return parseFloat(data.data.amount);
   } catch (error) {
-    console.warn(`Error fetching spot price for ${currency}:`, error);
+    console.error(`Error getting spot price for ${currency}:`, error);
     return null;
   }
 }
@@ -67,7 +57,7 @@ async function refreshCoinbaseAccounts(itemId: string, accessToken: string) {
         type: "investment",
         subtype: "crypto",
         itemId: itemId,
-        userId: "default",
+        userId: await getCurrentUserId(),
       },
     });
 
@@ -82,58 +72,61 @@ async function refreshCoinbaseAccounts(itemId: string, accessToken: string) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url);
-    const code = url.searchParams.get("code");
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get("code");
 
     if (!code) {
-      return NextResponse.json({ error: "No code provided" }, { status: 400 });
+      return NextResponse.json({ error: "No authorization code provided" }, { status: 400 });
     }
 
-    // Exchange code for tokens
+    // Exchange the authorization code for an access token
     const tokenResponse = await fetch("https://api.coinbase.com/oauth/token", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        client_id: process.env.COINBASE_CLIENT_ID,
-        client_secret: process.env.COINBASE_CLIENT_SECRET,
-        redirect_uri: process.env.COINBASE_REDIRECT_URI,
+        client_id: process.env.COINBASE_CLIENT_ID!,
+        client_secret: process.env.COINBASE_CLIENT_SECRET!,
+        redirect_uri: process.env.COINBASE_REDIRECT_URI!,
       }),
     });
 
-    const { access_token, refresh_token } = await tokenResponse.json();
+    if (!tokenResponse.ok) {
+      console.error("Coinbase token exchange failed:", await tokenResponse.text());
+      return NextResponse.json({ error: "Failed to exchange authorization code" }, { status: 500 });
+    }
 
-    // Get user's Coinbase info
-    const userResponse = await fetch("https://api.coinbase.com/v2/user", {
-      headers: { Authorization: `Bearer ${access_token}` },
-    });
-    const { data: user } = await userResponse.json();
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
 
-    // Create PlaidItem for Coinbase
-    const plaidItem = await prisma.plaidItem.create({
-      data: {
-        itemId: `coinbase_${user.id}`,
-        accessToken: access_token,
-        refreshToken: refresh_token,
+    // Create or update the Coinbase item
+    const coinbaseItem = await prisma.plaidItem.upsert({
+      where: { itemId: `coinbase_${Date.now()}` },
+      update: {
+        accessToken,
+        institutionName: "Coinbase",
         provider: "coinbase",
+      },
+      create: {
+        itemId: `coinbase_${Date.now()}`,
+        accessToken,
         institutionId: "coinbase",
         institutionName: "Coinbase",
-        institutionLogo: "/coinbase.webp",
+        provider: "coinbase",
       },
     });
 
-    // Get initial accounts and balances
-    await refreshCoinbaseAccounts(plaidItem.id, access_token);
+    // Refresh Coinbase accounts
+    await refreshCoinbaseAccounts(coinbaseItem.id, accessToken);
 
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   } catch (error) {
-    console.error("Error in Coinbase callback:", error);
-    return NextResponse.json(
-      { error: "Failed to connect Coinbase" },
-      { status: 500 }
-    );
+    console.error("Error in Coinbase OAuth callback:", error);
+    return NextResponse.json({ error: "Failed to complete Coinbase connection" }, { status: 500 });
   }
 }

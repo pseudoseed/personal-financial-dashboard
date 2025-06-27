@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateInvestmentPerformance, SnapshotType } from '@/lib/investmentPerformance';
+import { getCurrentUserId } from '@/lib/userManagement';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = "cmccxbmo000008of2p0eyw0o5"; // Default user for now
+    const userId = await getCurrentUserId();
     const { searchParams } = new URL(request.url);
     const snapshotType = (searchParams.get('snapshotType') as SnapshotType) || 'weekly';
 

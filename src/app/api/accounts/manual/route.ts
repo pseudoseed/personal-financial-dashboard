@@ -1,23 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { randomUUID } from "crypto";
+import { getCurrentUserId } from "@/lib/userManagement";
 
 export async function POST(request: Request) {
   try {
     const { name, type, subtype, balance, metadata, url } =
       await request.json();
 
-    // Find or create the default user
-    let user = await prisma.user.findUnique({ where: { email: 'user@example.com' } });
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          id: 'default',
-          email: 'user@example.com',
-          name: 'Default User',
-        },
-      });
-    }
+    // Get the current user ID
+    const userId = await getCurrentUserId();
 
     // Create a manual PlaidItem to associate with this account
     let plaidItem = await prisma.plaidItem.findFirst({
@@ -47,7 +39,7 @@ export async function POST(request: Request) {
         metadata: metadata || null,
         url: url || null,
         itemId: plaidItem.id,
-        userId: user.id, // Use the fetched/created user's ID
+        userId: userId, // Use the current user's ID
       },
     });
 

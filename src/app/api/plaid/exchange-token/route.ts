@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { CountryCode } from "plaid";
 import { institutionLogos } from "@/lib/institutionLogos";
 import { detectDuplicates, mergeDuplicateAccounts, getMergeMessage } from "@/lib/duplicateDetection";
+import { getCurrentUserId } from "@/lib/userManagement";
 
 function formatLogoUrl(
   logo: string | null | undefined,
@@ -52,19 +53,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get or create default user first
-    let defaultUser = await prisma.user.findFirst({
-      where: { email: 'default@example.com' }
-    });
-
-    if (!defaultUser) {
-      defaultUser = await prisma.user.create({
-        data: {
-          email: 'default@example.com',
-          name: 'Default User'
-        }
-      });
-    }
+    // Get the current user ID
+    const userId = await getCurrentUserId();
 
     // Exchange public token for access token
     const response = await plaidClient.itemPublicTokenExchange({
@@ -151,7 +141,7 @@ export async function POST(request: Request) {
               subtype: plaidAccount.subtype || null,
               mask: plaidAccount.mask || null,
               itemId: existingInstitution.id,
-              userId: defaultUser.id, // Use the actual user ID
+              userId: userId,
             },
           });
         }
@@ -201,7 +191,7 @@ export async function POST(request: Request) {
             subtype: plaidAccount.subtype || null,
             mask: plaidAccount.mask || null,
             itemId: newInstitution.id,
-            userId: defaultUser.id, // Use the actual user ID
+            userId: userId,
           },
         });
       }

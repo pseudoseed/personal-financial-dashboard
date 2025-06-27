@@ -4,13 +4,14 @@ import {
   canUserManualTransactionSync, 
   getManualTransactionSyncCount 
 } from "@/lib/transactionSyncService";
+import { getCurrentUserId } from "@/lib/userManagement";
 
 export async function POST(request: Request) {
   try {
     // Check if this is a manual sync request
     const body = await request.json().catch(() => ({}));
     const isManualSync = body.manual === true;
-    const userId = body.userId || "default";
+    const userId = body.userId || await getCurrentUserId();
     const forceSync = body.force === true;
     const accountIds = body.accountIds;
     

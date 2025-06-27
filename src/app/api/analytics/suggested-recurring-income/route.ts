@@ -4,18 +4,26 @@ import { differenceInDays } from "date-fns";
 
 // Helper: naive recurring detection (amount, description, interval)
 async function detectRecurringIncome() {
-  // Get all income transactions (amount > 0) for depository accounts only
+  // Get all transactions from depository accounts (checking/savings only)
   const transactions = await prisma.transaction.findMany({
     where: {
-      amount: { gt: 0 },
       account: {
         type: 'depository',
+        subtype: {
+          in: ['checking', 'savings'] // Only checking and savings accounts
+        },
       },
     },
     orderBy: { date: "desc" },
     include: {
       account: true,
     },
+  });
+
+  // Filter to only income transactions based on invertTransactions flag
+  const incomeTransactions = transactions.filter(tx => {
+    const actualAmount = tx.account.invertTransactions ? -tx.amount : tx.amount;
+    return actualAmount > 0; // This is income
   });
 
   // Get existing recurring payments
@@ -25,7 +33,7 @@ async function detectRecurringIncome() {
 
   // Group by name/description and amount
   const groups: Record<string, { name: string; amount: number; dates: Date[] }> = {};
-  for (const tx of transactions) {
+  for (const tx of incomeTransactions) {
     const key = `${tx.name || tx.merchantName || "Unknown"}|${tx.amount}`;
     if (!groups[key]) {
       groups[key] = { name: tx.name || tx.merchantName || "Unknown", amount: tx.amount, dates: [] };

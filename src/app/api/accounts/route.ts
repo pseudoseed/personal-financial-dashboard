@@ -13,6 +13,7 @@ export async function GET() {
             institutionId: true,
             institutionName: true,
             institutionLogo: true,
+            accessToken: true,
           },
         },
         balances: {
@@ -48,6 +49,7 @@ export async function GET() {
       lastSyncTime: account.lastSyncTime,
       plaidItem: {
         institutionId: account.plaidItem.institutionId,
+        accessToken: account.plaidItem.accessToken,
       },
       // Liability fields
       lastStatementBalance: account.lastStatementBalance,

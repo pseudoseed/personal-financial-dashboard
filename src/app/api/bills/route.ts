@@ -1,61 +1,18 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { getExpectedIncomeForMonth } from "@/lib/recurringPaymentUtils";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { getCurrentUserId } from '@/lib/userManagement';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Get all credit and loan accounts for bills calculation
+    const userId = await getCurrentUserId();
+    
+    // Get all credit and loan accounts with their latest balances
     const accounts = await prisma.account.findMany({
-      where: { 
+      where: {
+        userId,
+        hidden: false,
         type: { in: ['credit', 'loan'] }
       },
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        lastStatementBalance: true,
-        minimumPaymentAmount: true,
-        nextPaymentDueDate: true,
-      },
-    });
-
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30);
-
-    let totalBillsDueNext30Days = 0;
-    let availableCash = 0;
-
-    console.log(`[Bills API] Looking for bills due between ${startDate.toISOString()} and ${endDate.toISOString()}`);
-
-    for (const account of accounts) {
-      if (account.lastStatementBalance && account.minimumPaymentAmount) {
-        const dueDate = account.nextPaymentDueDate ? new Date(account.nextPaymentDueDate) : null;
-
-        if (dueDate) {
-          console.log(`[Bills API] Account ${account.name}: Due date ${dueDate.toISOString()}, Statement balance: ${account.lastStatementBalance}, Min payment: ${account.minimumPaymentAmount}`);
-          
-          // Check if payment is due in the next 30 days
-          if (dueDate >= startDate && dueDate <= endDate) {
-            const paymentAmount = Math.max(account.lastStatementBalance, account.minimumPaymentAmount);
-            totalBillsDueNext30Days += paymentAmount;
-            console.log(`[Bills API] ✅ Including ${account.name}: $${paymentAmount} due on ${dueDate.toISOString()}`);
-          } else {
-            console.log(`[Bills API] ❌ Excluding ${account.name}: Due date ${dueDate.toISOString()} is outside 30-day window`);
-          }
-        } else {
-          console.log(`[Bills API] ⚠️ Account ${account.name}: No due date available`);
-        }
-      } else {
-        console.log(`[Bills API] ⚠️ Account ${account.name}: Missing statement balance or minimum payment amount`);
-      }
-    }
-
-    console.log(`[Bills API] Total bills due in next 30 days: $${totalBillsDueNext30Days}`);
-
-    // Get available cash from depository accounts
-    const cashAccounts = await prisma.account.findMany({
-      where: { type: 'depository' },
       include: {
         balances: {
           orderBy: { date: 'desc' },
@@ -64,70 +21,50 @@ export async function GET() {
       },
     });
 
-    for (const account of cashAccounts) {
-      if (account.balances.length > 0 && account.balances[0].available && account.balances[0].available > 0) {
-        const cash = account.balances[0].available;
-        availableCash += cash;
-        console.log(`[Bills API] Available cash from ${account.name}: $${cash}`);
-      }
-    }
-
-    console.log(`[Bills API] Total available cash: $${availableCash}`);
-
-    // Get recurring payments for expected income calculation
-    const recurringPayments = await prisma.recurringPayment.findMany({
-      where: { 
-        userId: "default",
-        isActive: true 
-      },
-      select: {
-        id: true,
-        name: true,
-        amount: true,
-        frequency: true,
-        nextPaymentDate: true,
-        lastPaymentDate: true,
-        dayOfWeek: true,
-        dayOfMonth: true,
-        paymentType: true,
-        targetAccountId: true,
-        isActive: true,
-        isConfirmed: true,
-        confidence: true,
-      },
+    // Transform accounts into bills format
+    const bills = accounts.map(account => {
+      const balance = account.balances[0];
+      const currentBalance = balance?.current || 0;
+      
+      // Calculate due date (simplified - in real app this would come from the institution)
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 15); // Assume due in 15 days
+      
+      return {
+        id: account.id,
+        accountName: account.nickname || account.name,
+        accountType: account.type,
+        currentBalance: Math.abs(currentBalance),
+        minimumPayment: Math.max(Math.abs(currentBalance) * 0.02, 25), // 2% or $25 minimum
+        dueDate: dueDate.toISOString().split('T')[0],
+        isOverdue: dueDate < new Date(),
+        daysUntilDue: Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)),
+        lastStatementBalance: account.lastStatementBalance,
+        nextPaymentDueDate: account.nextPaymentDueDate,
+        minimumPaymentAmount: account.minimumPaymentAmount,
+      };
     });
 
-    const expectedIncome = getExpectedIncomeForMonth(
-      recurringPayments.map(payment => ({
-        ...payment,
-        frequency: payment.frequency as 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly' | 'yearly'
-      })),
-      now
-    );
-    console.log(`[Bills API] Expected income from recurring payments: $${expectedIncome}`);
-
-    const accountData = accounts.map(account => ({
-      id: account.id,
-      name: account.name,
-      type: account.type,
-      balances: [],
-      lastStatementBalance: account.lastStatementBalance,
-      minimumPaymentAmount: account.minimumPaymentAmount,
-      nextPaymentDueDate: account.nextPaymentDueDate?.toISOString(),
-      pendingTransactions: [],
-    }));
+    // Calculate summary
+    const totalBalance = bills.reduce((sum, bill) => sum + bill.currentBalance, 0);
+    const totalMinimumPayment = bills.reduce((sum, bill) => sum + bill.minimumPayment, 0);
+    const overdueBills = bills.filter(bill => bill.isOverdue);
+    const upcomingBills = bills.filter(bill => !bill.isOverdue && bill.daysUntilDue <= 7);
 
     return NextResponse.json({
-      totalBillsDueThisMonth: totalBillsDueNext30Days, // Keep old field name for backward compatibility
-      totalBillsDueNext30Days, // New field name for clarity
-      availableCash,
-      expectedIncome, // New field for recurring payments
-      accounts: accountData,
+      bills,
+      summary: {
+        totalBalance,
+        totalMinimumPayment,
+        overdueCount: overdueBills.length,
+        upcomingCount: upcomingBills.length,
+        totalBills: bills.length,
+      }
     });
   } catch (error) {
-    console.error("Error fetching bills data:", error);
+    console.error('Error fetching bills:', error);
     return NextResponse.json(
-      { error: "Failed to fetch bills data" },
+      { error: 'Failed to fetch bills' },
       { status: 500 }
     );
   }

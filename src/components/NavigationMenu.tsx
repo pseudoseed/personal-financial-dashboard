@@ -59,7 +59,7 @@ export function NavigationMenu() {
   return (
     <Menu as="div" className="relative inline-block text-left">
       <div>
-        <Menu.Button as={Button} variant="ghost" size="sm" className="gap-2 px-4 py-2 h-auto hover:bg-surface-100 dark:hover:bg-surface-800 transition-all duration-200">
+        <Menu.Button as={Button} variant="ghost" size="sm" className="gap-2 px-4 py-2 h-auto border border-gray-300 shadow-sm hover:bg-gray-200 dark:bg-surface-800 dark:border-surface-700 dark:shadow-md dark:hover:bg-surface-900 transition-all duration-200">
           <BanknotesIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
           <div className="flex flex-col items-start">
             <span className="text-sm font-semibold text-surface-900 dark:text-surface-100">

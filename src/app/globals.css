@@ -789,3 +789,9 @@ p {
     background-color: var(--surface-200);
   }
 }
+
+*:focus,
+*:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
