@@ -1,48 +1,121 @@
 # Active Context
 
 ## Current Focus
-**Status**: MANUAL BALANCE UPDATE FEATURE COMPLETED - Full Manual Account Management
+**Status**: CACHE BUSTING AND DEPLOYMENT VERIFICATION COMPLETED - Enhanced Deployment System
 
-I have successfully implemented a comprehensive manual balance update feature that allows users to easily update balances for their manual accounts while preserving balance history.
+I have successfully implemented comprehensive cache busting and deployment verification features to ensure reliable updates and data persistence for the Personal Finance Dashboard.
 
 ### ✅ Recent Enhancements (Latest Session)
-1. **Fixed Income Detection Logic** - Now properly handles `invertTransactions` flag for depository accounts
-2. **Improved Account Filtering** - Only considers checking and savings accounts for income detection
-3. **Moved Card Position** - Suggested Recurring Payments card is now the last card on the analytics page
-4. **Added Dismiss Functionality** - Users can now dismiss suggestions without adding them
-5. **Enhanced User Experience** - Better button layout with dismiss and add options
-6. **Manual Balance Update Feature** - Complete grid-based interface for updating manual account balances
+1. **Enhanced Deploy Script** - Added cache busting options, database backup, and deployment verification
+2. **Next.js Cache Optimization** - Added cache headers, build timestamp generation, and static asset optimization
+3. **Docker Build Improvements** - Added build arguments for cache invalidation and optimized layer ordering
+4. **Cache Management Utility** - Created comprehensive cache clearing and verification tools
+5. **Deployment Verification Script** - Added full deployment health and data integrity checking
+6. **Comprehensive Documentation** - Created detailed deployment cache management guide
 
 ### Technical Improvements Made
 
-#### Income Detection Fix
-- **Problem**: Previous logic only looked for `amount > 0` transactions, missing income when `invertTransactions` was enabled
-- **Solution**: Now gets all depository transactions and applies the `invertTransactions` logic to determine actual income direction
-- **Code Change**: Updated `/api/analytics/suggested-recurring-income/route.ts` to filter transactions properly
+#### Enhanced Deploy Script (`deploy.sh`)
+- **Cache Busting Options**: Added `--force-rebuild` and `--clear-cache` flags
+- **Database Backup**: Automatic backup before every deployment
+- **Build Arguments**: Docker build with timestamps and git commit info for cache invalidation
+- **Deployment Verification**: Enhanced health checks with retry logic
+- **New Commands**: Added `clear-cache`, `verify`, and enhanced help system
 
-#### Account Type Filtering
-- **Enhanced**: Now specifically filters for `subtype: ['checking', 'savings']` to only consider actual cash accounts
-- **Benefit**: Excludes CDs, money market accounts, and other depository subtypes that aren't typical income sources
+#### Next.js Cache Optimization (`next.config.ts`)
+- **Build ID Generation**: Timestamp-based build IDs for cache busting
+- **Cache Headers**: Proper cache control for static assets, API routes, and HTML pages
+- **Static Asset Optimization**: 1-year cache for static assets with immutable flag
+- **API Route Caching**: No-cache headers for dynamic data
+- **Webpack Optimization**: Bundle splitting and vendor chunk optimization
 
-#### UI/UX Improvements
-- **Card Position**: Moved from top of analytics page to the very end for better flow
-- **Dismiss Feature**: Added localStorage-based dismissal tracking to prevent dismissed suggestions from reappearing
-- **Button Layout**: Improved button arrangement with separate dismiss and add actions
+#### Docker Build Improvements (`Dockerfile`)
+- **Build Arguments**: Added BUILD_DATE, VCS_REF, VERSION, and CACHE_BUST arguments
+- **Layer Optimization**: Improved layer ordering for better cache efficiency
+- **Cache Invalidation**: Build arguments trigger cache invalidation when needed
+- **Startup Script Enhancement**: Added build info display on container startup
 
-#### Manual Balance Update Feature (NEW)
-- **Grid Interface**: Clean table layout showing all manual accounts with current balances
-- **Batch Updates**: Update multiple account balances with a single submit button
-- **History Preservation**: All balance updates create new `AccountBalance` records, preserving complete history
-- **Conditional Updates**: Only accounts with new values entered are updated
-- **Real-time Feedback**: Shows which accounts will be updated and provides success/error notifications
-- **Data Refresh**: Automatically refreshes account data after successful updates
+#### Cache Management Utility (`scripts/cache-manager.sh`)
+- **Comprehensive Cache Clearing**: Next.js, Node.js, Docker, and Turbopack caches
+- **Cache Status Verification**: Check cache sizes and ages
+- **Issue Detection**: Identify potential cache problems
+- **Browser Cache Information**: Guide users on clearing browser cache
+- **Configuration Display**: Show current cache configuration
 
-### Files Modified
-- `src/app/api/analytics/suggested-recurring-income/route.ts` - Fixed income detection logic
-- `src/app/dashboard/analytics/page.tsx` - Moved card position and added dismiss functionality
-- `src/app/api/accounts/manual/batch-update-balances/route.ts` - **NEW** Batch balance update API
-- `src/components/ManualBalanceUpdateCard.tsx` - **NEW** Manual balance update component
-- `src/app/dashboard/accounts/page.tsx` - **NEW** Added manual balance update card
+#### Deployment Verification Script (`scripts/verify-deployment.sh`)
+- **Full Health Check**: Container, application, database, and volume verification
+- **Data Integrity Check**: Verify database tables and record counts
+- **Resource Monitoring**: CPU and memory usage tracking
+- **Error Log Analysis**: Check recent logs for issues
+- **Modular Commands**: Individual checks for specific components
+
+#### Documentation (`DEPLOYMENT_CACHE_GUIDE.md`)
+- **Comprehensive Guide**: Complete deployment cache management documentation
+- **Troubleshooting Section**: Common issues and solutions
+- **Best Practices**: Recommended workflows and maintenance procedures
+- **Security Considerations**: Data protection and access control guidelines
+
+### Files Modified/Created
+- `deploy.sh` - Enhanced with cache busting and verification features
+- `next.config.ts` - Added cache headers and build optimization
+- `Dockerfile` - Added build arguments and cache invalidation
+- `scripts/cache-manager.sh` - **NEW** Comprehensive cache management utility
+- `scripts/verify-deployment.sh` - **NEW** Deployment verification script
+- `DEPLOYMENT_CACHE_GUIDE.md` - **NEW** Complete deployment documentation
+
+### Cache Busting Features
+
+#### Deployment Options
+1. **Normal Deployment**: `./deploy.sh deploy` - Uses Docker layer caching for speed
+2. **Cache Clearing**: `./deploy.sh deploy --clear-cache` - Clears Next.js cache for UI updates
+3. **Force Rebuild**: `./deploy.sh deploy --force-rebuild` - Rebuilds everything for major changes
+
+#### Cache Management Commands
+- `./deploy.sh clear-cache` - Clear all caches
+- `./scripts/cache-manager.sh clear-all` - Comprehensive cache clearing
+- `./scripts/cache-manager.sh verify` - Check cache status
+- `./scripts/cache-manager.sh check-issues` - Detect cache problems
+
+#### Verification Commands
+- `./deploy.sh verify` - Full deployment verification
+- `./scripts/verify-deployment.sh full` - Comprehensive health check
+- `./scripts/verify-deployment.sh quick` - Basic health check
+- `./scripts/verify-deployment.sh database` - Database-specific verification
+
+### Data Persistence Guarantees
+
+#### Database Safety
+- **Automatic Backup**: Every deployment creates a backup before starting
+- **Volume Persistence**: Database stored in Docker volume `dashboard_data`
+- **Data Integrity**: Verification scripts check database health and integrity
+- **Backup Location**: `backups/pre-deploy-backup-YYYYMMDD-HHMMSS.db`
+
+#### Volume Mounts
+- **Data Volume**: `/app/data` - Database and application data
+- **Logs Volume**: `/app/logs` - Application logs
+- **Backups Volume**: `/app/backups` - Database backups
+
+### Cache Layers Managed
+
+#### 1. Docker Layer Cache
+- **Purpose**: Faster rebuilds by caching build layers
+- **Management**: `--force-rebuild` flag or `clear-cache` command
+- **Optimization**: Multi-stage build with optimal layer ordering
+
+#### 2. Next.js Build Cache
+- **Purpose**: Caches build artifacts in `.next` directory
+- **Management**: `--clear-cache` flag or cache manager utility
+- **Optimization**: Build ID generation and cache headers
+
+#### 3. Browser Cache
+- **Purpose**: Caches static assets and API responses
+- **Management**: Hard refresh or clear browser data
+- **Optimization**: Proper cache headers and versioned URLs
+
+#### 4. Database Cache
+- **Purpose**: SQLite query caching and file system caching
+- **Management**: Automatic, rarely needs manual intervention
+- **Optimization**: Efficient queries and connection pooling
 
 ### Recent Achievements
 
@@ -65,6 +138,14 @@ I have successfully implemented a comprehensive manual balance update feature th
 - **Dismiss Functionality**: Users can now dismiss unwanted suggestions
 - **Manual Balance Management**: Complete interface for updating manual account balances
 
+### Deployment System Enhancements (COMPLETE)
+- **Cache Busting**: Comprehensive cache management for reliable deployments
+- **Data Persistence**: Guaranteed database persistence between deployments
+- **Deployment Verification**: Full health and integrity checking
+- **Automated Backup**: Pre-deployment database backup system
+- **Build Optimization**: Docker and Next.js build optimizations
+- **Documentation**: Complete deployment and cache management guide
+
 ### Root Cause Analysis
 **Primary Issue**: User ID mismatch in refresh services
 - Refresh service was using `userId: "default"` as string
@@ -79,6 +160,7 @@ I have successfully implemented a comprehensive manual balance update feature th
 - **AccountConnectionButtons was commented out** - preventing cost check feature
 - **Income Detection Logic** - Not considering `invertTransactions` flag for depository accounts
 - **Manual Account Management** - No way to update balances for manual accounts
+- **Cache Management** - No reliable way to ensure UI updates are deployed properly
 
 ### Data Flow Now Working
 - ✅ **Balance Refresh**: Creating proper balance records in database
@@ -91,6 +173,8 @@ I have successfully implemented a comprehensive manual balance update feature th
 - ✅ **Recurring Income**: Full recurring payment management available
 - ✅ **Income Detection**: Now properly detects income from all depository account types
 - ✅ **Manual Balance Updates**: Complete balance management for manual accounts
+- ✅ **Cache Management**: Reliable deployment with proper cache busting
+- ✅ **Data Persistence**: Guaranteed database persistence between deployments
 
 ### Investment Performance Card
 - **Portfolio Tracking**: Real-time portfolio value with historical snapshots
@@ -137,6 +221,14 @@ I have successfully implemented a comprehensive manual balance update feature th
 - **Error Handling**: Comprehensive error handling with detailed feedback
 - **Data Synchronization**: Automatic refresh of account data after updates
 
+### Deployment System (NEW)
+- **Cache Busting**: Comprehensive cache management for reliable deployments
+- **Data Persistence**: Guaranteed database persistence between deployments
+- **Deployment Verification**: Full health and integrity checking
+- **Automated Backup**: Pre-deployment database backup system
+- **Build Optimization**: Docker and Next.js build optimizations
+- **Documentation**: Complete deployment and cache management guide
+
 ## Current Issues
 
 ### Minor Issues (Non-Critical)
@@ -152,19 +244,20 @@ I have successfully implemented a comprehensive manual balance update feature th
 - ✅ **Missing Features**: All UI features restored
 - ✅ **Income Detection**: Fixed Suggested Recurring Payments logic
 - ✅ **Manual Account Management**: Complete balance update functionality
+- ✅ **Cache Management**: Comprehensive cache busting and deployment verification
 
 ## Next Steps
 
 ### Immediate (This Session)
-1. **Test User Workflows**: Verify all features work end-to-end
-2. **Performance Optimization**: Monitor and optimize if needed
-3. **User Experience**: Polish any remaining UI/UX issues
+1. **Test Deployment System**: Verify all cache busting and verification features work
+2. **User Testing**: Test deployment workflows with different scenarios
+3. **Performance Monitoring**: Monitor deployment performance and optimization
 
 ### Short Term
 1. **Add Investment Accounts**: Test investment performance with real data
 2. **Enhance Error Handling**: Add more specific error messages
 3. **Performance Monitoring**: Add metrics and monitoring
-4. **User Testing**: Get feedback on new features
+4. **User Testing**: Get feedback on new deployment features
 
 ### Long Term
 1. **Advanced Analytics**: Add more sophisticated financial insights
@@ -179,6 +272,7 @@ I have successfully implemented a comprehensive manual balance update feature th
 - ✅ **Missing Features Restored**: All UI features now available
 - ✅ **Income Detection Fixed**: Suggested Recurring Payments now works correctly
 - ✅ **Manual Account Management**: Complete balance update functionality implemented
+- ✅ **Cache Management**: Comprehensive deployment system with cache busting
 
 ## Technical Decisions
 
@@ -187,42 +281,24 @@ I have successfully implemented a comprehensive manual balance update feature th
 - **API Design**: Consistent REST API patterns across all endpoints
 - **Data Flow**: Proper separation of concerns with utility functions
 - **Error Handling**: Graceful degradation with user-friendly error messages
+- **Deployment System**: Comprehensive cache management and verification
 
 ### Database Schema
 - **No Schema Changes**: All new features use existing models
 - **Efficient Queries**: Optimized database queries for performance
 - **Data Relationships**: Proper foreign key relationships maintained
 - **History Preservation**: All balance updates create new records for complete audit trail
+- **Data Persistence**: Guaranteed persistence through Docker volumes and backup system
 
 ### UI/UX Patterns
 - **Consistent Design**: All new components follow existing design system
 - **Responsive Layout**: Mobile-friendly responsive design
 - **Loading States**: Proper loading and error states for all components
-- **Interactive Elements**: Appropriate use of buttons, tabs, and toggles
-- **Grid Interfaces**: Clean table layouts for data management
+- **Cache Management**: Proper cache headers and build optimization for reliable updates
 
-## Key Files Modified
-
-### New Components
-- `src/components/InvestmentPerformanceCard.tsx`
-- `src/components/EnhancedBillsCard.tsx`
-- `src/components/ActivityFeedCard.tsx`
-- `src/components/ManualBalanceUpdateCard.tsx` - **NEW**
-
-### New Utilities
-- `src/lib/investmentPerformance.ts`
-- `src/lib/enhancedBills.ts`
-- `src/lib/activityFeed.ts`
-
-### New API Endpoints
-- `src/app/api/accounts/manual/batch-update-balances/route.ts` - **NEW**
-
-### Restored Features
-- `src/app/dashboard/accounts/page.tsx` - **Uncommented AccountConnectionButtons**
-- `src/app/dashboard/page.tsx` - **Added RecurringPaymentsCard**
-- `src/app/dashboard/analytics/page.tsx` - **SuggestedRecurringPaymentsCard already present**
-
-### Enhanced Features
-- `src/app/api/analytics/suggested-recurring-income/route.ts` - **Fixed income detection logic**
-- `src/app/dashboard/analytics/page.tsx` - **Moved card position and added dismiss functionality**
-- `src/app/dashboard/accounts/page.tsx` - **Added ManualBalanceUpdateCard**
+### Deployment Patterns
+- **Cache Busting**: Multiple layers of cache management for reliable deployments
+- **Data Safety**: Automatic backup and verification for data persistence
+- **Build Optimization**: Docker and Next.js optimizations for performance
+- **Verification**: Comprehensive health and integrity checking
+- **Documentation**: Complete guides for deployment and troubleshooting

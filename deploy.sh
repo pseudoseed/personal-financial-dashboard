@@ -85,17 +85,126 @@ check_env() {
     fi
 }
 
-# Build and deploy
+# Create database backup before deployment
+create_backup_before_deploy() {
+    print_status "Creating database backup before deployment..."
+    
+    if [ ! -d backups ]; then
+        mkdir -p backups
+    fi
+    
+    BACKUP_FILE="backups/pre-deploy-backup-$(date +%Y%m%d-%H%M%S).db"
+    
+    if docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
+        print_status "Container is running, creating backup from container..."
+        docker cp $CONTAINER_NAME:/app/data/dev.db $BACKUP_FILE
+        print_success "Database backed up to: $BACKUP_FILE"
+    else
+        if [ -f data/dev.db ]; then
+            print_status "Container not running, creating backup from local file..."
+            cp data/dev.db $BACKUP_FILE
+            print_success "Database backed up to: $BACKUP_FILE"
+        else
+            print_warning "No database file found to backup (this is normal for first deployment)"
+        fi
+    fi
+}
+
+# Clear Next.js cache
+clear_next_cache() {
+    print_status "Clearing Next.js build cache..."
+    
+    # Remove .next directory if it exists
+    if [ -d .next ]; then
+        rm -rf .next
+        print_success "Next.js cache cleared"
+    else
+        print_status "No Next.js cache found to clear"
+    fi
+    
+    # Remove node_modules/.cache if it exists
+    if [ -d node_modules/.cache ]; then
+        rm -rf node_modules/.cache
+        print_success "Node modules cache cleared"
+    fi
+}
+
+# Build and deploy with cache options
 deploy() {
+    local FORCE_REBUILD=false
+    local CLEAR_CACHE=false
+    
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --force-rebuild)
+                FORCE_REBUILD=true
+                shift
+                ;;
+            --clear-cache)
+                CLEAR_CACHE=true
+                shift
+                ;;
+            --help)
+                echo "Deploy options:"
+                echo "  --force-rebuild    Force Docker to rebuild without using cache"
+                echo "  --clear-cache      Clear Next.js and Node.js caches before build"
+                echo "  --help            Show this help message"
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                echo "Use --help for available options"
+                exit 1
+                ;;
+        esac
+    done
+    
     print_status "Building and deploying Personal Finance Dashboard..."
     print_status "Using Docker Compose command: $DOCKER_COMPOSE"
     
     check_docker
     check_env
     
-    # Build the image
+    # Create backup before deployment
+    create_backup_before_deploy
+    
+    # Clear caches if requested
+    if [ "$CLEAR_CACHE" = true ]; then
+        clear_next_cache
+    fi
+    
+    # Generate build arguments for cache invalidation
+    local BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+    local VCS_REF=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    local VERSION=$(date +%Y%m%d-%H%M%S)
+    local CACHE_BUST=$(date +%s)
+    
+    print_status "Build info:"
+    echo "  Build Date: $BUILD_DATE"
+    echo "  Git Commit: $VCS_REF"
+    echo "  Version: $VERSION"
+    echo "  Cache Bust: $CACHE_BUST"
+    
+    # Build the image with cache options and build arguments
     print_status "Building Docker image..."
-    docker build -t $IMAGE_NAME .
+    if [ "$FORCE_REBUILD" = true ]; then
+        print_status "Forcing rebuild without cache..."
+        docker build \
+            --no-cache \
+            --build-arg BUILD_DATE="$BUILD_DATE" \
+            --build-arg VCS_REF="$VCS_REF" \
+            --build-arg VERSION="$VERSION" \
+            --build-arg CACHE_BUST="$CACHE_BUST" \
+            -t $IMAGE_NAME .
+    else
+        docker build \
+            --build-arg BUILD_DATE="$BUILD_DATE" \
+            --build-arg VCS_REF="$VCS_REF" \
+            --build-arg VERSION="$VERSION" \
+            --build-arg CACHE_BUST="$CACHE_BUST" \
+            -t $IMAGE_NAME .
+    fi
     
     # Stop existing container if running
     if docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
@@ -111,16 +220,55 @@ deploy() {
     print_status "Waiting for application to start..."
     sleep 15
     
-    # Check if the application is running
-    if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
-        print_success "Application is running successfully!"
-        print_status "Dashboard is available at: http://localhost:3000"
-        print_status "Smart refresh is enabled - data will refresh automatically when needed"
-        print_status "Manual refresh is limited to 3 times per day to control costs"
-    else
-        print_error "Application failed to start properly"
+    # Verify deployment
+    verify_deployment
+    
+    print_success "Deployment completed successfully!"
+    print_status "Dashboard is available at: http://localhost:3000"
+    print_status "Smart refresh is enabled - data will refresh automatically when needed"
+    print_status "Manual refresh is limited to 3 times per day to control costs"
+}
+
+# Verify deployment health
+verify_deployment() {
+    print_status "Verifying deployment..."
+    
+    # Check if container is running
+    if ! docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
+        print_error "Container is not running after deployment"
         print_status "Check logs with: $0 logs"
         exit 1
+    fi
+    
+    # Check health endpoint
+    local retries=0
+    local max_retries=10
+    
+    while [ $retries -lt $max_retries ]; do
+        if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
+            print_success "Application health check passed"
+            return 0
+        else
+            retries=$((retries + 1))
+            print_status "Health check failed, retrying... ($retries/$max_retries)"
+            sleep 5
+        fi
+    done
+    
+    print_error "Application failed to start properly after $max_retries attempts"
+    print_status "Check logs with: $0 logs"
+    exit 1
+}
+
+# Run full deployment verification
+run_verification() {
+    print_status "Running full deployment verification..."
+    
+    if [ -f scripts/verify-deployment.sh ]; then
+        ./scripts/verify-deployment.sh full
+    else
+        print_warning "Verification script not found, running basic health check..."
+        verify_deployment
     fi
 }
 
@@ -172,8 +320,8 @@ update() {
         git pull origin main
     fi
     
-    # Rebuild and deploy
-    deploy
+    # Rebuild and deploy with cache clearing for updates
+    deploy --clear-cache
 }
 
 # Backup database
@@ -197,6 +345,24 @@ backup() {
             print_error "No database file found to backup"
         fi
     fi
+}
+
+# Clear all caches
+clear_cache() {
+    print_status "Clearing all caches..."
+    
+    # Clear Next.js cache
+    clear_next_cache
+    
+    # Clear Docker build cache
+    print_status "Clearing Docker build cache..."
+    docker builder prune -f
+    
+    # Clear Docker system cache
+    print_status "Clearing Docker system cache..."
+    docker system prune -f
+    
+    print_success "All caches cleared"
 }
 
 # Manually run refresh
@@ -227,25 +393,46 @@ refresh_info() {
 help() {
     echo "Personal Finance Dashboard Management Script"
     echo ""
-    echo "Usage: $0 [COMMAND]"
+    echo "Usage: $0 [COMMAND] [OPTIONS]"
     echo ""
     echo "Commands:"
-    echo "  deploy      - Build and deploy the application"
-    echo "  logs        - Show application logs"
-    echo "  status      - Show application status"
-    echo "  stop        - Stop the application"
-    echo "  restart     - Restart the application"
-    echo "  update      - Update to latest version"
-    echo "  backup      - Create database backup"
-    echo "  refresh     - Manually run refresh"
-    echo "  refresh_info - Show refresh configuration"
-    echo "  help        - Show this help message"
+    echo "  deploy [OPTIONS]  - Build and deploy the application"
+    echo "  logs             - Show application logs"
+    echo "  status           - Show application status"
+    echo "  stop             - Stop the application"
+    echo "  restart          - Restart the application"
+    echo "  update           - Update to latest version"
+    echo "  backup           - Create database backup"
+    echo "  clear-cache      - Clear all caches (Docker, Next.js, Node.js)"
+    echo "  verify           - Run full deployment verification"
+    echo "  refresh          - Manually run refresh"
+    echo "  refresh_info     - Show refresh configuration"
+    echo "  help             - Show this help message"
+    echo ""
+    echo "Deploy Options:"
+    echo "  --force-rebuild  - Force Docker to rebuild without using cache"
+    echo "  --clear-cache    - Clear Next.js and Node.js caches before build"
     echo ""
     echo "Examples:"
-    echo "  $0 deploy   - Deploy the application"
-    echo "  $0 logs     - Show logs"
-    echo "  $0 backup   - Create database backup"
-    echo "  $0 refresh  - Manually refresh data"
+    echo "  $0 deploy                    - Deploy with normal caching"
+    echo "  $0 deploy --force-rebuild    - Deploy with forced rebuild"
+    echo "  $0 deploy --clear-cache      - Deploy with cache clearing"
+    echo "  $0 logs                      - Show logs"
+    echo "  $0 backup                    - Create database backup"
+    echo "  $0 clear-cache               - Clear all caches"
+    echo "  $0 verify                    - Run deployment verification"
+    echo "  $0 refresh                   - Manually refresh data"
+    echo ""
+    echo "Cache Management:"
+    echo "• Normal deployments use Docker layer caching for speed"
+    echo "• Use --force-rebuild for major changes or cache issues"
+    echo "• Use --clear-cache for UI/UX updates or build problems"
+    echo "• Database is automatically backed up before each deployment"
+    echo ""
+    echo "Verification:"
+    echo "• Use 'verify' command to check deployment health"
+    echo "• Verifies container, database, volumes, and application health"
+    echo "• Recommended after deployments to ensure everything is working"
     echo ""
     echo "Docker Compose Compatibility:"
     echo "  This script automatically detects and uses the appropriate Docker Compose command:"
@@ -256,7 +443,8 @@ help() {
 # Main script logic
 case "${1:-help}" in
     deploy)
-        deploy
+        shift
+        deploy "$@"
         ;;
     logs)
         logs
@@ -275,6 +463,12 @@ case "${1:-help}" in
         ;;
     backup)
         backup
+        ;;
+    clear-cache)
+        clear_cache
+        ;;
+    verify)
+        run_verification
         ;;
     refresh)
         refresh
