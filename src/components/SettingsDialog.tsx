@@ -36,6 +36,9 @@ interface Account {
   subtype: string | null;
   lastSyncTime?: string | Date | null;
   institution?: string;
+  nextMonthlyPayment?: number;
+  minimumPaymentAmount?: number;
+  lastStatementBalance?: number;
 }
 
 interface SyncStatus {
@@ -45,6 +48,148 @@ interface SyncStatus {
     status: string;
     error?: string;
   }>;
+}
+
+interface MonthlyPaymentItemProps {
+  account: Account;
+  showSensitiveData: boolean;
+  formatAccountDisplayName: (account: Account) => string;
+  onUpdateMonthlyPayment: (accountId: string, monthlyPayment: number, statementBalance: number) => Promise<void>;
+  isUpdating: boolean;
+}
+
+function MonthlyPaymentItem({ 
+  account, 
+  showSensitiveData, 
+  formatAccountDisplayName, 
+  onUpdateMonthlyPayment, 
+  isUpdating 
+}: MonthlyPaymentItemProps) {
+  const [monthlyPayment, setMonthlyPayment] = useState(account.nextMonthlyPayment || account.minimumPaymentAmount || 0);
+  const [statementBalance, setStatementBalance] = useState(account.lastStatementBalance || 0);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const isCreditCard = account.type === 'credit';
+  const balanceLabel = isCreditCard ? 'Statement balance' : 'Full balance';
+  const paymentLabel = isCreditCard ? 'Monthly payment' : 'Monthly payment';
+
+  const handleReset = () => {
+    // Reset to original values from the database
+    setMonthlyPayment(account.minimumPaymentAmount || 0);
+    setStatementBalance(account.lastStatementBalance || 0);
+  };
+
+  return (
+    <div className="p-3 bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <span className="font-medium text-gray-900 dark:text-white">
+            {formatAccountDisplayName(account)}
+          </span>
+          <span className="ml-2 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+            {isCreditCard ? 'Credit Card' : 'Loan'}
+          </span>
+        </div>
+        <button
+          onClick={() => setIsEditing(!isEditing)}
+          className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
+        >
+          {isEditing ? 'Cancel' : 'Edit'}
+        </button>
+      </div>
+      
+      {isEditing ? (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+              {paymentLabel} (used in cash flow)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={monthlyPayment}
+                onChange={(e) => setMonthlyPayment(parseFloat(e.target.value) || 0)}
+                className="flex-1 px-3 py-1 text-sm border border-gray-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+                placeholder="Monthly payment amount"
+              />
+            </div>
+          </div>
+          
+          {isCreditCard && (
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                Statement balance (fallback if no monthly payment)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={statementBalance}
+                  onChange={(e) => setStatementBalance(parseFloat(e.target.value) || 0)}
+                  className="flex-1 px-3 py-1 text-sm border border-gray-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-gray-900 dark:text-white"
+                  placeholder="Statement balance"
+                />
+              </div>
+            </div>
+          )}
+          
+          <div className="flex gap-2">
+            <button
+              onClick={handleReset}
+              className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-zinc-600 rounded hover:bg-gray-100 dark:hover:bg-zinc-700"
+              title="Reset to original values"
+            >
+              Reset
+            </button>
+            <button
+              onClick={() => {
+                onUpdateMonthlyPayment(account.id, monthlyPayment, statementBalance);
+                setIsEditing(false);
+              }}
+              disabled={isUpdating}
+              className="flex-1 px-3 py-1 text-sm bg-purple-600 dark:bg-purple-500 text-white rounded hover:bg-purple-700 dark:hover:bg-purple-400 disabled:opacity-50"
+            >
+              {isUpdating ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+          
+          {isCreditCard && account.minimumPaymentAmount && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Bank minimum payment: {showSensitiveData ? `$${account.minimumPaymentAmount.toLocaleString()}` : '••••••'}
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex justify-between">
+            <span>{paymentLabel}:</span>
+            <span className="font-medium">
+              {showSensitiveData ? `$${monthlyPayment.toLocaleString()}` : '••••••'}
+            </span>
+          </div>
+          {account.lastStatementBalance && (
+            <div className="flex justify-between mt-1">
+              <span>{balanceLabel}:</span>
+              <span>
+                {showSensitiveData ? `$${account.lastStatementBalance.toLocaleString()}` : '••••••'}
+              </span>
+            </div>
+          )}
+          {isCreditCard && account.minimumPaymentAmount && (
+            <div className="flex justify-between mt-1">
+              <span>Minimum payment:</span>
+              <span>
+                {showSensitiveData ? `$${account.minimumPaymentAmount.toLocaleString()}` : '••••••'}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
@@ -61,6 +206,8 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [isFixingAmounts, setIsFixingAmounts] = useState(false);
   const [forceSyncStatus, setForceSyncStatus] = useState<string>("");
   const [isForceSyncing, setIsForceSyncing] = useState(false);
+  const [monthlyPaymentStatus, setMonthlyPaymentStatus] = useState<string>("");
+  const [isUpdatingMonthlyPayment, setIsUpdatingMonthlyPayment] = useState<string | null>(null);
 
   // Use the dialog dismiss hook - Settings dialog doesn't require input
   const dialogRef = useDialogDismiss({
@@ -74,6 +221,8 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const allAccounts = accounts.filter(account => account.institution !== 'Coinbase');
   const newAccounts = allAccounts.filter(account => !account.lastSyncTime);
   const creditCardAccounts = allAccounts.filter(account => account.type === 'credit');
+  const loanAccounts = allAccounts.filter(account => account.type === 'loan');
+  const billAccounts = allAccounts.filter(account => ['credit', 'loan'].includes(account.type));
 
   // Helper functions to mask sensitive data
   const maskAccountName = (name: string) => showSensitiveData ? name : "••••••••••";
@@ -220,6 +369,33 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     }
   };
 
+  const handleUpdateMonthlyPayment = async (accountId: string, monthlyPayment: number, statementBalance: number) => {
+    setIsUpdatingMonthlyPayment(accountId);
+    setMonthlyPaymentStatus("");
+
+    try {
+      const response = await fetch(`/api/accounts/${accountId}/update-monthly-payment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monthlyPayment, statementBalance }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setMonthlyPaymentStatus(`Monthly payment updated successfully for ${data.account.nickname || data.account.name}`);
+        // Refresh account data
+        fetchAccounts();
+      } else {
+        setMonthlyPaymentStatus(`Error: ${data.error || 'Failed to update monthly payment'}`);
+      }
+    } catch (error) {
+      setMonthlyPaymentStatus("A network error occurred while updating the monthly payment.");
+    } finally {
+      setIsUpdatingMonthlyPayment(null);
+    }
+  };
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -236,10 +412,10 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div 
         ref={dialogRef}
-        className="bg-white dark:bg-zinc-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-zinc-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-zinc-700">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-zinc-700 flex-shrink-0">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Settings</h2>
           <button
             onClick={onClose}
@@ -249,8 +425,8 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Appearance Section */}
           <div className="mb-8 p-4 rounded-lg bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800">
             <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Appearance</h3>
@@ -446,17 +622,6 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
             </div>
           </div>
 
-          {/* About Section */}
-          <div className="p-4 rounded-lg bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800">
-            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">About</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Personal Financial Dashboard v1.0.0
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              Built with Next.js, Prisma, and Plaid
-            </p>
-          </div>
-
           {/* Advanced Settings Section */}
           <div className="mb-8 p-4 rounded-lg bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800">
             <button 
@@ -480,6 +645,53 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                     </p>
                   </div>
                 </div>
+
+                {/* Monthly Payment Management Subsection */}
+                {billAccounts.length > 0 && (
+                  <div className="border border-gray-200 dark:border-zinc-700 rounded-lg p-4 bg-white dark:bg-zinc-800">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-gray-900 dark:text-white">Monthly Payment Management</h4>
+                      <button
+                        onClick={() => {
+                          // Reset all accounts to their original values
+                          billAccounts.forEach(account => {
+                            handleUpdateMonthlyPayment(
+                              account.id, 
+                              account.minimumPaymentAmount || 0, 
+                              account.lastStatementBalance || 0
+                            );
+                          });
+                        }}
+                        className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 px-2 py-1 rounded border border-gray-300 dark:border-zinc-600 hover:bg-gray-100 dark:hover:bg-zinc-700"
+                        title="Reset all accounts to original values"
+                      >
+                        Reset All
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Set monthly payment amounts for credit cards and loans. These amounts are used in cash flow calculations instead of the full balance or statement balance.
+                    </p>
+                    
+                    <div className="space-y-3">
+                      {billAccounts.map((account) => (
+                        <MonthlyPaymentItem
+                          key={account.id}
+                          account={account}
+                          showSensitiveData={showSensitiveData}
+                          formatAccountDisplayName={formatAccountDisplayName}
+                          onUpdateMonthlyPayment={handleUpdateMonthlyPayment}
+                          isUpdating={isUpdatingMonthlyPayment === account.id}
+                        />
+                      ))}
+                    </div>
+                    
+                    {monthlyPaymentStatus && (
+                      <div className="mt-3 p-2 text-sm rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
+                        {monthlyPaymentStatus}
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 <Button
                   onClick={handleForceResync}
@@ -500,6 +712,17 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                 )}
               </div>
             )}
+          </div>
+
+          {/* About Section */}
+          <div className="p-4 rounded-lg bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800">
+            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">About</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Personal Financial Dashboard v1.0.0
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Built with Next.js, Prisma, and Plaid
+            </p>
           </div>
         </div>
       </div>
