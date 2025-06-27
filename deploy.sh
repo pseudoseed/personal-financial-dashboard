@@ -174,36 +174,18 @@ deploy() {
         clear_next_cache
     fi
     
-    # Generate build arguments for cache invalidation
-    local BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-    local VCS_REF=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-    local VERSION=$(date +%Y%m%d-%H%M%S)
-    local CACHE_BUST=$(date +%s)
-    
     print_status "Build info:"
-    echo "  Build Date: $BUILD_DATE"
-    echo "  Git Commit: $VCS_REF"
-    echo "  Version: $VERSION"
-    echo "  Cache Bust: $CACHE_BUST"
+    echo "  Build Date: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+    echo "  Git Commit: $(git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+    echo "  Version: $(date +%Y%m%d-%H%M%S)"
     
     # Build the image with cache options and build arguments
-    print_status "Building Docker image..."
+    print_status "Building Docker image using Docker Compose..."
     if [ "$FORCE_REBUILD" = true ]; then
         print_status "Forcing rebuild without cache..."
-        docker build \
-            --no-cache \
-            --build-arg BUILD_DATE="$BUILD_DATE" \
-            --build-arg VCS_REF="$VCS_REF" \
-            --build-arg VERSION="$VERSION" \
-            --build-arg CACHE_BUST="$CACHE_BUST" \
-            -t $IMAGE_NAME .
+        $DOCKER_COMPOSE build --no-cache
     else
-        docker build \
-            --build-arg BUILD_DATE="$BUILD_DATE" \
-            --build-arg VCS_REF="$VCS_REF" \
-            --build-arg VERSION="$VERSION" \
-            --build-arg CACHE_BUST="$CACHE_BUST" \
-            -t $IMAGE_NAME .
+        $DOCKER_COMPOSE build
     fi
     
     # Stop existing container if running
