@@ -811,3 +811,16 @@ p {
   box-shadow: none !important;
   outline: none !important;
 }
+
+/* Force remove all outlines and focus rings from Headless UI dropdowns */
+[role="menu"]:focus,
+[role="menu"]:focus-visible,
+[role="menu"]:focus-within,
+[role="menu"].focus\:ring-2,
+[role="menu"].focus\:ring-primary-500,
+[role="menu"].focus\:ring-offset-2,
+[role="menu"].dark\:focus\:ring-offset-surface-900 {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: inherit !important;
+}
