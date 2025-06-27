@@ -125,17 +125,35 @@ function calculateUpcomingBills(accounts: any[]): UpcomingBill[] {
     let dueDate: string | null = null;
     let minPayment = account.minimumPaymentAmount || 0;
 
-    if (typeof statementBalance === 'number' && statementDueDate) {
-      amount = statementBalance;
+    // Determine the appropriate amount based on account type
+    if (account.type === 'loan') {
+      // For loans (including mortgages), use monthly payment amount
+      if (typeof account.nextMonthlyPayment === 'number' && account.nextMonthlyPayment > 0) {
+        amount = account.nextMonthlyPayment;
+      } else if (typeof account.minimumPaymentAmount === 'number' && account.minimumPaymentAmount > 0) {
+        amount = account.minimumPaymentAmount;
+      } else if (typeof statementBalance === 'number' && statementBalance > 0) {
+        // Fallback to statement balance if no monthly payment is set
+        amount = statementBalance;
+      }
+    } else if (account.type === 'credit') {
+      // For credit cards, use monthly payment override if set, otherwise use statement balance
+      if (typeof account.nextMonthlyPayment === 'number' && account.nextMonthlyPayment > 0) {
+        amount = account.nextMonthlyPayment;
+      } else if (typeof statementBalance === 'number' && statementBalance > 0) {
+        amount = statementBalance;
+      }
+    }
+
+    // Set due date
+    if (statementDueDate) {
       dueDate = new Date(statementDueDate).toISOString().split('T')[0];
     } else if (account.balances && account.balances.length > 0) {
-      // Fallback to previous logic
-      const balance = account.balances[0];
-      amount = balance.current || 0;
+      // Fallback to previous logic for due date
       const fallbackDue = new Date(now);
       fallbackDue.setDate(fallbackDue.getDate() + 15 + Math.floor(Math.random() * 10));
       dueDate = fallbackDue.toISOString().split('T')[0];
-      if (!minPayment) {
+      if (!minPayment && amount > 0) {
         minPayment = Math.max(amount * 0.02, 25); // 2% or $25 minimum
       }
     }

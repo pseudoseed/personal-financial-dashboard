@@ -677,6 +677,14 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                   {displayBalance(history?.[0]?.current)}
                 </span>
               </p>
+              {account.type === 'loan' && account.nextMonthlyPayment && (
+                <p>
+                  Monthly Payment:{" "}
+                  <span className="font-semibold text-surface-900 dark:text-surface-dark-900">
+                    {displayBalance(account.nextMonthlyPayment)}
+                  </span>
+                </p>
+              )}
               <p>
                 Statement Balance:{" "}
                 <span className="font-semibold text-surface-900 dark:text-surface-dark-900">
