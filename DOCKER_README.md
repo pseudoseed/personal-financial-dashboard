@@ -40,6 +40,19 @@ The deployment script automatically detects and uses the appropriate Docker Comp
 
 This ensures compatibility across different Docker installations and versions.
 
+## Data Persistence
+
+The application uses Docker named volumes for data persistence:
+- **Database**: `dashboard_data` volume (SQLite database)
+- **Logs**: `dashboard_logs` volume (application logs)
+- **Backups**: `dashboard_backups` volume (database backups)
+
+Named volumes provide:
+- **Universal compatibility**: No permission issues across different systems
+- **Automatic permission management**: Docker handles ownership and permissions
+- **Data persistence**: Data survives container restarts and updates
+- **Easy backup**: Use `./deploy.sh backup` to create database backups
+
 ## Environment Configuration
 
 The application requires several environment variables to function properly. Copy `env.example` to `.env` and configure:
