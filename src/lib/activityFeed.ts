@@ -38,6 +38,7 @@ export interface ActivitySummary {
 }
 
 export async function getActivityFeedData(_userId: string, limit: number = 20): Promise<ActivityFeedData> {
+  // Force use of 'default' user ID since that's where the accounts are stored
   const userId = 'default';
   const activities: Activity[] = [];
   

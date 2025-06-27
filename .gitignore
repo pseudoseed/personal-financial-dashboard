@@ -50,3 +50,7 @@ prisma/dev-plaid-only.db
 
 # data directory (local database files and data)
 data/
+
+# Ignore all SQLite DBs in prisma
+prisma/*.db
+prisma/**/*.db

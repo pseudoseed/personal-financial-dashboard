@@ -168,6 +168,12 @@ VALUES ('default', 'default@example.com', 'Default User', datetime('now'), datet
     print_status "Database file: $db_path"
 }
 
+# Warn if stray DB files exist in prisma/
+if compgen -G "./prisma/*.db" > /dev/null || compgen -G "./prisma/data/*.db" > /dev/null; then
+    print_warning "Stray .db files found in prisma/ or prisma/data/. These are not used in production and may cause confusion."
+    print_warning "Please remove them: rm -f prisma/*.db prisma/data/*.db"
+fi
+
 # Main execution
 main() {
     print_status "Starting database initialization..."
