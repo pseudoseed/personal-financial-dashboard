@@ -19,8 +19,7 @@ const nextConfig: NextConfig = {
   
   // Static asset optimization
   experimental: {
-    // Enable static optimization
-    optimizeCss: true,
+    // Enable package import optimization
     optimizePackageImports: ['@heroicons/react', 'chart.js'],
   },
   
@@ -56,8 +55,8 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Cache public assets
-        source: '/(.*\\.(ico|png|jpg|jpeg|gif|svg|webp|css|js))',
+        // Cache public assets - fixed regex pattern
+        source: '/:path*.(ico|png|jpg|jpeg|gif|svg|webp|css|js)',
         headers: [
           {
             key: 'Cache-Control',
