@@ -116,7 +116,7 @@ export default function TopVendorsCard() {
                     id="period-select"
                     value={period}
                     onChange={(e) => handlePeriodChange(e.target.value)}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:bg-zinc-700 dark:border-zinc-600 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:bg-zinc-700 dark:border-zinc-600 focus:outline-none sm:text-sm rounded-md"
                   >
                     {periodOptions.map(option => (
                       <option key={option.value} value={option.value}>{option.label}</option>

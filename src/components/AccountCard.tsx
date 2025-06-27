@@ -246,7 +246,7 @@ export function AccountCard({
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 placeholder="Enter nickname"
-                className="w-full px-2 py-1 text-sm border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="w-full px-2 py-1 text-sm border border-border rounded focus:outline-none"
                 autoFocus
                 ref={inputRef}
               />

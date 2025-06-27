@@ -442,7 +442,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                 <button
                   onClick={handleToggleEmergencyFund}
                   disabled={isEmergencyLoading || isEmergencyFund === null}
-                  className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 touch-manipulation ${
+                  className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none ${
                     isEmergencyFund ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
                   }`}
                 >
@@ -718,7 +718,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
               <button
                 onClick={handleToggleInversion}
                 disabled={isInverting}
-                className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 touch-manipulation ${
+                className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none ${
                   localInvertTransactions ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
                 }`}
               >
@@ -754,7 +754,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
               <button
                 onClick={handleToggleEmergencyFund}
                 disabled={isEmergencyLoading || isEmergencyFund === null}
-                className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 touch-manipulation ${
+                className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none ${
                   isEmergencyFund ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
                 }`}
               >

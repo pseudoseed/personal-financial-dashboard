@@ -184,7 +184,7 @@ export function ManualAccountForm({
             type="radio"
             checked={!isRecurringPayment}
             onChange={() => setIsRecurringPayment(false)}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 text-blue-600 focus:outline-none"
           />
           <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Regular Account</span>
         </label>
@@ -193,7 +193,7 @@ export function ManualAccountForm({
             type="radio"
             checked={isRecurringPayment}
             onChange={() => setIsRecurringPayment(true)}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 text-blue-600 focus:outline-none"
           />
           <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Recurring Payment</span>
         </label>
@@ -210,7 +210,7 @@ export function ManualAccountForm({
           onChange={(e) =>
             setFormData((prev) => ({ ...prev, name: e.target.value }))
           }
-          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+          className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
           placeholder={isRecurringPayment ? "e.g., Bi-weekly Paycheck" : "e.g., Personal Checking"}
         />
       </div>
@@ -227,7 +227,7 @@ export function ManualAccountForm({
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, url: e.target.value }))
               }
-              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               placeholder="e.g., https://www.zillow.com/homedetails/..."
             />
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -249,7 +249,7 @@ export function ManualAccountForm({
                   subtype: subtypes[e.target.value as AccountType][0].value,
                 }))
               }
-              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
             >
               {accountTypes.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -269,7 +269,7 @@ export function ManualAccountForm({
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, subtype: e.target.value }))
               }
-              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
             >
               {subtypes[formData.type].map((subtype) => (
                 <option key={subtype.value} value={subtype.value}>
@@ -295,7 +295,7 @@ export function ManualAccountForm({
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, balance: e.target.value }))
                 }
-                className="pl-7 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="pl-7 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
                 placeholder="0.00"
               />
             </div>
@@ -322,7 +322,7 @@ export function ManualAccountForm({
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, paymentAmount: e.target.value }))
                 }
-                className="pl-7 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="pl-7 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
                 placeholder="0.00"
               />
             </div>
@@ -338,7 +338,7 @@ export function ManualAccountForm({
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, paymentType: e.target.value }))
               }
-              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
             >
               {paymentTypes.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -356,7 +356,7 @@ export function ManualAccountForm({
               required
               value={formData.frequency}
               onChange={(e) => handleFrequencyChange(e.target.value)}
-              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
             >
               {frequencies.map((freq) => (
                 <option key={freq.value} value={freq.value}>
@@ -377,7 +377,7 @@ export function ManualAccountForm({
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, dayOfWeek: e.target.value }))
                 }
-                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               >
                 {daysOfWeek.map((day) => (
                   <option key={day.value} value={day.value}>
@@ -399,7 +399,7 @@ export function ManualAccountForm({
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, dayOfMonth: e.target.value }))
                 }
-                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               >
                 {daysOfMonth.map((day) => (
                   <option key={day.value} value={day.value}>
@@ -421,7 +421,7 @@ export function ManualAccountForm({
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, nextPaymentDate: e.target.value }))
               }
-              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
             />
           </div>
         </>
@@ -446,7 +446,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, address: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               />
             </div>
 
@@ -464,7 +464,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, city: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               />
             </div>
 
@@ -482,7 +482,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, state: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               />
             </div>
 
@@ -500,7 +500,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, zipCode: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               />
             </div>
 
@@ -520,7 +520,7 @@ export function ManualAccountForm({
                     },
                   }))
                 }
-                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               >
                 {propertyTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -544,7 +544,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, squareFeet: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               />
             </div>
 
@@ -562,7 +562,7 @@ export function ManualAccountForm({
                     metadata: { ...prev.metadata, yearBuilt: e.target.value },
                   }))
                 }
-                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               />
             </div>
 
@@ -588,7 +588,7 @@ export function ManualAccountForm({
                       },
                     }))
                   }
-                  className="pl-7 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  className="pl-7 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
                 />
               </div>
             </div>
@@ -610,7 +610,7 @@ export function ManualAccountForm({
                     },
                   }))
                 }
-                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-3 py-2 text-base shadow-sm focus:outline-none"
               />
             </div>
           </div>
