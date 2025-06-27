@@ -16,9 +16,9 @@ services:
     env_file:
       - .env
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./backups:/app/backups
+      - dashboard_data:/app/data
+      - dashboard_logs:/app/logs
+      - dashboard_backups:/app/backups
     user: "1001:1001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
@@ -40,9 +40,9 @@ networks:
     driver: bridge
 
 volumes:
-  data:
+  dashboard_data:
     driver: local
-  logs:
+  dashboard_logs:
     driver: local
-  backups:
+  dashboard_backups:
     driver: local 
