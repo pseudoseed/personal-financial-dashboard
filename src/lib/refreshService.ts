@@ -166,6 +166,12 @@ export async function smartRefreshAccounts(
     const validation = validateAccountData(account);
     
     if (!validation.isValid) {
+      // Check if this is just a manual account that should be skipped
+      if (validation.errors.length === 1 && validation.errors[0] === "Manual account - should be skipped") {
+        results.skipped.push(account.id);
+        continue;
+      }
+      
       results.errors.push({ 
         accountId: account.id, 
         error: `Account validation failed: ${validation.errors.join(', ')}` 
@@ -302,50 +308,59 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
         }
       }
       
-      for (const account of accounts) {
-        try {
-          const plaidAccount = response.data.accounts.find(
-            (acc: any) => acc.account_id === account.plaidId
-          );
-          
-          if (!plaidAccount) {
-            const errorMsg = `Account not found in Plaid response (plaidId: ${account.plaidId})`;
-            console.error(errorMsg);
-            results.errors.push({ accountId: account.id, error: errorMsg });
-            continue;
-          }
-          
-          // Create new balance record
-          await prisma.accountBalance.create({
-            data: {
-              accountId: account.id,
-              current: plaidAccount.balances.current || 0,
-              available: plaidAccount.balances.available || null,
-              limit: plaidAccount.balances.limit || null,
-            },
-          });
-          
-          // Update liability data if available
-          if (liabilityData && (account.type === "credit" || account.type === "loan")) {
+                for (const account of accounts) {
             try {
-              await updateAccountLiabilities(account, liabilityData);
+              const plaidAccount = response.data.accounts.find(
+                (acc: any) => acc.account_id === account.plaidId
+              );
+              
+              if (!plaidAccount) {
+                const errorMsg = `Account not found in Plaid response (plaidId: ${account.plaidId}) - account may have been removed or access revoked`;
+                console.error(errorMsg);
+                results.errors.push({ accountId: account.id, error: errorMsg });
+                continue;
+              }
+              
+              // Create new balance record
+              await prisma.accountBalance.create({
+                data: {
+                  accountId: account.id,
+                  current: plaidAccount.balances.current || 0,
+                  available: plaidAccount.balances.available || null,
+                  limit: plaidAccount.balances.limit || null,
+                },
+              });
+              
+              // Update liability data if available
+              if (liabilityData && (account.type === "credit" || account.type === "loan")) {
+                try {
+                  await updateAccountLiabilities(account, liabilityData);
+                } catch (error) {
+                  console.warn(`Failed to update liability data for account ${account.id}:`, error instanceof Error ? error.message : "Unknown error");
+                }
+              }
+              
+              results.refreshed.push(account.id);
             } catch (error) {
-              console.warn(`Failed to update liability data for account ${account.id}:`, error instanceof Error ? error.message : "Unknown error");
+              const errorMessage = error instanceof Error ? error.message : "Unknown error";
+              console.error(`Error processing account ${account.id}:`, errorMessage);
+              results.errors.push({ accountId: account.id, error: errorMessage });
             }
           }
-          
-          results.refreshed.push(account.id);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Unknown error";
-          console.error(`Error processing account ${account.id}:`, errorMessage);
-          results.errors.push({ accountId: account.id, error: errorMessage });
+          console.error(`Error refreshing Plaid institution:`, errorMessage);
+          
+          // Provide more specific error messages for common Plaid errors
+          if (errorMessage.includes("400")) {
+            const specificError = "Plaid API returned 400 error - this usually means the access token is invalid, expired, or the account access has been revoked. You may need to reconnect this institution.";
+            accounts.forEach((account: any) => {
+              results.errors.push({ accountId: account.id, error: specificError });
+            });
+          } else {
+            throw error;
+          }
         }
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`Error refreshing Plaid institution:`, errorMessage);
-      throw error;
-    }
   }
 }
 
@@ -473,9 +488,10 @@ export function validateAccountData(account: any): { isValid: boolean; errors: s
       errors.push("Missing accessToken");
     }
     
-    if (account.plaidItem.accessToken === "manual") {
-      errors.push("Manual account - should be skipped");
-    }
+    // Don't treat manual accounts as validation errors - they should be handled separately
+    // if (account.plaidItem.accessToken === "manual") {
+    //   errors.push("Manual account - should be skipped");
+    // }
   }
   
   if (!account.type) {
