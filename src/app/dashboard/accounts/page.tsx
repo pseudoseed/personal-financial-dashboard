@@ -15,6 +15,7 @@ import {
   ArrowPathIcon,
   XCircleIcon,
 } from "@heroicons/react/24/solid";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { Account } from "@/types/account";
 import { useTheme } from "../../providers";
 import { AccountConnectionButtons } from "@/components/AccountConnectionButtons";
@@ -30,6 +31,8 @@ export default function AccountsPage() {
   const [refreshingInstitutions, setRefreshingInstitutions] = useState<Record<string, boolean>>({});
   const [disconnectingInstitutions, setDisconnectingInstitutions] = useState<Record<string, boolean>>({});
   const [institutionShowHidden, setInstitutionShowHidden] = useState<Record<string, boolean>>({});
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [refreshResults, setRefreshResults] = useState<any>(null);
   const { darkMode, setDarkMode } = useTheme();
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
@@ -79,16 +82,44 @@ export default function AccountsPage() {
   const refreshBalances = async () => {
     try {
       setIsRefreshing(true);
+      setRefreshError(null);
+      setRefreshResults(null);
+      
       const response = await fetch("/api/accounts/refresh", {
         method: "POST",
       });
 
+      const data = await response.json();
+      setRefreshResults(data);
+
       if (!response.ok) {
-        throw new Error("Failed to refresh balances");
+        const errorMessage = data.error || `Failed to refresh balances (${response.status})`;
+        setRefreshError(errorMessage);
+        addNotification({
+          type: "error",
+          title: "Refresh Failed",
+          message: errorMessage,
+        });
+        return;
       }
+
+      // Show success notification with results
+      const successMessage = `Refreshed ${data.accountsRefreshed} accounts, skipped ${data.accountsSkipped}${data.errors > 0 ? `, ${data.errors} errors` : ''}`;
+      addNotification({
+        type: "success",
+        title: "Refresh Complete",
+        message: successMessage,
+      });
 
       await refetch();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to refresh balances";
+      setRefreshError(errorMessage);
+      addNotification({
+        type: "error",
+        title: "Refresh Failed",
+        message: errorMessage,
+      });
       console.error("Error refreshing balances:", error);
     } finally {
       setIsRefreshing(false);
@@ -207,27 +238,88 @@ export default function AccountsPage() {
           <div className="flex items-center space-x-2">
             <button
               onClick={refreshBalances}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               disabled={isRefreshing}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
             >
               <ArrowPathIcon
-                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+                className={`h-4 w-4 mr-2 ${
+                  isRefreshing ? "animate-spin" : ""
+                }`}
               />
-              Refresh All
+              {isRefreshing ? "Refreshing..." : "Refresh All"}
             </button>
             <button
-              onClick={() => setShowHidden(!showHidden)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onClick={refreshInstitutions}
+              disabled={isRefreshingInstitutions}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
-              {showHidden ? (
-                <LockOpenIcon className="h-4 w-4 mr-2" />
-              ) : (
-                <LockClosedIcon className="h-4 w-4 mr-2" />
-              )}
-              {showHidden ? "Hide Hidden" : "Show Hidden"}
+              <ArrowPathIcon
+                className={`h-4 w-4 mr-2 ${
+                  isRefreshingInstitutions ? "animate-spin" : ""
+                }`}
+              />
+              {isRefreshingInstitutions ? "Refreshing..." : "Refresh Institutions"}
             </button>
           </div>
         </div>
+
+        {/* Error Display */}
+        {refreshError && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                  Refresh Error
+                </h3>
+                <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                  {refreshError}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Results Display */}
+        {refreshResults && !refreshError && (
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <ArrowPathIcon className="h-5 w-5 text-blue-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  Refresh Results
+                </h3>
+                <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                  <div>Refreshed: {refreshResults.accountsRefreshed} accounts</div>
+                  <div>Skipped: {refreshResults.accountsSkipped} accounts</div>
+                  {refreshResults.errors > 0 && (
+                    <div className="text-red-600 dark:text-red-400">
+                      Errors: {refreshResults.errors} accounts
+                    </div>
+                  )}
+                  {refreshResults.results?.errors?.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-red-600 dark:text-red-400">
+                        View Error Details
+                      </summary>
+                      <div className="mt-2 text-xs space-y-1">
+                        {refreshResults.results.errors.map((error: any, index: number) => (
+                          <div key={index} className="text-red-600 dark:text-red-400">
+                            Account {error.accountId}: {error.error}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-6">
           {Object.entries(accountsByInstitution).map(([institution, accounts]) => {

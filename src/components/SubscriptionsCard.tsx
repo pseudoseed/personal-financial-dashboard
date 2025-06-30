@@ -88,6 +88,8 @@ export function SubscriptionsCard() {
       if (response.ok) {
         refetch();
       }
+    } catch (error) {
+      console.error('Error confirming subscription:', error);
     } finally {
       setConfirmingId(null);
     }
