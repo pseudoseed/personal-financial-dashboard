@@ -40,8 +40,22 @@ export async function POST(request: Request) {
     // Get refresh count info for manual refreshes
     const refreshInfo = isManualRefresh ? await getManualRefreshCount(userId) : null;
     
+    // Determine response status based on results
+    const hasErrors = results.errors.length > 0;
+    const hasRefreshed = results.refreshed.length > 0;
+    
+    // If there are errors but no successful refreshes, return 400
+    // If there are some errors but also some successes, return 207 (Multi-Status)
+    // If everything succeeded, return 200
+    let statusCode = 200;
+    if (hasErrors && !hasRefreshed) {
+      statusCode = 400;
+    } else if (hasErrors && hasRefreshed) {
+      statusCode = 207; // Multi-Status - partial success
+    }
+    
     return NextResponse.json({
-      success: true,
+      success: !hasErrors || hasRefreshed, // Success if no errors OR if some accounts refreshed
       manual: isManualRefresh,
       includeTransactions,
       accountsRefreshed: results.refreshed.length,
@@ -56,7 +70,7 @@ export async function POST(request: Request) {
           resetTime: refreshInfo.resetTime,
         }
       })
-    });
+    }, { status: statusCode });
   } catch (error) {
     console.error("Error in smart refresh:", error);
     return NextResponse.json(

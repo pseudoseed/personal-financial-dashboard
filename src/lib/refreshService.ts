@@ -150,6 +150,9 @@ export async function smartRefreshAccounts(
     },
   });
   
+  // Log validation issues for debugging
+  logAccountValidationIssues(accounts);
+  
   const results = {
     refreshed: [] as string[],
     skipped: [] as string[],
@@ -157,15 +160,32 @@ export async function smartRefreshAccounts(
     transactionSync: null as any,
   };
   
-  // Group accounts by institution for batch processing
-  const accountsByInstitution = new Map<string, any[]>();
-  
+  // Validate accounts before processing
+  const validAccounts = [];
   for (const account of accounts) {
+    const validation = validateAccountData(account);
+    
+    if (!validation.isValid) {
+      results.errors.push({ 
+        accountId: account.id, 
+        error: `Account validation failed: ${validation.errors.join(', ')}` 
+      });
+      continue;
+    }
+    
+    // Skip manual accounts
     if (account.plaidItem.accessToken === "manual") {
       results.skipped.push(account.id);
       continue;
     }
     
+    validAccounts.push(account);
+  }
+  
+  // Group valid accounts by institution for batch processing
+  const accountsByInstitution = new Map<string, any[]>();
+  
+  for (const account of validAccounts) {
     const institutionKey = account.plaidItem.id;
     if (!accountsByInstitution.has(institutionKey)) {
       accountsByInstitution.set(institutionKey, []);
@@ -202,8 +222,10 @@ export async function smartRefreshAccounts(
           refreshCache.set(cacheKey, { timestamp: Date.now(), data: { refreshed: true } });
           
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          console.error(`Error refreshing institution ${institutionId}:`, errorMessage);
           institutionAccounts.forEach(account => {
-            results.errors.push({ accountId: account.id, error: error instanceof Error ? error.message : "Unknown error" });
+            results.errors.push({ accountId: account.id, error: errorMessage });
           });
         }
       });
@@ -231,6 +253,11 @@ export async function smartRefreshAccounts(
 async function refreshInstitutionAccounts(accounts: any[], results: any) {
   const firstAccount = accounts[0];
   
+  // Additional validation before making any API calls
+  if (!firstAccount.plaidItem?.accessToken || firstAccount.plaidItem.accessToken === "manual") {
+    throw new Error("Invalid access token for institution");
+  }
+  
   if (firstAccount.plaidItem.provider === "coinbase") {
     // Handle Coinbase accounts
     for (const account of accounts) {
@@ -238,27 +265,40 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
         await refreshCoinbaseAccount(account);
         results.refreshed.push(account.id);
       } catch (error) {
-        results.errors.push({ accountId: account.id, error: error instanceof Error ? error.message : "Unknown error" });
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.error(`Error refreshing Coinbase account ${account.id}:`, errorMessage);
+        results.errors.push({ accountId: account.id, error: errorMessage });
       }
     }
   } else {
     // Handle Plaid accounts
     try {
+      // Validate that we have the required data before making API call
+      if (!firstAccount.plaidItem.accessToken) {
+        throw new Error("Missing access token for Plaid institution");
+      }
+      
       const response = await plaidClient.accountsBalanceGet({
         access_token: firstAccount.plaidItem.accessToken,
       });
       
-      // Get credit/loan accounts that need liability data
-      const creditLoanAccounts = accounts.filter(account => 
+      // Validate Plaid response
+      if (!response.data?.accounts || !Array.isArray(response.data.accounts)) {
+        throw new Error("Invalid response from Plaid API");
+      }
+      
+      // Get liability data for credit/loan accounts if available
+      let liabilityData = null;
+      const hasCreditOrLoanAccounts = accounts.some(account => 
         account.type === "credit" || account.type === "loan"
       );
       
-      // Batch fetch liability data for all credit/loan accounts in this institution
-      let liabilityData = null;
-      if (creditLoanAccounts.length > 0) {
+      if (hasCreditOrLoanAccounts) {
         try {
-          liabilityData = await fetchBatchedLiabilities(firstAccount.plaidItem.accessToken, creditLoanAccounts);
+          liabilityData = await fetchBatchedLiabilities(firstAccount.plaidItem.accessToken, accounts);
         } catch (error) {
+          console.warn("Failed to fetch liability data:", error instanceof Error ? error.message : "Unknown error");
+          // Don't fail the entire refresh if liability fetch fails
         }
       }
       
@@ -269,7 +309,9 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
           );
           
           if (!plaidAccount) {
-            results.errors.push({ accountId: account.id, error: "Account not found in Plaid response" });
+            const errorMsg = `Account not found in Plaid response (plaidId: ${account.plaidId})`;
+            console.error(errorMsg);
+            results.errors.push({ accountId: account.id, error: errorMsg });
             continue;
           }
           
@@ -288,15 +330,20 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
             try {
               await updateAccountLiabilities(account, liabilityData);
             } catch (error) {
+              console.warn(`Failed to update liability data for account ${account.id}:`, error instanceof Error ? error.message : "Unknown error");
             }
           }
           
           results.refreshed.push(account.id);
         } catch (error) {
-          results.errors.push({ accountId: account.id, error: error instanceof Error ? error.message : "Unknown error" });
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          console.error(`Error processing account ${account.id}:`, errorMessage);
+          results.errors.push({ accountId: account.id, error: errorMessage });
         }
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error(`Error refreshing Plaid institution:`, errorMessage);
       throw error;
     }
   }
@@ -400,4 +447,80 @@ export function clearCache(): void {
   manualRefreshCounts.clear();
   liabilityCache.clear();
   activeRequests.clear();
+}
+
+// Utility function to validate account data integrity
+export function validateAccountData(account: any): { isValid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  // Check required fields
+  if (!account.id) {
+    errors.push("Missing account ID");
+  }
+  
+  if (!account.plaidId) {
+    errors.push("Missing plaidId");
+  }
+  
+  if (!account.plaidItem) {
+    errors.push("Missing plaidItem");
+  } else {
+    if (!account.plaidItem.id) {
+      errors.push("Missing plaidItem.id");
+    }
+    
+    if (!account.plaidItem.accessToken) {
+      errors.push("Missing accessToken");
+    }
+    
+    if (account.plaidItem.accessToken === "manual") {
+      errors.push("Manual account - should be skipped");
+    }
+  }
+  
+  if (!account.type) {
+    errors.push("Missing account type");
+  }
+  
+  if (!account.name) {
+    errors.push("Missing account name");
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+// Utility function to log account validation issues
+export function logAccountValidationIssues(accounts: any[]): void {
+  console.log("=== Account Validation Report ===");
+  
+  const validationResults = accounts.map(account => ({
+    accountId: account.id,
+    plaidId: account.plaidId,
+    name: account.name,
+    type: account.type,
+    institution: account.plaidItem?.institutionName || account.plaidItem?.institutionId,
+    validation: validateAccountData(account)
+  }));
+  
+  const invalidAccounts = validationResults.filter(result => !result.validation.isValid);
+  const validAccounts = validationResults.filter(result => result.validation.isValid);
+  
+  console.log(`Total accounts: ${accounts.length}`);
+  console.log(`Valid accounts: ${validAccounts.length}`);
+  console.log(`Invalid accounts: ${invalidAccounts.length}`);
+  
+  if (invalidAccounts.length > 0) {
+    console.log("\n=== Invalid Accounts ===");
+    invalidAccounts.forEach(account => {
+      console.log(`Account ${account.accountId} (${account.name}):`);
+      account.validation.errors.forEach(error => {
+        console.log(`  - ${error}`);
+      });
+    });
+  }
+  
+  console.log("=== End Validation Report ===");
 } 
