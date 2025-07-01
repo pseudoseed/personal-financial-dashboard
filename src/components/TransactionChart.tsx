@@ -21,6 +21,7 @@ import type {
   TransactionChartData,
 } from "@/types/transactionChart";
 import {
+  defaultSettings,
   loadSettings,
   saveSettings,
   buildApiUrl,
@@ -46,7 +47,7 @@ interface TransactionChartProps {}
 export function TransactionChart({}: TransactionChartProps) {
   console.log('TransactionChart render start');
   const { showSensitiveData } = useSensitiveData();
-  const [settings, setSettings] = useState<Settings>(loadSettings);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const { darkMode } = useTheme();
@@ -140,6 +141,12 @@ export function TransactionChart({}: TransactionChartProps) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiCompleted, setAiCompleted] = useState(false);
+
+  // On mount, load settings from localStorage (client-only)
+  useEffect(() => {
+    const loaded = loadSettings();
+    setSettings(loaded);
+  }, []);
 
   useEffect(() => {
     saveSettings(settings);
