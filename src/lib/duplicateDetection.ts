@@ -205,6 +205,18 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
     }
   }
 
+  // After merging, clean up any Plaid items for this institutionId that have no accounts
+  const emptyItems = await prisma.plaidItem.findMany({
+    where: {
+      institutionId: duplicateGroup.institutionId,
+      accounts: { none: {} }
+    }
+  });
+  for (const item of emptyItems) {
+    console.log(`[MERGE CLEANUP] Deleting empty PlaidItem ID: ${item.id} | InstitutionId: ${item.institutionId} | InstitutionName: ${item.institutionName}`);
+    await prisma.plaidItem.delete({ where: { id: item.id } });
+  }
+
   return {
     merged: accountGroups.size,
     kept,

@@ -319,10 +319,30 @@ model FinancialHealthMetrics {
 }
 
 model EmergencyFundAccount {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
   accountId String
-  user      User    @relation(fields: [userId], references: [id])
-  account   Account @relation(fields: [accountId], references: [id])
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
   @@unique([userId, accountId])
+}
+
+model PlaidApiCallLog {
+  id             String   @id @default(uuid())
+  timestamp      DateTime @default(now())
+  endpoint       String
+  responseStatus Int
+  institutionId  String?
+  accountId      String?
+  userId         String?
+  durationMs     Int?
+  errorMessage   String?
+  appInstanceId  String?
+
+  @@index([timestamp])
+  @@index([endpoint])
+  @@index([institutionId])
+  @@index([responseStatus])
 }
