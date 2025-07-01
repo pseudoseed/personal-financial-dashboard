@@ -452,6 +452,18 @@ export function TransactionChart({}: TransactionChartProps) {
   const selectedAccountsCount = settings.selectedAccountIds.length;
   const totalAccountsCount = data.accounts.length;
 
+  // Use allTxData.transactions for filtering
+  const filteredTransactions = useMemo(() => {
+    if (!allTxData || !allTxData.transactions) return [];
+    return allTxData.transactions.filter((tx: any) => {
+      // Only include expenses
+      if (inferTransactionType(tx) !== 'expense') return false;
+      // Match selected category
+      const catField = useGranularCategories ? 'categoryAiGranular' : 'categoryAiGeneral';
+      return tx[catField] === selectedCategory;
+    });
+  }, [allTxData, useGranularCategories, selectedCategory]);
+
   return (
     <>
       {isSettingsOpen && (
@@ -599,12 +611,7 @@ export function TransactionChart({}: TransactionChartProps) {
               </div>
 
               <CategoryTransactionsList
-                category={selectedCategory}
-                dateRange={{
-                  startDate: settings.startDate,
-                  endDate: settings.endDate,
-                }}
-                accountIds={settings.selectedAccountIds}
+                transactions={filteredTransactions}
                 categoryType={useGranularCategories ? 'granular' : 'general'}
               />
             </div>
