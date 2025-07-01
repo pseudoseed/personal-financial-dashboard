@@ -83,8 +83,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     localStorage.setItem("showSensitiveData", newValue.toString());
   };
 
-  if (!mounted) return null;
-
   return (
     <ThemeContext.Provider value={{ darkMode, setDarkMode: handleSetDarkMode }}>
       <SensitiveDataContext.Provider value={{ showSensitiveData, toggleSensitiveData }}>
