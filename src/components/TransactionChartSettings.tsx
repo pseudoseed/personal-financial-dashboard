@@ -162,12 +162,22 @@ export function TransactionChartSettings({
 
   // Prebuilt date filters
   const dateFilters = [
-    { label: "This Week", action: () => applyDateRange(getThisWeek()) },
-    { label: "This Month", action: () => applyDateRange(getThisMonth()) },
-    { label: "This Quarter", action: () => applyDateRange(getThisQuarter()) },
-    { label: "Last Quarter", action: () => applyDateRange(getLastQuarter()) },
-    { label: "Fiscal Year", action: () => applyDateRange(getFiscalYear()) },
-    { label: "Year to Date", action: () => applyDateRange(getYearToDate()) },
+    { label: "This Week", action: () => {
+      setLocalSettings(prev => ({ ...prev, period: 'weekly', ...getThisWeek() }));
+      setCustomStartDate(formatDateForInput(getThisWeek().startDate));
+      setCustomEndDate(formatDateForInput(getThisWeek().endDate));
+    } },
+    { label: "This Month", action: () => {
+      setLocalSettings(prev => ({ ...prev, period: 'monthly', ...getThisMonth() }));
+      setCustomStartDate(formatDateForInput(getThisMonth().startDate));
+      setCustomEndDate(formatDateForInput(getThisMonth().endDate));
+    } },
+    { label: "Today", action: () => {
+      const today = new Date();
+      setLocalSettings(prev => ({ ...prev, period: 'daily', startDate: today, endDate: today }));
+      setCustomStartDate(formatDateForInput(today));
+      setCustomEndDate(formatDateForInput(today));
+    } },
   ];
 
   function getInstitutionName(account: Account): string {
@@ -341,17 +351,8 @@ export function TransactionChartSettings({
                       case "This Month":
                         isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getThisMonth().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getThisMonth().endDate);
                         break;
-                      case "This Quarter":
-                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getThisQuarter().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getThisQuarter().endDate);
-                        break;
-                      case "Last Quarter":
-                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getLastQuarter().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getLastQuarter().endDate);
-                        break;
-                      case "Fiscal Year":
-                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getFiscalYear().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getFiscalYear().endDate);
-                        break;
-                      case "Year to Date":
-                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(getYearToDate().startDate) && formatDateForInput(localSettings.endDate) === formatDateForInput(getYearToDate().endDate);
+                      case "Today":
+                        isSelected = formatDateForInput(localSettings.startDate) === formatDateForInput(new Date()) && formatDateForInput(localSettings.endDate) === formatDateForInput(new Date());
                         break;
                       default:
                         isSelected = false;
