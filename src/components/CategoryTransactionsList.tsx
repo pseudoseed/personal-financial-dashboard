@@ -7,7 +7,6 @@ import {
   ChevronDownIcon,
   FunnelIcon,
 } from "@heroicons/react/24/outline";
-import { useQuery } from "@tanstack/react-query";
 import { useSensitiveData } from "@/app/providers";
 
 interface CategoryTransactionsListProps {
