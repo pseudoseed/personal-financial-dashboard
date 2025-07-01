@@ -45,6 +45,12 @@ type SortField = 'date' | 'amount' | 'name';
 type SortDirection = 'asc' | 'desc';
 
 export function CategoryTransactionsList({ transactions, categoryType }: CategoryTransactionsListProps) {
+  if (!transactions || !Array.isArray(transactions)) {
+    throw new Error("CategoryTransactionsList: 'transactions' prop is required and must be an array.");
+  }
+  if (!categoryType || (categoryType !== 'granular' && categoryType !== 'general')) {
+    throw new Error("CategoryTransactionsList: 'categoryType' prop is required and must be 'granular' or 'general'.");
+  }
   const { showSensitiveData } = useSensitiveData();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>('date');
