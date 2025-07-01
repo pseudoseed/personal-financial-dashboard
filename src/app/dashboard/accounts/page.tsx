@@ -247,7 +247,6 @@ export default function AccountsPage() {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           Accounts
         </h1>
-        <AccountConnectionButtons />
       </div>
 
       {/* Authentication Alerts */}
