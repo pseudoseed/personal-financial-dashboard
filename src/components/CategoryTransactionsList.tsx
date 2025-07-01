@@ -45,6 +45,7 @@ type SortField = 'date' | 'amount' | 'name';
 type SortDirection = 'asc' | 'desc';
 
 export function CategoryTransactionsList({ transactions, categoryType }: CategoryTransactionsListProps) {
+  console.log('CategoryTransactionsList render', { transactions, categoryType, stack: new Error().stack });
   if (!transactions || !Array.isArray(transactions)) {
     throw new Error("CategoryTransactionsList: 'transactions' prop is required and must be an array.");
   }
