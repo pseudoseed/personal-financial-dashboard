@@ -172,7 +172,6 @@ export default function DashboardPage() {
           <DashboardSummary accounts={visibleAccounts} />
           <InvestmentPerformanceCard />
           <EnhancedBillsCard />
-          <RecurringExpensesCard />
           <RecurringPaymentsCard />
         </div>
 

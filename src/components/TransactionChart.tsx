@@ -248,6 +248,18 @@ export function TransactionChart({}: TransactionChartProps) {
     return allTxData.transactions.filter((tx: any) => inferTransactionType(tx) === 'expense');
   }, [allTxData]);
 
+  // Filter transactions for the selected category
+  const selectedCategoryTransactions = useMemo(() => {
+    if (!selectedCategory || !filteredExpenseTransactions.length) return [];
+    
+    return filteredExpenseTransactions.filter((tx: any) => {
+      const category = useGranularCategories
+        ? (tx.categoryAiGranular || tx.categoryAiGeneral || tx.category || "Miscellaneous")
+        : (tx.categoryAiGeneral || tx.categoryAiGranular || tx.category || "Miscellaneous");
+      return category === selectedCategory;
+    });
+  }, [selectedCategory, filteredExpenseTransactions, useGranularCategories]);
+
   // Aggregate category totals for expenses only
   const filteredAiCategoryTotals = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -597,12 +609,12 @@ export function TransactionChart({}: TransactionChartProps) {
             {/* Category Transactions Card */}
             <div
               className={`transition-all duration-500 ease-in-out overflow-hidden ${
-                selectedCategory && filteredExpenseTransactions.length > 0
+                selectedCategory && selectedCategoryTransactions.length > 0
                   ? "max-h-[1000px] opacity-100"
                   : "max-h-0 opacity-0"
               }`}
             >
-              {selectedCategory && Array.isArray(filteredExpenseTransactions) && filteredExpenseTransactions.length > 0 && (
+              {selectedCategory && Array.isArray(selectedCategoryTransactions) && selectedCategoryTransactions.length > 0 && (
                 <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 mt-6 dark:text-gray-100">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold dark:text-gray-100">
@@ -618,7 +630,7 @@ export function TransactionChart({}: TransactionChartProps) {
                   </div>
 
                   <CategoryTransactionsList
-                    transactions={filteredExpenseTransactions}
+                    transactions={selectedCategoryTransactions}
                     categoryType={useGranularCategories ? 'granular' : 'general'}
                   />
                 </div>

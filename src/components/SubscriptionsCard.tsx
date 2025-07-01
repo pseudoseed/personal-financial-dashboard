@@ -44,7 +44,11 @@ interface SubscriptionData {
   };
 }
 
-export function SubscriptionsCard() {
+interface SubscriptionsCardProps {
+  showViewAllLink?: boolean;
+}
+
+export function SubscriptionsCard({ showViewAllLink }: SubscriptionsCardProps) {
   const { showSensitiveData } = useSensitiveData();
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
@@ -251,6 +255,15 @@ export function SubscriptionsCard() {
           )}
         </div>
       )}
+                {showViewAllLink && (
+            <a
+              href="/dashboard/recurring-expenses"
+              className="ml-4 text-xs text-primary-600 dark:text-primary-400 font-medium hover:underline focus:outline-none focus:underline transition-colors"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              View All
+            </a>
+          )}
 
       {/* Suggested Subscriptions */}
       {hasSuggestions && (

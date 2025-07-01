@@ -25,6 +25,45 @@ export async function GET(request: NextRequest) {
 
 // POST: Detect new recurring expenses
 export async function POST(request: NextRequest) {
+  // Use .pathname for subroute detection in Next.js API routes
+  const pathname = (request.nextUrl && typeof request.nextUrl.pathname === 'string') ? request.nextUrl.pathname : '';
+  if (pathname.endsWith('/latest-amounts')) {
+    try {
+      const userId = await getCurrentUserId();
+      const { merchants } = await request.json(); // [{ merchantName, name }]
+      if (!Array.isArray(merchants)) {
+        return NextResponse.json({ error: 'Invalid merchants array' }, { status: 400 });
+      }
+      // For each merchant, fetch the latest transaction
+      const results = await Promise.all(
+        merchants.map(async ({ merchantName, name }) => {
+          const where: any = {
+            account: { userId },
+            amount: { lt: 0 },
+          };
+          if (merchantName) {
+            where.merchantName = merchantName;
+          } else if (name) {
+            where.name = name;
+          }
+          const tx = await prisma.transaction.findFirst({
+            where,
+            orderBy: { date: 'desc' },
+          });
+          return {
+            merchantName,
+            name,
+            latestAmount: tx ? Math.abs(tx.amount) : null,
+            latestDate: tx ? tx.date : null,
+          };
+        })
+      );
+      return NextResponse.json({ results });
+    } catch (error) {
+      console.error('Error in /api/recurring-expenses/latest-amounts:', error);
+      return NextResponse.json({ error: 'Failed to fetch latest amounts' }, { status: 500 });
+    }
+  }
   try {
     const userId = await getCurrentUserId();
     let body = null;

@@ -31,11 +31,50 @@ export async function GET(request: NextRequest) {
       whereClause.accountId = { in: accountIds };
     }
     
-    if (startDateStr || endDateStr) {
-      whereClause.date = {};
-      if (startDateStr) whereClause.date.gte = new Date(startDateStr);
-      if (endDateStr) whereClause.date.lte = new Date(endDateStr);
+    // Determine date range for filtering
+    let startDate: Date;
+    let endDate: Date;
+    
+    if (startDateStr && endDateStr) {
+      // Use provided date range
+      startDate = new Date(startDateStr);
+      endDate = new Date(endDateStr);
+    } else {
+      // Auto-generate date range based on period
+      const now = new Date();
+      
+      switch (period) {
+        case 'daily':
+          startDate = startOfDay(now);
+          endDate = endOfDay(now);
+          break;
+        case 'weekly':
+          startDate = startOfWeek(now);
+          endDate = endOfWeek(now);
+          break;
+        case 'monthly':
+          startDate = startOfMonth(now);
+          endDate = endOfMonth(now);
+          break;
+        case 'quarterly':
+          // Calculate current quarter
+          const quarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), quarter * 3, 1);
+          endDate = new Date(now.getFullYear(), (quarter + 1) * 3, 0, 23, 59, 59, 999);
+          break;
+        case 'yearly':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+          break;
+        default:
+          // Default to current month if period is not recognized
+          startDate = startOfMonth(now);
+          endDate = endOfMonth(now);
+      }
     }
+    
+    // Always apply date filtering to ensure we never return all transactions
+    whereClause.date = { gte: startDate, lte: endDate };
     
     if (categories.length > 0) {
       whereClause.category = { in: categories };
@@ -101,20 +140,6 @@ export async function GET(request: NextRequest) {
       ...t,
       categoryAi: categoryAiMap.get(t.id) || null
     }));
-
-    // Determine date range for aggregation
-    let startDate: Date;
-    let endDate: Date;
-    
-    if (startDateStr && endDateStr) {
-      startDate = new Date(startDateStr);
-      endDate = new Date(endDateStr);
-    } else {
-      // Default to last 12 months
-      endDate = new Date();
-      startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - 12);
-    }
 
     // Aggregate transactions by period
     let aggregatedData: Array<{ period: string; income: number; expenses: number; net: number }> = [];

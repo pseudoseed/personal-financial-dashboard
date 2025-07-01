@@ -396,3 +396,39 @@ async function handleInvestmentTransactions(
     throw error;
   }
 }
+
+/**
+ * Fetch the latest transaction for a given merchantName or name for a user.
+ * Only queries the local database, does not trigger any Plaid sync.
+ * Optionally filter by frequency (e.g., 'monthly').
+ */
+export async function getLatestTransactionForMerchant({
+  prisma,
+  userId,
+  merchantName,
+  name,
+  frequency
+}: {
+  prisma: PrismaClient,
+  userId: string,
+  merchantName?: string,
+  name?: string,
+  frequency?: string
+}) {
+  // Build where clause
+  const where: any = {
+    account: { userId },
+    amount: { lt: 0 }, // Only expenses
+  };
+  if (merchantName) {
+    where.merchantName = merchantName;
+  } else if (name) {
+    where.name = name;
+  }
+  // Optionally, filter by frequency (not implemented here, but could use date intervals)
+  // For now, just get the latest
+  return prisma.transaction.findFirst({
+    where,
+    orderBy: { date: 'desc' },
+  });
+}
