@@ -44,17 +44,21 @@ type SortField = 'date' | 'amount' | 'name';
 type SortDirection = 'asc' | 'desc';
 
 export function CategoryTransactionsList({ transactions, categoryType }: CategoryTransactionsListProps) {
-  console.log('CategoryTransactionsList render', { transactions, categoryType, stack: new Error().stack });
-  if (!transactions || !Array.isArray(transactions)) {
-    throw new Error("CategoryTransactionsList: 'transactions' prop is required and must be an array.");
-  }
-  if (!categoryType || (categoryType !== 'granular' && categoryType !== 'general')) {
-    throw new Error("CategoryTransactionsList: 'categoryType' prop is required and must be 'granular' or 'general'.");
-  }
   const { showSensitiveData } = useSensitiveData();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  let errorMsg = null;
+  if (!transactions || !Array.isArray(transactions)) {
+    errorMsg = "CategoryTransactionsList: 'transactions' prop is required and must be an array.";
+  } else if (!categoryType || (categoryType !== 'granular' && categoryType !== 'general')) {
+    errorMsg = "CategoryTransactionsList: 'categoryType' prop is required and must be 'granular' or 'general'.";
+  }
+
+  if (errorMsg) {
+    return <div className="text-red-500 p-4">{errorMsg}</div>;
+  }
 
   const totalAmount = transactions.reduce((sum, tx) => sum + tx.amount, 0);
   const transactionCount = transactions.length;

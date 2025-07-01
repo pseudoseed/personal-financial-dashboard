@@ -45,7 +45,7 @@ ChartJS.register(
 interface TransactionChartProps {}
 
 export function TransactionChart({}: TransactionChartProps) {
-  console.log('TransactionChart render start');
+  // All hooks at the top
   const { showSensitiveData } = useSensitiveData();
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -53,8 +53,15 @@ export function TransactionChart({}: TransactionChartProps) {
   const { darkMode } = useTheme();
   const queryClient = useQueryClient();
   const [useGranularCategories, setUseGranularCategories] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
-  // Fetch transaction data
+  useEffect(() => {
+    setMounted(true);
+    // On mount, load settings from localStorage (client-only)
+    const loaded = loadSettings();
+    setSettings(loaded);
+  }, []);
+
   const { data, isLoading, error } = useQuery<TransactionChartData>({
     queryKey: ["transactionChart", settings],
     queryFn: async () => {
@@ -68,7 +75,6 @@ export function TransactionChart({}: TransactionChartProps) {
     enabled: true,
   });
 
-  // Fetch vendor spend data
   const {
     data: vendorData,
     isLoading: isVendorsLoading,
@@ -135,18 +141,10 @@ export function TransactionChart({}: TransactionChartProps) {
     enabled: true,
   });
 
-  const [aiCategoryTotals, setAiCategoryTotals] = useState<
-    Record<string, number>
-  >({});
+  const [aiCategoryTotals, setAiCategoryTotals] = useState<Record<string, number>>({});
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiCompleted, setAiCompleted] = useState(false);
-
-  // On mount, load settings from localStorage (client-only)
-  useEffect(() => {
-    const loaded = loadSettings();
-    setSettings(loaded);
-  }, []);
 
   useEffect(() => {
     saveSettings(settings);
@@ -428,238 +426,196 @@ export function TransactionChart({}: TransactionChartProps) {
     }
   }), [darkMode, showSensitiveData, aiPieData.labels]);
   
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error loading transaction data.</div>;
-  if (!data) return <div>No data available.</div>;
-
-  const chartData = {
-    labels: data.data.map((item) => item.period),
-    datasets: [
-      ...(settings.showIncome
-        ? [
-            {
-              label: "Income",
-              data: data.data.map((item) => item.income),
-              backgroundColor: "rgba(34, 197, 94, 0.7)",
-            },
-          ]
-        : []),
-      ...(settings.showExpenses
-        ? [
-            {
-              label: "Expenses",
-              data: data.data.map((item) => item.expenses),
-              backgroundColor: "rgba(236, 72, 153, 0.7)",
-            },
-          ]
-        : []),
-    ],
-  };
-
-  const summary = data.summary;
-  const selectedAccountsCount = settings.selectedAccountIds.length;
-  const totalAccountsCount = data.accounts.length;
-
-  // Add debug logging utility that works in production
-  function debugLog(...args: any[]) {
-    if (typeof window !== 'undefined' && (window as any).__PF_DEBUG) {
-      (window as any).__PF_DEBUG(...args);
-    } else if (typeof window !== 'undefined' && (window as any).PF_DEBUG) {
-      (window as any).PF_DEBUG(...args);
-    } else {
-      // Fallback to console.log (may be stripped in some prod builds)
-      // You can set window.__PF_DEBUG = console.log in the browser console to enable
-      if (typeof window !== 'undefined') {
-        if (!(window as any).__PF_DEBUG) {
-          (window as any).__PF_DEBUG = console.log;
-        }
-        (window as any).__PF_DEBUG(...args);
-      } else {
-        // SSR fallback
-        // eslint-disable-next-line no-console
-        console.log(...args);
-      }
+  // Prepare bar chart data with correct shape
+  const barChartData = useMemo(() => {
+    if (data && data.data && Array.isArray(data.data)) {
+      return {
+        labels: data.data.map((item: any) => item.period),
+        datasets: [
+          ...(settings.showIncome
+            ? [
+                {
+                  label: "Income",
+                  data: data.data.map((item: any) => item.income),
+                  backgroundColor: "rgba(34, 197, 94, 0.7)",
+                },
+              ]
+            : []),
+          ...(settings.showExpenses
+            ? [
+                {
+                  label: "Expenses",
+                  data: data.data.map((item: any) => item.expenses),
+                  backgroundColor: "rgba(236, 72, 153, 0.7)",
+                },
+              ]
+            : []),
+        ],
+      };
     }
-  }
+    return { labels: [], datasets: [] };
+  }, [data, settings.showIncome, settings.showExpenses]);
 
-  // Reset selectedCategory when settings, useGranularCategories, or allTxData changes
-  useEffect(() => {
-    setSelectedCategory("");
-    debugLog('[PF_DEBUG] Reset selectedCategory due to settings/useGranularCategories/allTxData change');
-  }, [settings, useGranularCategories, allTxData]);
-
-  // Use allTxData.transactions for filtering
-  const filteredTransactions = useMemo(() => {
-    if (!allTxData || !allTxData.transactions) return [];
-    return allTxData.transactions.filter((tx: any) => {
-      // Only include expenses
-      if (inferTransactionType(tx) !== 'expense') return false;
-      // Match selected category
-      const catField = useGranularCategories ? 'categoryAiGranular' : 'categoryAiGeneral';
-      return tx[catField] === selectedCategory;
-    });
-  }, [allTxData, useGranularCategories, selectedCategory]);
-
-  // Debug log selectedCategory and filteredTransactions
-  useEffect(() => {
-    debugLog('[PF_DEBUG] selectedCategory:', selectedCategory);
-    debugLog('[PF_DEBUG] filteredTransactions:', filteredTransactions);
-  }, [selectedCategory, filteredTransactions]);
-
+  // All render guards in JSX
   return (
     <>
-      {isSettingsOpen && (
-        <TransactionChartSettings
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-          settings={settings}
-          onSettingsChange={handleSettingsChange}
-          accounts={data?.accounts || []}
-          categories={data?.categories || []}
-        />
-      )}
-      <div className="bg-white p-6 rounded-lg shadow-md h-[400px] flex flex-col dark:bg-zinc-900 dark:text-gray-100">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold dark:text-gray-100">Transaction Overview</h2>
-            <p className="text-sm dark:text-gray-100">
-              Transaction analytics
-              {selectedAccountsCount > 0 && (
-                <span>
-                  {" "}
-                  • {selectedAccountsCount}/{totalAccountsCount} accounts
-                </span>
+      {/* Mount guard for SSR/client hydration */}
+      {!mounted ? (
+        <div className="flex items-center justify-center h-64">Loading...</div>
+      ) : (
+        <>
+          <TransactionChartSettings
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            settings={settings}
+            onSettingsChange={setSettings}
+            accounts={data?.accounts || []}
+            categories={data?.categories || []}
+          />
+          <div className="bg-white p-6 rounded-lg shadow-md h-[400px] flex flex-col dark:bg-zinc-900 dark:text-gray-100">
+            {/* Overlays for loading/error/empty */}
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">Loading chart data...</div>
+            ) : error ? (
+              <div className="flex items-center justify-center h-full text-red-500">Error loading transaction data.</div>
+            ) : !data ? (
+              <div className="flex items-center justify-center h-full">No data available.</div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <p className="text-sm dark:text-gray-100">
+                    Transaction analytics
+                    {data?.accounts?.length && data.accounts.length > 0 ? (
+                      <span>
+                        {" "}
+                        • {data.accounts.length} accounts
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+                <div className="flex justify-between mb-4">
+                  <div className="text-center">
+                    <p className="text-sm dark:text-gray-100">Total Income</p>
+                    <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                      {formatCurrency(data?.summary?.totalIncome || 0)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm dark:text-gray-100">Total Expenses</p>
+                    <p className="text-lg font-semibold text-pink-500 dark:text-pink-400">
+                      {formatCurrency(data?.summary?.totalExpenses || 0)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm dark:text-gray-100">Net Amount</p>
+                    <p className={`text-lg font-semibold ${
+                      (data?.summary?.netAmount || 0) >= 0 ? "text-green-600 dark:text-green-400" : "text-pink-500 dark:text-pink-400"
+                    }`}>
+                      {formatCurrency(data?.summary?.netAmount || 0)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0">
+                  <Bar key={darkMode ? 'dark' : 'light'} options={barChartOptions} data={barChartData} />
+                </div>
+              </>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-6 mt-6">
+            <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 flex flex-col items-center h-[400px] dark:text-gray-100">
+              <h3 className="text-md font-semibold mb-2 dark:text-gray-100">Top Vendors (by Spend)</h3>
+              {isVendorsLoading ? (
+                <div className="dark:text-gray-100">Loading...</div>
+              ) : vendorError ? (
+                <div className="dark:text-gray-100">Error loading vendors.</div>
+              ) : (
+                <div className="w-full flex-1 min-h-0">
+                  <Bar
+                    key={(darkMode ? 'dark' : 'light') + '-vendors'}
+                    options={barChartOptions}
+                    data={vendorBarData}
+                  />
+                </div>
               )}
-            </p>
-          </div>
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="text-gray-400 hover:text-gray-600 dark:text-gray-100 dark:hover:text-gray-100 transition-colors p-1 rounded"
-          >
-            <Cog6ToothIcon className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <div className="text-center">
-            <p className="text-sm dark:text-gray-100">Total Income</p>
-            <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-              {formatCurrency(summary.totalIncome)}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm dark:text-gray-100">Total Expenses</p>
-            <p className="text-lg font-semibold text-pink-500 dark:text-pink-400">
-              {formatCurrency(summary.totalExpenses)}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm dark:text-gray-100">Net</p>
-            <p
-              className={`text-lg font-semibold ${
-                summary.netAmount >= 0 ? "text-green-600 dark:text-green-400" : "text-pink-500 dark:text-pink-400"
+            </div>
+            <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 flex flex-col items-center h-[400px] dark:text-gray-100">
+              <div className="flex justify-between w-full items-center">
+                <h3 className="text-md font-semibold mb-2 dark:text-gray-100">AI-Powered Categories</h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={triggerAICategorization}
+                    disabled={aiLoading}
+                    className="p-1 rounded-md hover:bg-gray-100 dark:bg-zinc-800 disabled:opacity-50 text-gray-400 dark:text-gray-100"
+                    title="Refresh AI Categories"
+                  >
+                    <ArrowPathIcon
+                      className={`h-4 w-4 ${aiLoading ? "animate-spin" : ""}`}
+                    />
+                  </button>
+                  <div className="flex gap-1 ml-2">
+                    <div className="border-l border-gray-300 dark:border-zinc-700 mx-1"></div>
+                    <button
+                      className={`px-2 py-1 rounded text-xs font-medium border ${useGranularCategories ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-zinc-700'}`}
+                      onClick={() => setUseGranularCategories(true)}
+                    >
+                      Granular
+                    </button>
+                    <button
+                      className={`px-2 py-1 rounded text-xs font-medium border ${!useGranularCategories ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-zinc-700'}`}
+                      onClick={() => setUseGranularCategories(false)}
+                    >
+                      General
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Click any slice to view transactions below</p>
+              {aiLoading && !aiCompleted ? (
+                <div className="dark:text-gray-100">Categorizing...</div>
+              ) : aiError ? (
+                <div className="dark:text-gray-100">{aiError}</div>
+              ) : Object.keys(filteredAiCategoryTotals).length === 0 ? (
+                <div className="dark:text-gray-100">No spend data available for categorization.</div>
+              ) : (
+                <div className="w-full flex-1 min-h-0 cursor-pointer">
+                  <Pie key={darkMode ? 'dark' : 'light'} data={aiPieData} options={pieChartOptions} />
+                </div>
+              )}
+            </div>
+            
+            {/* Category Transactions Card */}
+            <div
+              className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                selectedCategory && filteredExpenseTransactions.length > 0
+                  ? "max-h-[1000px] opacity-100"
+                  : "max-h-0 opacity-0"
               }`}
             >
-              {formatCurrency(summary.netAmount)}
-            </p>
-          </div>
-        </div>
-        <div className="flex-1 min-h-0">
-          <Bar key={darkMode ? 'dark' : 'light'} options={barChartOptions} data={chartData} />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-6 mt-6">
-        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 flex flex-col items-center h-[400px] dark:text-gray-100">
-          <h3 className="text-md font-semibold mb-2 dark:text-gray-100">Top Vendors (by Spend)</h3>
-          {isVendorsLoading ? (
-            <div className="dark:text-gray-100">Loading...</div>
-          ) : vendorError ? (
-            <div className="dark:text-gray-100">Error loading vendors.</div>
-          ) : (
-            <div className="w-full flex-1 min-h-0">
-              <Bar
-                key={(darkMode ? 'dark' : 'light') + '-vendors'}
-                options={barChartOptions}
-                data={vendorBarData}
-              />
-            </div>
-          )}
-        </div>
-        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 flex flex-col items-center h-[400px] dark:text-gray-100">
-          <div className="flex justify-between w-full items-center">
-            <h3 className="text-md font-semibold mb-2 dark:text-gray-100">AI-Powered Categories</h3>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={triggerAICategorization}
-                disabled={aiLoading}
-                className="p-1 rounded-md hover:bg-gray-100 dark:bg-zinc-800 disabled:opacity-50 text-gray-400 dark:text-gray-100"
-                title="Refresh AI Categories"
-              >
-                <ArrowPathIcon
-                  className={`h-4 w-4 ${aiLoading ? "animate-spin" : ""}`}
-                />
-              </button>
-              <div className="flex gap-1 ml-2">
-                <div className="border-l border-gray-300 dark:border-zinc-700 mx-1"></div>
-                <button
-                  className={`px-2 py-1 rounded text-xs font-medium border ${useGranularCategories ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-zinc-700'}`}
-                  onClick={() => setUseGranularCategories(true)}
-                >
-                  Granular
-                </button>
-                <button
-                  className={`px-2 py-1 rounded text-xs font-medium border ${!useGranularCategories ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-zinc-700'}`}
-                  onClick={() => setUseGranularCategories(false)}
-                >
-                  General
-                </button>
-              </div>
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Click any slice to view transactions below</p>
-          {aiLoading && !aiCompleted ? (
-            <div className="dark:text-gray-100">Categorizing...</div>
-          ) : aiError ? (
-            <div className="dark:text-gray-100">{aiError}</div>
-          ) : Object.keys(filteredAiCategoryTotals).length === 0 ? (
-            <div className="dark:text-gray-100">No spend data available for categorization.</div>
-          ) : (
-            <div className="w-full flex-1 min-h-0 cursor-pointer">
-              <Pie key={darkMode ? 'dark' : 'light'} data={aiPieData} options={pieChartOptions} />
-            </div>
-          )}
-        </div>
-        
-        {/* Category Transactions Card */}
-        <div
-          className={`transition-all duration-500 ease-in-out overflow-hidden ${
-            selectedCategory && filteredTransactions.length > 0
-              ? "max-h-[1000px] opacity-100"
-              : "max-h-0 opacity-0"
-          }`}
-        >
-          {selectedCategory && Array.isArray(filteredTransactions) && filteredTransactions.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 mt-6 dark:text-gray-100">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold dark:text-gray-100">
-                  {selectedCategory} Transactions
-                </h3>
-                <button
-                  onClick={() => setSelectedCategory("")}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  aria-label="Close transactions view"
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-              </div>
+              {selectedCategory && Array.isArray(filteredExpenseTransactions) && filteredExpenseTransactions.length > 0 && (
+                <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 mt-6 dark:text-gray-100">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold dark:text-gray-100">
+                      {selectedCategory} Transactions
+                    </h3>
+                    <button
+                      onClick={() => setSelectedCategory("")}
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      aria-label="Close transactions view"
+                    >
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
 
-              <CategoryTransactionsList
-                transactions={filteredTransactions}
-                categoryType={useGranularCategories ? 'granular' : 'general'}
-              />
+                  <CategoryTransactionsList
+                    transactions={filteredExpenseTransactions}
+                    categoryType={useGranularCategories ? 'granular' : 'general'}
+                  />
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        </>
+      )}
     </>
   );
 } 
