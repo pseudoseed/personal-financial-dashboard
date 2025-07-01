@@ -132,13 +132,28 @@ async function deduplicateRequest<T>(key: string, requestFn: () => Promise<T>): 
 export async function smartRefreshAccounts(
   _userId?: string, 
   forceRefresh: boolean = false,
-  includeTransactions: boolean = false
+  includeTransactions: boolean = false,
+  targetAccountId?: string,
+  targetInstitutionId?: string
 ) {
   const userId = 'default';
   
-  // Get all accounts with their latest balance
+  // Build the where clause for account filtering
+  let whereClause: any = { userId, hidden: false };
+  
+  if (targetAccountId) {
+    // Filter to specific account
+    whereClause.id = targetAccountId;
+  } else if (targetInstitutionId) {
+    // Filter to specific institution
+    whereClause.plaidItem = {
+      id: targetInstitutionId
+    };
+  }
+  
+  // Get accounts with their latest balance
   const accounts = await prisma.account.findMany({
-    where: { userId, hidden: false },
+    where: whereClause,
     include: {
       plaidItem: true,
       balances: {
@@ -254,6 +269,16 @@ export async function smartRefreshAccounts(
   }
   
   return results;
+}
+
+// New function to refresh a specific account
+export async function refreshSpecificAccount(accountId: string, forceRefresh: boolean = false) {
+  return smartRefreshAccounts('default', forceRefresh, false, accountId);
+}
+
+// New function to refresh all accounts in an institution
+export async function refreshInstitution(institutionId: string, forceRefresh: boolean = false) {
+  return smartRefreshAccounts('default', forceRefresh, false, undefined, institutionId);
 }
 
 async function refreshInstitutionAccounts(accounts: any[], results: any) {

@@ -452,6 +452,27 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           <div className="mb-8 p-4 rounded-lg bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800">
             <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Plaid Sync</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Sync your accounts to keep your transaction data up to date. You can sync new accounts for a full history, or sync all accounts for the latest updates.</p>
+            
+            {/* Authentication Status Check */}
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200">Authentication Status</h4>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                    Check if your connected accounts need re-authentication
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    // Trigger a page refresh to show authentication alerts
+                    window.location.reload();
+                  }}
+                  className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                >
+                  Check Status
+                </button>
+              </div>
+            </div>
             <div className="flex flex-col gap-4 mb-4">
               <div className="flex flex-col gap-1">
                 <button
