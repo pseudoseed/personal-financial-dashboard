@@ -39,6 +39,10 @@ interface Account {
   nextMonthlyPayment?: number;
   minimumPaymentAmount?: number;
   lastStatementBalance?: number;
+  plaidItem?: {
+    institutionId: string;
+    accessToken: string;
+  };
 }
 
 interface SyncStatus {
@@ -218,8 +222,14 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     requireInput: false,
   });
 
+  // Filter out Coinbase and manual accounts from sync operations
+  const syncableAccounts = accounts.filter(account => 
+    account.institution !== 'Coinbase' && 
+    account.plaidItem?.accessToken !== 'manual'
+  );
+  
   const allAccounts = accounts.filter(account => account.institution !== 'Coinbase');
-  const newAccounts = allAccounts.filter(account => !account.lastSyncTime);
+  const newAccounts = syncableAccounts.filter(account => !account.lastSyncTime);
   const creditCardAccounts = allAccounts.filter(account => account.type === 'credit');
   const loanAccounts = allAccounts.filter(account => account.type === 'loan');
   const billAccounts = allAccounts.filter(account => ['credit', 'loan'].includes(account.type));
@@ -451,7 +461,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           {/* Plaid Sync Section */}
           <div className="mb-8 p-4 rounded-lg bg-gray-100 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800">
             <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">Plaid Sync</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Sync your accounts to keep your transaction data up to date. You can sync new accounts for a full history, or sync all accounts for the latest updates.</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Sync your Plaid-connected accounts to keep your transaction data up to date. Manual accounts cannot be synced. You can sync new accounts for a full history, or sync all accounts for the latest updates.</p>
             
             {/* Authentication Status Check */}
             <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
@@ -509,7 +519,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                   Sync New Accounts
                   <span className="ml-2 text-xs text-gray-200 dark:text-gray-300">({newAccounts.length} to sync)</span>
                 </button>
-                <span className="text-xs text-gray-500 mt-1">Pulls full transaction history for accounts that have never been synced.</span>
+                <span className="text-xs text-gray-500 mt-1">Pulls full transaction history for Plaid-connected accounts that have never been synced.</span>
               </div>
               <div className="flex flex-col gap-1">
                 <button
@@ -537,9 +547,9 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                 >
                   <ArrowPathIcon className="w-5 h-5" />
                   Sync All Accounts
-                  <span className="ml-2 text-xs text-gray-200 dark:text-gray-300">({allAccounts.length} to sync)</span>
+                  <span className="ml-2 text-xs text-gray-200 dark:text-gray-300">({syncableAccounts.length} to sync)</span>
                 </button>
-                <span className="text-xs text-gray-500 mt-1">Pulls new and updated transactions for all accounts since their last sync.</span>
+                <span className="text-xs text-gray-500 mt-1">Pulls new and updated transactions for all Plaid-connected accounts since their last sync.</span>
               </div>
             </div>
             {/* Sync status and progress */}
@@ -569,6 +579,13 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
             <div className="text-xs text-gray-500 mt-2">
               Syncing is happening in the background. You can check back here in a few minutes for updated status.
             </div>
+            {accounts.some(account => account.plaidItem?.accessToken === 'manual') && (
+              <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  <strong>Note:</strong> Manual accounts are excluded from sync operations since they don't connect to Plaid.
+                </p>
+              </div>
+            )}
             {/* Last sync times table */}
             <div className="mt-6">
               <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Last Sync Times</h4>
@@ -585,12 +602,28 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                       const institution = maskInstitutionName(account.institution || 'Unknown');
                       const type = account.type ? (account.type.charAt(0).toUpperCase() + account.type.slice(1)) : "Unknown";
                       const last4 = maskAccountNumber(account.mask || null);
+                      const isManual = account.plaidItem?.accessToken === 'manual';
                       const formattedName = showSensitiveData ? `${institution} - ${type} (${last4})` : "••••••••••";
                       
                       return (
                         <tr key={account.id}>
-                          <td className="px-2 py-1 whitespace-nowrap">{formattedName}</td>
-                          <td className="px-2 py-1 whitespace-nowrap">{maskLastSyncTime(account.lastSyncTime || null)}</td>
+                          <td className="px-2 py-1 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span>{formattedName}</span>
+                              {isManual && (
+                                <span className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
+                                  Manual
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-2 py-1 whitespace-nowrap">
+                            {isManual ? (
+                              <span className="text-gray-400 dark:text-gray-500 italic">N/A</span>
+                            ) : (
+                              maskLastSyncTime(account.lastSyncTime || null)
+                            )}
+                          </td>
                         </tr>
                       );
                     })}

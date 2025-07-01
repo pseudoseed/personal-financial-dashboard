@@ -202,6 +202,9 @@ deploy() {
     print_status "Waiting for application to start..."
     sleep 15
     
+    # Run database migrations
+    run_migrations
+    
     # Verify deployment
     verify_deployment
     
@@ -209,6 +212,61 @@ deploy() {
     print_status "Dashboard is available at: http://localhost:3000"
     print_status "Smart refresh is enabled - data will refresh automatically when needed"
     print_status "Manual refresh is limited to 3 times per day to control costs"
+}
+
+# Run database migrations
+run_migrations() {
+    print_status "Running database migrations..."
+    
+    # Wait for container to be fully ready
+    local retries=0
+    local max_retries=10
+    
+    while [ $retries -lt $max_retries ]; do
+        if docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
+            # Check if container is healthy
+            local container_status=$(docker inspect --format='{{.State.Status}}' $CONTAINER_NAME 2>/dev/null || echo "unknown")
+            if [ "$container_status" = "running" ]; then
+                print_success "Container is ready, running migrations..."
+                break
+            fi
+        fi
+        
+        retries=$((retries + 1))
+        print_status "Waiting for container to be ready... ($retries/$max_retries)"
+        sleep 3
+    done
+    
+    if [ $retries -eq $max_retries ]; then
+        print_error "Container failed to start properly, cannot run migrations"
+        return 1
+    fi
+    
+    # Run migrations with retry logic
+    local migration_retries=0
+    local max_migration_retries=3
+    
+    while [ $migration_retries -lt $max_migration_retries ]; do
+        print_status "Attempting database migration... (attempt $((migration_retries + 1))/$max_migration_retries)"
+        
+        # Run migration command in container
+        if docker exec $CONTAINER_NAME npx prisma migrate deploy > /dev/null 2>&1; then
+            print_success "Database migrations completed successfully"
+            return 0
+        else
+            migration_retries=$((migration_retries + 1))
+            if [ $migration_retries -lt $max_migration_retries ]; then
+                print_warning "Migration failed, retrying in 5 seconds..."
+                sleep 5
+            else
+                print_error "Database migration failed after $max_migration_retries attempts"
+                print_status "Recent container logs:"
+                docker logs $CONTAINER_NAME --tail 20
+                print_status "You may need to manually run: docker exec $CONTAINER_NAME npx prisma migrate deploy"
+                return 1
+            fi
+        fi
+    done
 }
 
 # Verify deployment health
@@ -411,6 +469,7 @@ help() {
     echo "  restart          - Restart the application"
     echo "  update           - Update to latest version"
     echo "  backup           - Create database backup"
+    echo "  migrate          - Run database migrations manually"
     echo "  clear-cache      - Clear all caches (Docker, Next.js, Node.js)"
     echo "  verify           - Run full deployment verification"
     echo "  refresh          - Manually run refresh"
@@ -436,6 +495,12 @@ help() {
     echo "• Use --force-rebuild for major changes or cache issues"
     echo "• Use --clear-cache for UI/UX updates or build problems"
     echo "• Database is automatically backed up before each deployment"
+    echo "• Database migrations run automatically during deployment"
+    echo ""
+    echo "Database Management:"
+    echo "• Migrations run automatically during deployment"
+    echo "• Use 'migrate' command to run migrations manually if needed"
+    echo "• Database schema is version controlled via Prisma migrations"
     echo ""
     echo "Verification:"
     echo "• Use 'verify' command to check deployment health"
@@ -471,6 +536,9 @@ case "${1:-help}" in
         ;;
     backup)
         backup
+        ;;
+    migrate)
+        run_migrations
         ;;
     clear-cache)
         clear_cache
