@@ -163,6 +163,7 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
             accountId: accountToKeep.id,
           },
         });
+        console.log(`[MERGE] Transferred balances from ${accountToRemove.id} to ${accountToKeep.id}`);
       }
 
       // Transfer transactions if the kept account doesn't have any
@@ -183,12 +184,24 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
             accountId: accountToKeep.id,
           },
         });
+        console.log(`[MERGE] Transferred transactions from ${accountToRemove.id} to ${accountToKeep.id}`);
+      }
+
+      // Transfer emergency fund account references
+      const efCount = await prisma.emergencyFundAccount.count({ where: { accountId: accountToRemove.id } });
+      if (efCount > 0) {
+        await prisma.emergencyFundAccount.updateMany({
+          where: { accountId: accountToRemove.id },
+          data: { accountId: accountToKeep.id },
+        });
+        console.log(`[MERGE] Transferred emergency fund references from ${accountToRemove.id} to ${accountToKeep.id}`);
       }
 
       // Delete the duplicate account
       await prisma.account.delete({
         where: { id: accountToRemove.id },
       });
+      console.log(`[MERGE] Deleted duplicate account ${accountToRemove.id}`);
     }
   }
 

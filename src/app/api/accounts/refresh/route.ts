@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { smartRefreshAccounts, refreshSpecificAccount, refreshInstitution, canUserManualRefresh, getManualRefreshCount } from "@/lib/refreshService";
 import { getCurrentUserId } from "@/lib/userManagement";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
@@ -44,6 +47,8 @@ export async function POST(request: Request) {
       results = await refreshSpecificAccount(accountId, isManualRefresh);
     } else if (institutionId) {
       console.log(`Refreshing institution: ${institutionId}`);
+      const foundItems = await prisma.plaidItem.findMany({ where: { institutionId } });
+      console.log(`[REFRESH] Found Plaid items:`, foundItems.map(i => ({ id: i.id, institutionId: i.institutionId, itemId: i.itemId })));
       results = await refreshInstitution(institutionId, isManualRefresh);
     } else {
       console.log("Refreshing all accounts");

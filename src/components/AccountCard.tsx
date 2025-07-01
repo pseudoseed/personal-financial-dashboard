@@ -26,6 +26,7 @@ import { getAccountTypeInfo } from "@/lib/accountTypes";
 import { formatBalance } from "@/lib/formatters";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNotifications } from "@/components/ui/Notification";
+import { InstitutionLogo } from './InstitutionLogo';
 
 interface AccountCardProps {
   account: Account;
@@ -227,7 +228,7 @@ export function AccountCard({
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-2 min-w-0">
             {showSensitiveData && account.institutionLogo ? (
-              <img
+              <InstitutionLogo
                 src={account.institutionLogo}
                 alt={account.institution || "Bank logo"}
                 className="h-5 w-5 object-contain"

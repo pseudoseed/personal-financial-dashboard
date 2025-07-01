@@ -38,6 +38,7 @@ import {
 import { formatBalance } from "@/lib/formatters";
 import { useSensitiveData } from "@/app/providers";
 import { Switch } from '@headlessui/react';
+import { InstitutionLogo } from './InstitutionLogo';
 
 // Register ChartJS components
 ChartJS.register(
@@ -375,10 +376,11 @@ export function AccountDetails({ account }: AccountDetailsProps) {
           <div className="card flex flex-col">
             <div className="flex items-start gap-4">
               {showSensitiveData && account.plaidItem.institutionLogo ? (
-                <img
+                <InstitutionLogo
                   src={account.plaidItem.institutionLogo}
                   alt={account.plaidItem.institutionName || "Bank logo"}
                   className="w-12 h-12 object-contain"
+                  fallbackIcon={<BuildingLibraryIcon className="w-12 h-12 text-gray-400" />}
                 />
               ) : (
                 <BuildingLibraryIcon className="w-12 h-12 text-gray-400" />
@@ -628,10 +630,11 @@ export function AccountDetails({ account }: AccountDetailsProps) {
         <div className="card flex flex-col">
           <div className="flex items-start gap-4">
             {showSensitiveData && account.plaidItem.institutionLogo ? (
-              <img
+              <InstitutionLogo
                 src={account.plaidItem.institutionLogo}
                 alt={account.plaidItem.institutionName || "Bank logo"}
                 className="w-12 h-12 object-contain"
+                fallbackIcon={<BuildingLibraryIcon className="w-12 h-12 text-gray-400" />}
               />
             ) : (
               <BuildingLibraryIcon className="w-12 h-12 text-gray-400" />
