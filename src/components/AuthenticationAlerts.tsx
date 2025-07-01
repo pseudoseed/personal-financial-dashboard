@@ -134,9 +134,26 @@ export function AuthenticationAlerts() {
     }
   }, [ready, linkToken, selectedInstitution, open]);
 
+  // Session-scoped alert dismissals
+  useEffect(() => {
+    // On mount, load dismissed alerts from sessionStorage
+    const stored = sessionStorage.getItem("dismissedAuthAlerts");
+    if (stored) {
+      try {
+        setDismissedAlerts(new Set(JSON.parse(stored)));
+      } catch {
+        setDismissedAlerts(new Set());
+      }
+    }
+  }, []);
+
   // Dismiss an alert
   const dismissAlert = (institutionId: string) => {
-    setDismissedAlerts(prev => new Set(prev).add(institutionId));
+    setDismissedAlerts(prev => {
+      const updated = new Set(prev).add(institutionId);
+      sessionStorage.setItem("dismissedAuthAlerts", JSON.stringify([...updated]));
+      return updated;
+    });
   };
 
   // Utility to determine severity order
