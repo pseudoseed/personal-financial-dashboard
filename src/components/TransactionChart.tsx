@@ -44,6 +44,7 @@ ChartJS.register(
 interface TransactionChartProps {}
 
 export function TransactionChart({}: TransactionChartProps) {
+  console.log('TransactionChart render start');
   const { showSensitiveData } = useSensitiveData();
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
