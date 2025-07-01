@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { PlusIcon, MagnifyingGlassIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { DashboardCard, Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
+import { useSensitiveData } from "@/app/providers";
 
 interface RecurringExpense {
   id: string;
@@ -34,6 +35,7 @@ export default function RecurringExpensesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"nextDueDate" | "amount" | "confidence" | "merchantName">("nextDueDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const { showSensitiveData } = useSensitiveData();
 
   useEffect(() => {
     fetchExpenses();
@@ -167,7 +169,7 @@ export default function RecurringExpensesPage() {
           <div>
             <span className="text-surface-600 dark:text-surface-400">Monthly Total:</span>
             <span className="ml-2 font-semibold text-success-600 dark:text-success-400">
-              ${totalMonthly.toFixed(2)}
+              {showSensitiveData ? `$${totalMonthly.toFixed(2)}` : "••••••"}
             </span>
           </div>
           <div>
@@ -232,7 +234,7 @@ export default function RecurringExpensesPage() {
                       {confirmedPaginated.map(exp => (
                         <tr key={exp.id} className="bg-white dark:bg-surface-900">
                           <td className="px-4 py-2 whitespace-nowrap font-medium">{exp.merchantName || exp.name}</td>
-                          <td className="px-4 py-2 whitespace-nowrap">${exp.amount.toFixed(2)}</td>
+                          <td className="px-4 py-2 whitespace-nowrap">{showSensitiveData ? `$${exp.amount.toFixed(2)}` : "••••••"}</td>
                           <td className="px-4 py-2 whitespace-nowrap capitalize">{exp.frequency}</td>
                           <td className="px-4 py-2 whitespace-nowrap">{exp.nextDueDate ? format(new Date(exp.nextDueDate), 'MMM d, yyyy') : '-'}</td>
                           <td className="px-4 py-2 whitespace-nowrap">{exp.confidence}%</td>
@@ -287,7 +289,7 @@ export default function RecurringExpensesPage() {
                       {potentialPaginated.map(exp => (
                         <tr key={exp.id} className="bg-white dark:bg-surface-900">
                           <td className="px-4 py-2 whitespace-nowrap font-medium">{exp.merchantName || exp.name}</td>
-                          <td className="px-4 py-2 whitespace-nowrap">${exp.amount.toFixed(2)}</td>
+                          <td className="px-4 py-2 whitespace-nowrap">{showSensitiveData ? `$${exp.amount.toFixed(2)}` : "••••••"}</td>
                           <td className="px-4 py-2 whitespace-nowrap capitalize">{exp.frequency}</td>
                           <td className="px-4 py-2 whitespace-nowrap">{exp.nextDueDate ? format(new Date(exp.nextDueDate), 'MMM d, yyyy') : '-'}</td>
                           <td className="px-4 py-2 whitespace-nowrap">{exp.confidence}%</td>

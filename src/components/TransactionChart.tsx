@@ -14,7 +14,7 @@ import {
   ChartOptions,
   ArcElement,
 } from "chart.js";
-import { Cog6ToothIcon, ArrowPathIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon, ArrowPathIcon, XMarkIcon, FunnelIcon } from "@heroicons/react/24/outline";
 import { TransactionChartSettings } from "./TransactionChartSettings";
 import type {
   TransactionChartSettings as Settings,
@@ -459,6 +459,17 @@ export function TransactionChart({}: TransactionChartProps) {
   // All render guards in JSX
   return (
     <>
+      {/* Filter Button always visible */}
+      <div className="flex justify-end mb-4">
+        <button
+          className="flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors shadow-sm"
+          onClick={() => setIsSettingsOpen(true)}
+          aria-label="Open filter settings"
+        >
+          <FunnelIcon className="w-5 h-5" />
+          <span>Filter</span>
+        </button>
+      </div>
       {/* Mount guard for SSR/client hydration */}
       {!mounted ? (
         <div className="flex items-center justify-center h-64">Loading...</div>
