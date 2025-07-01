@@ -453,6 +453,34 @@ export function TransactionChart({}: TransactionChartProps) {
   const selectedAccountsCount = settings.selectedAccountIds.length;
   const totalAccountsCount = data.accounts.length;
 
+  // Add debug logging utility that works in production
+  function debugLog(...args: any[]) {
+    if (typeof window !== 'undefined' && (window as any).__PF_DEBUG) {
+      (window as any).__PF_DEBUG(...args);
+    } else if (typeof window !== 'undefined' && (window as any).PF_DEBUG) {
+      (window as any).PF_DEBUG(...args);
+    } else {
+      // Fallback to console.log (may be stripped in some prod builds)
+      // You can set window.__PF_DEBUG = console.log in the browser console to enable
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__PF_DEBUG) {
+          (window as any).__PF_DEBUG = console.log;
+        }
+        (window as any).__PF_DEBUG(...args);
+      } else {
+        // SSR fallback
+        // eslint-disable-next-line no-console
+        console.log(...args);
+      }
+    }
+  }
+
+  // Reset selectedCategory when settings, useGranularCategories, or allTxData changes
+  useEffect(() => {
+    setSelectedCategory("");
+    debugLog('[PF_DEBUG] Reset selectedCategory due to settings/useGranularCategories/allTxData change');
+  }, [settings, useGranularCategories, allTxData]);
+
   // Use allTxData.transactions for filtering
   const filteredTransactions = useMemo(() => {
     if (!allTxData || !allTxData.transactions) return [];
@@ -464,6 +492,12 @@ export function TransactionChart({}: TransactionChartProps) {
       return tx[catField] === selectedCategory;
     });
   }, [allTxData, useGranularCategories, selectedCategory]);
+
+  // Debug log selectedCategory and filteredTransactions
+  useEffect(() => {
+    debugLog('[PF_DEBUG] selectedCategory:', selectedCategory);
+    debugLog('[PF_DEBUG] filteredTransactions:', filteredTransactions);
+  }, [selectedCategory, filteredTransactions]);
 
   return (
     <>
@@ -591,12 +625,12 @@ export function TransactionChart({}: TransactionChartProps) {
         {/* Category Transactions Card */}
         <div
           className={`transition-all duration-500 ease-in-out overflow-hidden ${
-            selectedCategory
+            selectedCategory && filteredTransactions.length > 0
               ? "max-h-[1000px] opacity-100"
               : "max-h-0 opacity-0"
           }`}
         >
-          {selectedCategory && Array.isArray(filteredTransactions) && (
+          {selectedCategory && Array.isArray(filteredTransactions) && filteredTransactions.length > 0 && (
             <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 mt-6 dark:text-gray-100">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold dark:text-gray-100">
