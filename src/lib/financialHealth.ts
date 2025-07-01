@@ -73,7 +73,7 @@ export async function calculateFinancialHealth(_userId: string): Promise<Financi
 
   // Calculate metrics
   const emergencyFundRatio = calculateEmergencyFundRatio(efAccounts, recurringExpenses);
-  const debtToIncomeRatio = calculateDebtToIncomeRatio(accounts, recurringPayments);
+  const debtToIncomeRatio = calculateDebtToIncomeRatio(accounts, recurringPayments, recurringExpenses);
   const savingsRate = calculateSavingsRate(transactions, recurringPayments);
   const creditUtilization = calculateCreditUtilization(accounts);
 
@@ -172,14 +172,55 @@ function calculateEmergencyFundRatio(
 
 function calculateDebtToIncomeRatio(
   accounts: (Account & { balances: any[] })[],
-  recurringPayments: any[]
+  recurringPayments: any[],
+  recurringExpenses: any[]
 ): number {
-  const totalDebt = accounts
+  // Industry-standard DTI: (Total Monthly Debt Payments + Recurring Expenses) / Gross Monthly Income
+  // Numerator: sum of minimum monthly payments from debt accounts (if available) + all recurring monthly expenses (deduplicated by amount)
+  // Denominator: sum of recurring payments (normalized to monthly)
+
+  // 1. Sum minimum monthly payments from debt accounts (credit, loan, line of credit)
+  let totalMonthlyDebtPayments = 0;
+  const minPaymentAmounts = new Set<number>();
+  accounts
     .filter(account => ['credit', 'loan', 'line of credit'].includes(account.type))
-    .reduce((total, account) => {
-      const balance = account.balances[0]?.current || 0;
-      return total + Math.abs(balance);
-    }, 0);
+    .forEach(account => {
+      const minPayment = account.minimumPaymentAmount;
+      if (typeof minPayment === 'number' && minPayment > 0) {
+        totalMonthlyDebtPayments += minPayment;
+        minPaymentAmounts.add(minPayment);
+      }
+    });
+
+  // 2. Add all recurring monthly expenses (normalized to monthly), skipping any whose amount matches a minimum payment
+  const recurringMonthlyExpenses = recurringExpenses.reduce((total, expense) => {
+    let monthlyAmount = expense.amount;
+    switch (expense.frequency) {
+      case 'weekly':
+        monthlyAmount = expense.amount * 4.33;
+        break;
+      case 'bi-weekly':
+        monthlyAmount = expense.amount * 2.17;
+        break;
+      case 'quarterly':
+        monthlyAmount = expense.amount / 3;
+        break;
+      case 'yearly':
+        monthlyAmount = expense.amount / 12;
+        break;
+    }
+    // Deduplicate: only add if this monthlyAmount is not already in minPaymentAmounts
+    if (!minPaymentAmounts.has(monthlyAmount)) {
+      return total + monthlyAmount;
+    } else {
+      // Optionally log deduplication
+      // console.log(`[DTI Deduplication] Skipping recurring expense amount already counted as minimum payment: $${monthlyAmount}`);
+      return total;
+    }
+  }, 0);
+  totalMonthlyDebtPayments += recurringMonthlyExpenses;
+
+  // 3. Calculate monthly income from recurring payments (normalized to monthly)
   const monthlyIncome = recurringPayments.reduce((total, payment) => {
     let monthlyAmount = payment.amount;
     switch (payment.frequency) {
@@ -198,8 +239,9 @@ function calculateDebtToIncomeRatio(
     }
     return total + monthlyAmount;
   }, 0);
-  console.log('[Debt-to-Income] Total Debt:', totalDebt, 'Monthly Income:', monthlyIncome);
-  return monthlyIncome > 0 ? totalDebt / monthlyIncome : 0;
+
+  console.log('[Debt-to-Income] Total Monthly Debt Payments:', totalMonthlyDebtPayments, 'Monthly Income:', monthlyIncome);
+  return monthlyIncome > 0 ? totalMonthlyDebtPayments / monthlyIncome : 0;
 }
 
 function calculateSavingsRate(
