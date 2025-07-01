@@ -26,22 +26,22 @@ async function fetchAccounts(): Promise<Account[]> {
 }
 
 // Check if data needs refresh
-function shouldAutoRefresh(accounts: Account[]): boolean {
+function shouldAutoRefresh(accounts: Account[] | undefined): boolean {
   if (!accounts || accounts.length === 0) return false;
   
   const now = Date.now();
-  const sixHoursAgo = now - (6 * 60 * 60 * 1000); // 6 hours
+  const twelveHoursAgo = now - (12 * 60 * 60 * 1000); // 12 hours instead of 6
   
   return accounts.some(account => {
     if (!account.balances || account.balances.length === 0) return true;
     const lastBalance = account.balances[0];
     const lastUpdateTime = new Date(lastBalance.date).getTime();
-    return lastUpdateTime < sixHoursAgo;
+    return lastUpdateTime < twelveHoursAgo;
   });
 }
 
 // Check if transactions need sync
-function shouldAutoSyncTransactions(accounts: Account[]): boolean {
+function shouldAutoSyncTransactions(accounts: Account[] | undefined): boolean {
   if (!accounts || accounts.length === 0) return false;
   
   const now = Date.now();
@@ -73,6 +73,10 @@ export default function DashboardPage() {
 
   // Auto-refresh logic with proper state management
   useEffect(() => {
+    // TEMPORARILY DISABLED - Debugging refresh issue
+    console.log("Auto-refresh logic disabled for debugging");
+    return;
+    
     if (accounts && !hasAutoRefreshed && !isRefreshing) {
       const needsRefresh = shouldAutoRefresh(accounts);
       const needsTransactionSync = shouldAutoSyncTransactions(accounts);
@@ -83,7 +87,7 @@ export default function DashboardPage() {
         fetch("/api/accounts/refresh", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ includeTransactionSync: true }),
+          body: JSON.stringify({ includeTransactions: true }),
         })
         .then(() => {
           setHasAutoRefreshed(true);
@@ -159,6 +163,9 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-screen-xl mx-auto px-4 lg:px-8">
+      {/* Authentication Alerts */}
+      <AuthenticationAlerts />
+      
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Main Content */}
         <div className="flex-1 min-w-0 space-y-8">
