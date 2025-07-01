@@ -222,11 +222,39 @@ export function TransactionChart({}: TransactionChartProps) {
     []
   );
 
-  // Filtered AI category totals for spend only
-  const spendCategories = [
-    "Rent/Mortgage", "Home Maintenance", "Electricity", "Water/Sewer", "Gas Utility", "Internet", "Cell Phone", "Streaming Services", "Groceries", "Fast Food", "Restaurants", "Coffee Shops", "Alcohol/Bars", "Gas Station", "Public Transit", "Ride Sharing (Uber/Lyft)", "Car Payment", "Car Insurance", "Parking", "Flights", "Hotels", "Vacation Rental", "Online Shopping", "Clothing", "Electronics", "Beauty/Personal Care", "Gym/Fitness", "Medical Expenses", "Health Insurance", "Pharmacy", "Subscriptions", "Childcare", "Tuition", "Student Loans", "Books & Supplies", "Fees & Charges", "Gifts", "Donations", "Pets", "Hobbies", "Games"
-  ];
-  const filteredAiCategoryTotals = aiCategoryTotals;
+  // Utility to infer transaction type
+  function inferTransactionType(tx: any): 'expense' | 'income' | 'transfer' | 'other' {
+    // Use personalFinanceCategory if available, fallback to amount sign
+    const cat = tx.personalFinanceCategory;
+    if (cat === 'INCOME' || cat === 'TRANSFER_IN') return 'income';
+    if (cat === 'TRANSFER_OUT') return 'transfer';
+    if (cat === 'LOAN_PAYMENTS' || cat === 'DEBT' || cat === 'CREDIT_CARD_PAYMENT') return 'expense';
+    if (typeof tx.amount === 'number') {
+      if (tx.amount < 0) return 'expense';
+      if (tx.amount > 0) return 'income';
+    }
+    return 'other';
+  }
+
+  // Filter transactions for pie chart: only include expenses
+  const filteredExpenseTransactions = useMemo(() => {
+    if (!allTxData || !allTxData.transactions) return [];
+    return allTxData.transactions.filter((tx: any) => inferTransactionType(tx) === 'expense');
+  }, [allTxData]);
+
+  // Aggregate category totals for expenses only
+  const filteredAiCategoryTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    filteredExpenseTransactions.forEach((tx: any) => {
+      const category = useGranularCategories
+        ? tx.categoryAiGranular || tx.categoryAiGeneral || 'Miscellaneous'
+        : tx.categoryAiGeneral || tx.categoryAiGranular || 'Miscellaneous';
+      if (!category) return;
+      if (!totals[category]) totals[category] = 0;
+      totals[category] += Math.abs(tx.amount || 0);
+    });
+    return totals;
+  }, [filteredExpenseTransactions, useGranularCategories]);
 
   const aiPieData: ChartData<"pie"> = useMemo(() => {
     const sortedCategories = Object.entries(filteredAiCategoryTotals).sort(
@@ -577,6 +605,7 @@ export function TransactionChart({}: TransactionChartProps) {
                   endDate: settings.endDate,
                 }}
                 accountIds={settings.selectedAccountIds}
+                categoryType={useGranularCategories ? 'granular' : 'general'}
               />
             </div>
           )}
