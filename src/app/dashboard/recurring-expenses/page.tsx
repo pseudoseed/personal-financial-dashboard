@@ -79,6 +79,27 @@ export default function RecurringExpensesPage() {
     }
   }
 
+  // Split expenses into potential and confirmed
+  const potentialExpenses = expenses.filter(e => !e.isConfirmed);
+  const confirmedExpenses = expenses.filter(e => e.isConfirmed);
+
+  async function confirmExpense(id: string) {
+    try {
+      const res = await fetch(`/api/recurring-expenses/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isConfirmed: true }),
+      });
+      if (res.ok) {
+        await fetchExpenses();
+      } else {
+        setError("Failed to confirm recurring expense");
+      }
+    } catch (err) {
+      setError("Failed to confirm recurring expense");
+    }
+  }
+
   async function deleteExpense(id: string) {
     if (!confirm("Are you sure you want to delete this recurring expense?")) return;
     try {
@@ -232,66 +253,90 @@ export default function RecurringExpensesPage() {
         </div>
       )}
 
-      {/* Expenses List */}
-      {loading ? (
-        <div className="card">
-          <div className="animate-pulse space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-16 bg-surface-100 dark:bg-surface-700 rounded"></div>
-            ))}
-          </div>
-        </div>
-      ) : paginatedExpenses.length === 0 ? (
-        <div className="card text-center py-12">
-          <p className="text-surface-600 dark:text-surface-400 mb-4">
-            {searchTerm ? "No expenses match your search." : "No recurring expenses found."}
-          </p>
-          {!searchTerm && (
-            <Button onClick={detectNewExpenses} disabled={detecting} loading={detecting}>
-              Detect Recurring Expenses
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="card mb-6">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-surface-200 dark:divide-surface-700">
-                <thead>
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Merchant</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Amount</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Frequency</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Next Due</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Confidence</th>
-                    <th className="px-4 py-2"></th>
+      {/* Potential Recurring Expenses Section */}
+      <div className="mb-10">
+        <h2 className="text-xl font-bold mb-4 text-surface-900 dark:text-surface-100">Potential Recurring Expenses</h2>
+        {potentialExpenses.length === 0 ? (
+          <div className="text-surface-500 dark:text-surface-400 text-sm py-2">No potential recurring expenses detected.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-surface-200 dark:divide-surface-700">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Merchant</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Amount</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Frequency</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Next Due</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Confidence</th>
+                  <th className="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {potentialExpenses.map(exp => (
+                  <tr key={exp.id} className="bg-white dark:bg-surface-900">
+                    <td className="px-4 py-2 whitespace-nowrap font-medium">{exp.merchantName || exp.name}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">${exp.amount.toFixed(2)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap capitalize">{exp.frequency}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{exp.nextDueDate ? format(new Date(exp.nextDueDate), 'MMM d, yyyy') : '-'}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{exp.confidence}%</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right">
+                      <button
+                        onClick={() => confirmExpense(exp.id)}
+                        className="text-success-600 hover:text-success-800 dark:text-success-400 dark:hover:text-success-200 p-1 rounded focus:outline-none focus:ring-2 focus:ring-success-500 border border-success-200 dark:border-success-700 bg-success-50 dark:bg-success-900/20"
+                        title="Add recurring expense"
+                      >
+                        Add
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {paginatedExpenses.map(exp => (
-                    <tr key={exp.id} className="bg-white dark:bg-surface-900">
-                      <td className="px-4 py-2 whitespace-nowrap font-medium">{exp.merchantName || exp.name}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">${exp.amount.toFixed(2)}</td>
-                      <td className="px-4 py-2 whitespace-nowrap capitalize">{exp.frequency}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{exp.nextDueDate ? format(new Date(exp.nextDueDate), 'MMM d, yyyy') : '-'}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{exp.confidence}%</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-right">
-                        <button
-                          onClick={() => deleteExpense(exp.id)}
-                          className="text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-200 p-1 rounded focus:outline-none focus:ring-2 focus:ring-error-500"
-                          title="Delete recurring expense"
-                        >
-                          <TrashIcon className="w-5 h-5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+      {/* Confirmed Recurring Expenses Section */}
+      <div>
+        <h2 className="text-xl font-bold mb-4 text-surface-900 dark:text-surface-100">Confirmed Recurring Expenses</h2>
+        {confirmedExpenses.length === 0 ? (
+          <div className="text-surface-500 dark:text-surface-400 text-sm py-2">No confirmed recurring expenses.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-surface-200 dark:divide-surface-700">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Merchant</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Amount</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Frequency</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Next Due</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Confidence</th>
+                  <th className="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {confirmedExpenses.map(exp => (
+                  <tr key={exp.id} className="bg-white dark:bg-surface-900">
+                    <td className="px-4 py-2 whitespace-nowrap font-medium">{exp.merchantName || exp.name}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">${exp.amount.toFixed(2)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap capitalize">{exp.frequency}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{exp.nextDueDate ? format(new Date(exp.nextDueDate), 'MMM d, yyyy') : '-'}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{exp.confidence}%</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right">
+                      <button
+                        onClick={() => deleteExpense(exp.id)}
+                        className="text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-200 p-1 rounded focus:outline-none focus:ring-2 focus:ring-error-500"
+                        title="Delete recurring expense"
+                      >
+                        <TrashIcon className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
