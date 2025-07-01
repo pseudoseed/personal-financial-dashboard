@@ -66,6 +66,17 @@ export async function GET(request: NextRequest) {
       personalFinanceCategory: true,
       date: true,
       accountId: true,
+      account: {
+        select: {
+          name: true,
+          type: true,
+          plaidItem: {
+            select: {
+              institutionName: true,
+            },
+          },
+        },
+      },
     };
 
     const transactions = await prisma.transaction.findMany({

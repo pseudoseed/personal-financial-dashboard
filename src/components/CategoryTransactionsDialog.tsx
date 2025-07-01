@@ -327,8 +327,8 @@ export function CategoryTransactionsDialog({
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                         <div>
-                          <div>{transaction.account.plaidItem.institutionName || 'Unknown'}</div>
-                          <div className="text-xs">{transaction.account.name}</div>
+                          <div>{transaction.account?.plaidItem?.institutionName || 'Unknown'}</div>
+                          <div className="text-xs">{transaction.account?.name || 'Unknown'}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
