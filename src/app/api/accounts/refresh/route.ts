@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { smartRefreshAccounts, canUserManualRefresh, getManualRefreshCount } from "@/lib/refreshService";
+import { smartRefreshAccounts, refreshSpecificAccount, refreshInstitution, canUserManualRefresh, getManualRefreshCount } from "@/lib/refreshService";
 import { getCurrentUserId } from "@/lib/userManagement";
 
 export async function POST(request: Request) {
@@ -9,6 +9,8 @@ export async function POST(request: Request) {
     const isManualRefresh = body.manual === true;
     const userId = body.userId || await getCurrentUserId();
     const includeTransactions = body.includeTransactions === true;
+    const accountId = body.accountId;
+    const institutionId = body.institutionId;
     
     if (isManualRefresh) {
       // Check rate limiting for manual refreshes
@@ -34,8 +36,20 @@ export async function POST(request: Request) {
       console.log("Transaction sync included in refresh");
     }
     
-    // Perform smart refresh
-    const results = await smartRefreshAccounts(userId, isManualRefresh, includeTransactions);
+    let results;
+    
+    // Handle targeted refresh based on parameters
+    if (accountId) {
+      console.log(`Refreshing specific account: ${accountId}`);
+      results = await refreshSpecificAccount(accountId, isManualRefresh);
+    } else if (institutionId) {
+      console.log(`Refreshing institution: ${institutionId}`);
+      results = await refreshInstitution(institutionId, isManualRefresh);
+    } else {
+      console.log("Refreshing all accounts");
+      // Perform smart refresh for all accounts
+      results = await smartRefreshAccounts(userId, isManualRefresh, includeTransactions);
+    }
     
     // Get refresh count info for manual refreshes
     const refreshInfo = isManualRefresh ? await getManualRefreshCount(userId) : null;
@@ -58,6 +72,8 @@ export async function POST(request: Request) {
       success: !hasErrors || hasRefreshed, // Success if no errors OR if some accounts refreshed
       manual: isManualRefresh,
       includeTransactions,
+      targetAccountId: accountId,
+      targetInstitutionId: institutionId,
       accountsRefreshed: results.refreshed.length,
       accountsSkipped: results.skipped.length,
       errors: results.errors.length,

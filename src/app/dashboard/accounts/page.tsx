@@ -87,6 +87,12 @@ export default function AccountsPage() {
       
       const response = await fetch("/api/accounts/refresh", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          manual: true 
+        }),
       });
 
       const data = await response.json();
@@ -134,15 +140,35 @@ export default function AccountsPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ institutionId }),
+        body: JSON.stringify({ 
+          institutionId,
+          manual: true 
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to refresh institution");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to refresh institution");
       }
+
+      const data = await response.json();
+      
+      // Show success notification
+      const successMessage = `Refreshed ${data.accountsRefreshed} accounts in ${institutionId}${data.errors > 0 ? `, ${data.errors} errors` : ''}`;
+      addNotification({
+        type: "success",
+        title: "Institution Refresh Complete",
+        message: successMessage,
+      });
 
       await refetch();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to refresh institution";
+      addNotification({
+        type: "error",
+        title: "Institution Refresh Failed",
+        message: errorMessage,
+      });
       console.error("Error refreshing institution:", error);
     } finally {
       setRefreshingInstitutions((prev) => ({

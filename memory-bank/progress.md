@@ -12,12 +12,14 @@ Based on the project files and TODO list, the following features are currently w
 - ✅ Smart refresh system with intelligent caching
 - ✅ Smart transaction sync system with cursor-based incremental updates
 - ✅ Email notifications for balance changes
+- ✅ **Re-authentication Flow**: Complete system for handling expired Plaid tokens
 
 ### Account Management
 - ✅ Ability to hide accounts from dashboard
 - ✅ Account nickname functionality
 - ✅ Manual account addition (for accounts not supported by Plaid)
 - ✅ Masking sensitive balance information in the UI
+- ✅ **Authentication Status Monitoring**: Real-time detection of institutions needing re-authentication
 
 ### Analytics and Insights
 - ✅ Net worth tracking
@@ -64,6 +66,13 @@ Based on the project files and TODO list, the following features are currently w
 - ✅ **Dashboard Integration**: Prominent display on main dashboard
 - ✅ **Reusable Components**: Built using existing Card and MetricCard patterns
 
+### Authentication & Error Handling (Latest)
+- ✅ **Plaid Error Detection**: Proper parsing of ITEM_LOGIN_REQUIRED, INVALID_ACCESS_TOKEN, ITEM_LOCKED errors
+- ✅ **Authentication Alerts**: Clear UI alerts for institutions needing re-authentication
+- ✅ **Update Mode**: Proper implementation for existing institution re-authentication
+- ✅ **Settings Integration**: Easy access to authentication status checks
+- ✅ **Cost Prevention**: Prevents unnecessary API calls to invalid tokens
+
 ### Cost Optimization
 - ✅ Smart transaction sync system with TTL-based caching
 - ✅ Rate limiting for manual transaction syncs (5 per day)
@@ -72,6 +81,7 @@ Based on the project files and TODO list, the following features are currently w
 - ✅ Separate transaction sync service with dedicated API endpoint
 - ✅ Integration with balance refresh (30% probability)
 - ✅ Force sync logic for accounts >7 days old
+- ✅ **Error-Based Optimization**: Prevents API calls to invalid tokens
 
 ### Transaction Management
 - ✅ Transaction history display
@@ -86,38 +96,44 @@ Based on the project files and TODO list, the following features are currently w
 - ✅ Secure token storage
 - ✅ Account visibility controls
 - ✅ Error boundary protection
+- ✅ **Token Validation**: Proper validation of Plaid access tokens
 
 ## In Progress
-- 🔄 Database reset to resolve expired Plaid tokens
-- 🔄 Testing of new features with fresh data
+- 🔄 Testing re-authentication flow for Chase and PayPal accounts
+- 🔄 Monitoring authentication alerts in production
 
 ## What's Left to Build
 
 ### High Priority
+- 🔄 **Re-authentication Testing**: Verify the complete re-authentication flow works for all affected institutions
+- 🔄 **Proactive Monitoring**: Implement proactive token validation to prevent errors
+- 🔄 **User Education**: Add documentation about re-authentication process
+- 🔄 **Institution-Specific Handling**: Add specific handling for different institutions
+
+### Medium Priority
 - 🔄 **SimpleFIN Bridge Integration**: Evaluate and potentially implement SimpleFIN Bridge as alternative to Plaid
 - 🔄 **Performance Monitoring**: Add monitoring for API usage and sync performance
 - 🔄 **User Preferences**: Allow users to configure refresh/sync frequencies
-- 🔄 **Database Reset**: Wipe database and reconnect accounts with fresh tokens
-
-### Medium Priority
 - 🔄 **Advanced Analytics**: More sophisticated financial insights and predictions
+
+### Low Priority
 - 🔄 **Budget Tracking**: Budget creation and spending analysis
 - 🔄 **Goal Setting**: Financial goal tracking and progress visualization
 - 🔄 **Export Functionality**: Data export in various formats (CSV, PDF reports)
-
-### Low Priority
 - 🔄 **Mobile App**: Native mobile application
 - 🔄 **Multi-user Support**: Support for multiple users/family accounts
-- 🔄 **Advanced Notifications**: More sophisticated notification system
-- 🔄 **Integration APIs**: Webhooks and API for third-party integrations
 
 ## Current Status
 
 ### Recent Achievements
-- **Investment Performance Card**: Successfully implemented comprehensive portfolio tracking with snapshot toggles and asset allocation
-- **Enhanced Bills & Payments**: Successfully implemented payment tracking with cash flow forecasting and insights
-- **Activity Feed**: Successfully implemented comprehensive activity timeline with multi-source aggregation
-- **Financial Health Score**: Successfully implemented comprehensive financial health scoring system with actionable insights
+- **ITEM_LOGIN_REQUIRED Error Fix**: Successfully identified and fixed the core issue causing 400 errors
+- **Re-authentication Flow**: Implemented complete system for handling expired Plaid tokens
+- **Authentication Alerts**: Added clear UI alerts for institutions needing re-authentication
+- **Error Code Parsing**: Enhanced error detection to properly identify different Plaid error types
+- **Investment Performance Card**: Successfully implemented comprehensive portfolio tracking
+- **Enhanced Bills & Payments**: Successfully implemented payment tracking with cash flow forecasting
+- **Activity Feed**: Successfully implemented comprehensive activity timeline
+- **Financial Health Score**: Successfully implemented comprehensive financial health scoring system
 - **Transaction Sync Optimization**: Successfully implemented smart transaction syncing with 80-95% reduction in API calls
 - **Cost Reduction**: Achieved 75-85% reduction in total Plaid API costs through smart caching and rate limiting
 
@@ -128,11 +144,11 @@ Based on the project files and TODO list, the following features are currently w
 - **Performance**: Some database queries could be optimized
 
 ### Known Issues
-- **Database Tokens**: Expired Plaid tokens causing 400 errors on refresh calls
-- **Financial Health**: Zero values for debt-to-income and credit utilization due to missing balance data
+- **Chase Re-authentication**: Chase accounts need re-authentication (ITEM_LOGIN_REQUIRED)
+- **PayPal Re-authentication**: PayPal accounts need re-authentication (ITEM_LOGIN_REQUIRED)
+- **Other Institutions**: May have similar re-authentication requirements
 - **Rate Limiting**: Users may hit rate limits if they refresh too frequently
 - **Sync Delays**: Some accounts may have delayed transaction updates
-- **Error Recovery**: Some error scenarios could be handled more gracefully
 
 ## Cost Analysis
 
@@ -140,6 +156,7 @@ Based on the project files and TODO list, the following features are currently w
 - **Balance Requests**: Reduced from ~30/day to ~3-9/day (70-90% reduction)
 - **Transaction Requests**: Reduced by 80-95% through smart syncing
 - **Manual Abuse**: Prevented through rate limiting
+- **Error Prevention**: Prevents API calls to invalid tokens
 - **Overall Cost**: Estimated 75-85% reduction in total Plaid API costs
 
 ### Future Considerations
@@ -148,13 +165,13 @@ Based on the project files and TODO list, the following features are currently w
 - **TTL Tuning**: Adjust cache TTLs based on usage patterns and user feedback
 
 ## Next Release Targets
-Based on the TODO list, the next release will likely focus on:
+Based on the current status, the next release will focus on:
 
-1. **Database Reset**: Resolve token issues and test all features with fresh data
-2. **Cost Monitoring**: Track and analyze actual API usage patterns
-3. **SimpleFIN Bridge**: Evaluate and potentially implement as Plaid alternative
-4. **Performance Optimization**: Tune database queries and component performance
-5. **User Testing**: Validate all new features work correctly
+1. **Re-authentication Testing**: Verify the complete re-authentication flow works for all affected institutions
+2. **Authentication Monitoring**: Ensure authentication alerts appear correctly in production
+3. **User Testing**: Validate the complete re-authentication experience
+4. **Documentation**: Update user documentation for re-authentication process
+5. **Proactive Monitoring**: Implement proactive token validation
 
 ## Long-term Roadmap
 - Integration with additional financial APIs beyond Plaid and Coinbase

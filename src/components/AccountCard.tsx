@@ -91,14 +91,48 @@ export function AccountCard({
       return;
     }
     
-    // For Plaid/Coinbase accounts, use the normal refresh logic
-    if (onRefresh) {
-      setIsRefreshing(true);
-      try {
-        await onRefresh();
-      } finally {
-        setIsRefreshing(false);
+    // For Plaid/Coinbase accounts, use the targeted refresh API
+    setIsRefreshing(true);
+    try {
+      const response = await fetch("/api/accounts/refresh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          accountId: account.id,
+          manual: true 
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to refresh account");
       }
+
+      const data = await response.json();
+      
+      // Show success notification
+      addNotification({
+        type: "success",
+        title: "Account Refreshed",
+        message: `Successfully refreshed ${account.name}`,
+      });
+
+      // Refresh the accounts data
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to refresh account";
+      addNotification({
+        type: "error",
+        title: "Refresh Failed",
+        message: errorMessage,
+      });
+      console.error("Error refreshing account:", error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
