@@ -49,6 +49,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ acc
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
+    // Only allow truly liquid depository accounts to be included in emergency fund
+    const liquidSubtypes = ['checking', 'savings', 'money market', 'paypal', 'cash management', 'ebt', 'prepaid'];
+    if (included && (account.type !== 'depository' || !account.subtype || !liquidSubtypes.includes(account.subtype.toLowerCase()))) {
+      return NextResponse.json({ 
+        error: 'Only truly liquid accounts can be included in emergency fund',
+        details: `Account type '${account.type}' with subtype '${account.subtype}' is not eligible for emergency fund. Only checking, savings, money market, PayPal, cash management, EBT, and prepaid accounts are included.`
+      }, { status: 400 });
+    }
+
     if (included) {
       // Add to emergency fund (create if not exists)
       await prisma.emergencyFundAccount.create({

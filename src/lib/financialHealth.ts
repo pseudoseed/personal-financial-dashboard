@@ -1,5 +1,14 @@
 import { prisma } from './db';
 import { Account, Transaction } from '@prisma/client';
+import { getFinancialGroup } from './accountTypes';
+
+// Helper function to check if an account is truly liquid for emergency fund purposes
+function isLiquidForEmergencyFund(account: { type: string; subtype: string | null }): boolean {
+  const liquidSubtypes = ['checking', 'savings', 'money market', 'paypal', 'cash management', 'ebt', 'prepaid'];
+  return account.type === 'depository' && 
+         !!account.subtype && 
+         liquidSubtypes.includes(account.subtype.toLowerCase());
+}
 
 export interface FinancialHealthMetrics {
   overallScore: number;
@@ -40,9 +49,9 @@ export async function calculateFinancialHealth(_userId: string): Promise<Financi
   const efAccountLinks: { accountId: string }[] = await prisma.emergencyFundAccount.findMany({ where: { userId } });
   const efAccountIds: string[] = efAccountLinks.map((link) => link.accountId);
   let efAccounts = accounts.filter(acc => efAccountIds.includes(acc.id));
-  // If none selected, fall back to default logic
+  // If none selected, fall back to default logic - only truly liquid depository accounts
   if (efAccounts.length === 0) {
-    efAccounts = accounts.filter(account => ['depository', 'checking', 'savings'].includes(account.type));
+    efAccounts = accounts.filter(isLiquidForEmergencyFund);
   }
 
   const transactions = await prisma.transaction.findMany({
@@ -85,6 +94,28 @@ export async function calculateFinancialHealth(_userId: string): Promise<Financi
     overallScore,
   });
 
+  // Net Worth, Assets, Liabilities
+  const totalAssets = accounts.filter(a => getFinancialGroup(a.type) === 'Assets').reduce((sum, a) => sum + (a.balances[0]?.current || 0), 0);
+  const totalLiabilities = accounts.filter(a => getFinancialGroup(a.type) === 'Liabilities').reduce((sum, a) => sum + Math.abs(a.balances[0]?.current || 0), 0);
+  const netWorth = totalAssets - totalLiabilities;
+
+  // Log all metrics and raw values
+  console.log('--- Dashboard Metrics Debug ---');
+  console.log('Total Assets:', totalAssets);
+  console.log('Total Liabilities:', totalLiabilities);
+  console.log('Net Worth:', netWorth);
+  console.log('Credit Utilization:', creditUtilization);
+  console.log('Financial Health Score:', overallScore);
+  console.log('Emergency Fund Ratio (months):', emergencyFundRatio);
+  console.log('Debt-to-Income Ratio:', debtToIncomeRatio);
+  console.log('Savings Rate:', savingsRate);
+  console.log('Recommendations:', recommendations);
+  console.log('Raw Accounts:', accounts.map(a => ({id: a.id, name: a.name, type: a.type, subtype: a.subtype, balance: a.balances[0]?.current})));
+  console.log('Raw Recurring Payments:', recurringPayments);
+  console.log('Raw Recurring Expenses:', recurringExpenses);
+  console.log('Raw Transactions (last 30d):', transactions);
+  console.log('------------------------------');
+
   // Store the metrics
   await prisma.financialHealthMetrics.create({
     data: {
@@ -111,15 +142,12 @@ function calculateEmergencyFundRatio(
   accounts: (Account & { balances: any[] })[],
   recurringExpenses: any[]
 ): number {
-  // Calculate total liquid assets (checking + savings)
   const liquidAssets = accounts
-    .filter(account => ['depository', 'checking', 'savings'].includes(account.type))
+    .filter(isLiquidForEmergencyFund)
     .reduce((total, account) => {
       const balance = account.balances[0]?.current || 0;
       return total + balance;
     }, 0);
-
-  // Calculate monthly expenses from recurring expenses
   const monthlyExpenses = recurringExpenses.reduce((total, expense) => {
     let monthlyAmount = expense.amount;
     switch (expense.frequency) {
@@ -138,7 +166,7 @@ function calculateEmergencyFundRatio(
     }
     return total + monthlyAmount;
   }, 0);
-
+  console.log('[Emergency Fund] Liquid Assets:', liquidAssets, 'Monthly Expenses:', monthlyExpenses);
   return monthlyExpenses > 0 ? liquidAssets / monthlyExpenses : 0;
 }
 
@@ -146,15 +174,12 @@ function calculateDebtToIncomeRatio(
   accounts: (Account & { balances: any[] })[],
   recurringPayments: any[]
 ): number {
-  // Calculate total debt (credit cards, loans)
   const totalDebt = accounts
     .filter(account => ['credit', 'loan', 'line of credit'].includes(account.type))
     .reduce((total, account) => {
       const balance = account.balances[0]?.current || 0;
       return total + Math.abs(balance);
     }, 0);
-
-  // Calculate monthly income from recurring payments
   const monthlyIncome = recurringPayments.reduce((total, payment) => {
     let monthlyAmount = payment.amount;
     switch (payment.frequency) {
@@ -173,7 +198,7 @@ function calculateDebtToIncomeRatio(
     }
     return total + monthlyAmount;
   }, 0);
-
+  console.log('[Debt-to-Income] Total Debt:', totalDebt, 'Monthly Income:', monthlyIncome);
   return monthlyIncome > 0 ? totalDebt / monthlyIncome : 0;
 }
 
@@ -181,7 +206,6 @@ function calculateSavingsRate(
   transactions: Transaction[],
   recurringPayments: any[]
 ): number {
-  // Calculate monthly income
   const monthlyIncome = recurringPayments.reduce((total, payment) => {
     let monthlyAmount = payment.amount;
     switch (payment.frequency) {
@@ -200,12 +224,10 @@ function calculateSavingsRate(
     }
     return total + monthlyAmount;
   }, 0);
-
-  // Calculate monthly expenses from transactions
   const monthlyExpenses = transactions
-    .filter(t => t.amount < 0) // Negative amounts are expenses
+    .filter(t => t.amount < 0)
     .reduce((total, transaction) => total + Math.abs(transaction.amount), 0);
-
+  console.log('[Savings Rate] Monthly Income:', monthlyIncome, 'Monthly Expenses:', monthlyExpenses);
   return monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0;
 }
 
@@ -213,10 +235,7 @@ function calculateCreditUtilization(accounts: (Account & { balances: any[] })[])
   const creditAccounts = accounts.filter(account => 
     ['credit', 'line of credit'].includes(account.type)
   );
-  
   if (creditAccounts.length === 0) return 0;
-
-  // Sum all balances and all limits
   let totalBalance = 0;
   let totalLimit = 0;
   for (const account of creditAccounts) {
@@ -225,7 +244,7 @@ function calculateCreditUtilization(accounts: (Account & { balances: any[] })[])
     totalBalance += Math.abs(balance.current || 0);
     totalLimit += balance.limit || 0;
   }
-
+  console.log('[Credit Utilization] Total Balance:', totalBalance, 'Total Limit:', totalLimit);
   return totalLimit > 0 ? (totalBalance / totalLimit) * 100 : 0;
 }
 

@@ -132,10 +132,12 @@ export function DashboardSummary({
         <MetricCard
           title="Total Assets"
           value={maskSensitiveValue(formatBalance(summary.totalAssets), showSensitiveData)}
+          color="text-purple-600 dark:text-purple-400"
         />
         <MetricCard
           title="Total Liabilities"
           value={maskSensitiveValue(formatBalance(summary.totalLiabilities), showSensitiveData)}
+          color="text-pink-600 dark:text-pink-400"
         />
         <MetricCard
           title="Credit Utilization"
@@ -149,7 +151,7 @@ export function DashboardSummary({
         {financialHealthData && (
           <MetricCard
             title="Financial Health"
-            value={maskSensitiveValue(financialHealthData.overallScore.toString(), showSensitiveData)}
+            value={maskSensitiveValue(`${financialHealthData.overallScore}%`, showSensitiveData)}
             color={getScoreColor(financialHealthData.overallScore)}
           />
         )}

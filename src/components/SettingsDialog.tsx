@@ -463,9 +463,16 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                   </p>
                 </div>
                 <button
-                  onClick={() => {
-                    // Trigger a page refresh to show authentication alerts
-                    window.location.reload();
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/accounts/auth-status');
+                      const data = await response.json();
+                      console.log('Auth Status:', data);
+                      alert(`Authentication Status:\n${data.summary.total} total institutions\n${data.summary.valid} valid\n${data.summary.needsReauth} need re-authentication\n${data.summary.errors} errors`);
+                    } catch (error) {
+                      console.error('Error checking auth status:', error);
+                      alert('Error checking authentication status');
+                    }
                   }}
                   className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
                 >

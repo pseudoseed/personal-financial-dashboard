@@ -109,7 +109,7 @@ export function FinancialHealthMetrics() {
         {/* Financial Health Score */}
         <MetricCard
           title="Financial Health"
-          value={overallScore.toString()}
+          value={`${overallScore}%`}
           color={scoreColor}
         />
 

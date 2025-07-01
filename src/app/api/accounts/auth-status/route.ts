@@ -21,20 +21,75 @@ export async function GET() {
 
     for (const item of items) {
       try {
-        // Use itemGet instead of accountsBalanceGet to validate token without fetching balance data
-        // This is free and only validates the access token
-        await plaidClient.itemGet({
+        // Use itemGet to check basic token validity first
+        const itemResponse = await plaidClient.itemGet({
           access_token: item.accessToken,
         });
+        
+        // Check if the item has an error status
+        const plaidItem = itemResponse.data.item;
+        if (plaidItem.error) {
+          // Item has an error status - parse the error code
+          let status = "error";
+          let errorMessage = "Unknown error";
+          let errorCode = "UNKNOWN";
 
-        // If we get here, the token is valid
-        authStatus.push({
-          institutionId: item.institutionId,
-          institutionName: item.institutionName || item.institutionId,
-          status: "valid",
-          accounts: item.accounts.length,
-          lastChecked: new Date().toISOString(),
-        });
+          switch (plaidItem.error.error_code) {
+            case "ITEM_LOGIN_REQUIRED":
+              status = "needs_reauth";
+              errorMessage = "Login credentials have changed. Please reconnect your account.";
+              errorCode = "ITEM_LOGIN_REQUIRED";
+              break;
+            case "INVALID_ACCESS_TOKEN":
+              status = "needs_reauth";
+              errorMessage = "Access token is invalid. Please reconnect your account.";
+              errorCode = "INVALID_ACCESS_TOKEN";
+              break;
+            case "ITEM_LOCKED":
+              status = "needs_reauth";
+              errorMessage = "Account is locked. Please reconnect your account.";
+              errorCode = "ITEM_LOCKED";
+              break;
+            case "ITEM_NOT_FOUND":
+              status = "error";
+              errorMessage = "Account not found. Please reconnect your account.";
+              errorCode = "ITEM_NOT_FOUND";
+              break;
+            case "INSTITUTION_DOWN":
+              status = "institution_down";
+              errorMessage = "Institution is temporarily unavailable.";
+              errorCode = "INSTITUTION_DOWN";
+              break;
+            case "RATE_LIMIT_EXCEEDED":
+              status = "error";
+              errorMessage = "Rate limit exceeded. Please try again later.";
+              errorCode = "RATE_LIMIT_EXCEEDED";
+              break;
+            default:
+              status = "error";
+              errorMessage = plaidItem.error.error_message || "Unknown error occurred";
+              errorCode = plaidItem.error.error_code || "UNKNOWN";
+          }
+
+          authStatus.push({
+            institutionId: item.institutionId,
+            institutionName: item.institutionName || item.institutionId,
+            status,
+            accounts: item.accounts.length,
+            lastChecked: new Date().toISOString(),
+            errorMessage,
+            errorCode,
+          });
+        } else {
+          // Item is valid
+          authStatus.push({
+            institutionId: item.institutionId,
+            institutionName: item.institutionName || item.institutionId,
+            status: "valid",
+            accounts: item.accounts.length,
+            lastChecked: new Date().toISOString(),
+          });
+        }
       } catch (error: any) {
         // Parse Plaid error codes to provide specific status
         let status = "error";

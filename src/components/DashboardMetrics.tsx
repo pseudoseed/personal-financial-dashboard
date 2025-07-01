@@ -94,12 +94,12 @@ export function DashboardMetrics({ accounts }: DashboardMetricsProps) {
       <MetricCard
         title="Assets"
         value={maskSensitiveValue(formatBalance(metrics.totalAssets), showSensitiveData)}
-        color="text-surface-900 dark:text-surface-dark-900"
+        color="text-purple-600 dark:text-purple-400"
       />
       <MetricCard
         title="Liabilities"
         value={maskSensitiveValue(formatBalance(metrics.totalLiabilities), showSensitiveData)}
-        color="text-surface-900 dark:text-surface-dark-900"
+        color="text-pink-600 dark:text-pink-400"
       />
       {showSensitiveData && metrics.hasCreditAccounts && (
         <MetricCard

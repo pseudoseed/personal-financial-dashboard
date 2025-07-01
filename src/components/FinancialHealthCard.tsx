@@ -82,7 +82,7 @@ export function FinancialHealthCard() {
           </h3>
           <div className="flex items-baseline space-x-2">
             <p className={`text-3xl font-bold ${scoreColor}`}>
-              {overallScore}
+              {overallScore}%
             </p>
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {scoreLabel}
