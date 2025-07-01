@@ -34,6 +34,7 @@ export function AuthenticationAlerts() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [selectedInstitution, setSelectedInstitution] = useState<string | null>(null);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+  const [plaidError, setPlaidError] = useState<string | null>(null);
 
   // Fetch authentication status
   const checkAuthStatus = async () => {
@@ -93,25 +94,36 @@ export function AuthenticationAlerts() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ publicToken: public_token }),
         });
-
         if (!response.ok) throw new Error("Failed to exchange token");
-
         // Refresh the auth status
         await checkAuthStatus();
-        
-        // Clear the selected institution
         setSelectedInstitution(null);
         setLinkToken(null);
       } catch (error) {
         console.error("Error completing re-auth:", error);
+        setPlaidError("An error occurred while reconnecting your account. Please try again.");
       } finally {
         setIsLoading(false);
       }
     },
-    onExit: () => {
+    onExit: (err, metadata) => {
       setIsLoading(false);
       setSelectedInstitution(null);
       setLinkToken(null);
+      if (err) {
+        console.error("Plaid Link exited with error:", err, metadata);
+        setPlaidError("Plaid was unable to complete the connection. Please try again later.");
+        // If PayPal, show a known issue message
+        if (selectedInstitution && authStatus.find(s => s.institutionId === selectedInstitution && s.institutionName.toLowerCase().includes("paypal"))) {
+          setPlaidError("PayPal is currently experiencing issues with Plaid. Please try again later or contact support if this persists.");
+        }
+      }
+    },
+    onEvent: (eventName, metadata) => {
+      if (eventName === "ERROR") {
+        console.error("Plaid Link event error:", metadata);
+        setPlaidError("A Plaid error occurred. Please try again or contact support.");
+      }
     },
   });
 
@@ -162,6 +174,27 @@ export function AuthenticationAlerts() {
       status.status !== "valid" && 
       !dismissedAlerts.has(status.institutionId)
   );
+
+  // Show Plaid error if present
+  if (plaidError) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+        <div className="flex items-center">
+          <ExclamationTriangleIcon className="h-5 w-5 text-red-600 dark:text-red-400 mr-2" />
+          <div>
+            <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Plaid Connection Error</h3>
+            <div className="mt-1 text-sm text-red-700 dark:text-red-300">{plaidError}</div>
+            <button
+              onClick={() => setPlaidError(null)}
+              className="mt-2 px-3 py-1 bg-red-600 text-white rounded-md text-xs hover:bg-red-700"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (problematicInstitutions.length === 0) {
     return null;

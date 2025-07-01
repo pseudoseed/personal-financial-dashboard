@@ -286,7 +286,11 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
   
   // Additional validation before making any API calls
   if (!firstAccount.plaidItem?.accessToken || firstAccount.plaidItem.accessToken === "manual") {
-    throw new Error("Invalid access token for institution");
+    const errorMsg = "Invalid access token for institution";
+    accounts.forEach((account: any) => {
+      results.errors.push({ accountId: account.id, error: errorMsg });
+    });
+    return;
   }
   
   if (firstAccount.plaidItem.provider === "coinbase") {
@@ -301,174 +305,147 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
         results.errors.push({ accountId: account.id, error: errorMessage });
       }
     }
-  } else {
-    // Handle Plaid accounts
+    return;
+  }
+  
+  // Handle Plaid accounts
+  try {
+    // Validate that we have the required data before making API call
+    if (!firstAccount.plaidItem.accessToken) {
+      const errorMsg = "Missing access token for Plaid institution";
+      accounts.forEach((account: any) => {
+        results.errors.push({ accountId: account.id, error: errorMsg });
+      });
+      return;
+    }
+    
+    // Check Plaid item status first (this is a free API call)
     try {
-      // Validate that we have the required data before making API call
-      if (!firstAccount.plaidItem.accessToken) {
-        throw new Error("Missing access token for Plaid institution");
-      }
-      
-      // Check Plaid item status first (this is a free API call)
-      try {
-        const itemResponse = await plaidClient.itemGet({
-          access_token: firstAccount.plaidItem.accessToken,
-        });
-        
-        const item = itemResponse.data.item;
-        if (item.error) {
-          const errorMsg = `Plaid item error: ${item.error.error_code} - ${item.error.error_message}`;
-          console.error(errorMsg);
-          
-          // Provide specific guidance based on error code
-          let specificError = errorMsg;
-          switch (item.error.error_code) {
-            case "ITEM_LOGIN_REQUIRED":
-              specificError = "Institution requires re-authentication. Please reconnect this institution.";
-              break;
-            case "INVALID_ACCESS_TOKEN":
-              specificError = "Access token is invalid or expired. Please reconnect this institution.";
-              break;
-            case "INVALID_CREDENTIALS":
-              specificError = "Institution credentials are invalid. Please update your login information.";
-              break;
-            case "INSTITUTION_DOWN":
-              specificError = "Institution is temporarily unavailable. Please try again later.";
-              break;
-            case "ITEM_LOCKED":
-              specificError = "Account is locked due to suspicious activity. Please contact the institution.";
-              break;
-            case "ITEM_PENDING_EXPIRATION":
-              specificError = "Access will expire soon. Please reconnect this institution.";
-              break;
-            case "ITEM_EXPIRED":
-              specificError = "Access has expired. Please reconnect this institution.";
-              break;
-            default:
-              specificError = `Plaid error: ${item.error.error_code} - ${item.error.error_message}. Please reconnect this institution.`;
-          }
-          
-          accounts.forEach((account: any) => {
-            results.errors.push({ accountId: account.id, error: specificError });
-          });
-          return;
-        }
-      } catch (itemError) {
-        console.error("Error checking Plaid item status:", itemError);
-        // Continue with balance fetch even if item check fails
-      }
-      
-      const response = await plaidClient.accountsBalanceGet({
+      const itemResponse = await plaidClient.itemGet({
         access_token: firstAccount.plaidItem.accessToken,
       });
-      
-      // Validate Plaid response
-      if (!response.data?.accounts || !Array.isArray(response.data.accounts)) {
-        throw new Error("Invalid response from Plaid API");
-      }
-      
-      // Get liability data for credit/loan accounts if available
-      let liabilityData = null;
-      const hasCreditOrLoanAccounts = accounts.some(account => 
-        account.type === "credit" || account.type === "loan"
-      );
-      
-      if (hasCreditOrLoanAccounts) {
-        try {
-          liabilityData = await fetchBatchedLiabilities(firstAccount.plaidItem.accessToken, accounts);
-        } catch (error) {
-          console.warn("Failed to fetch liability data:", error instanceof Error ? error.message : "Unknown error");
-          // Don't fail the entire refresh if liability fetch fails
+      const item = itemResponse.data.item;
+      if (item.error) {
+        const errorMsg = `Plaid item error: ${item.error.error_code} - ${item.error.error_message}`;
+        console.error(errorMsg);
+        let specificError = errorMsg;
+        switch (item.error.error_code) {
+          case "ITEM_LOGIN_REQUIRED":
+            specificError = "Institution requires re-authentication. Please reconnect this institution.";
+            break;
+          case "INVALID_ACCESS_TOKEN":
+            specificError = "Access token is invalid or expired. Please reconnect this institution.";
+            break;
+          case "INVALID_CREDENTIALS":
+            specificError = "Institution credentials are invalid. Please update your login information.";
+            break;
+          case "INSTITUTION_DOWN":
+            specificError = "Institution is temporarily unavailable. Please try again later.";
+            break;
+          case "ITEM_LOCKED":
+            specificError = "Account is locked due to suspicious activity. Please contact the institution.";
+            break;
+          case "ITEM_PENDING_EXPIRATION":
+            specificError = "Access will expire soon. Please reconnect this institution.";
+            break;
+          case "ITEM_EXPIRED":
+            specificError = "Access has expired. Please reconnect this institution.";
+            break;
+          default:
+            specificError = `Plaid error: ${item.error.error_code} - ${item.error.error_message}. Please reconnect this institution.`;
         }
-      }
-      
-      for (const account of accounts) {
-        try {
-          const plaidAccount = response.data.accounts.find(
-            (acc: any) => acc.account_id === account.plaidId
-          );
-          
-          if (!plaidAccount) {
-            const errorMsg = `Account not found in Plaid response (plaidId: ${account.plaidId}) - account may have been removed or access revoked`;
-            console.error(errorMsg);
-            results.errors.push({ accountId: account.id, error: errorMsg });
-            continue;
-          }
-          
-          // Create new balance record
-          await prisma.accountBalance.create({
-            data: {
-              accountId: account.id,
-              current: plaidAccount.balances.current || 0,
-              available: plaidAccount.balances.available || null,
-              limit: plaidAccount.balances.limit || null,
-            },
-          });
-          
-          // Update liability data if available
-          if (liabilityData && (account.type === "credit" || account.type === "loan")) {
-            try {
-              await updateAccountLiabilities(account, liabilityData);
-            } catch (error) {
-              console.warn(`Failed to update liability data for account ${account.id}:`, error instanceof Error ? error.message : "Unknown error");
-            }
-          }
-          
-          results.refreshed.push(account.id);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : "Unknown error";
-          console.error(`Error processing account ${account.id}:`, errorMessage);
-          results.errors.push({ accountId: account.id, error: errorMessage });
-        }
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`Error refreshing Plaid institution:`, errorMessage);
-      
-      // Provide more specific error messages for common Plaid errors
-      if (errorMessage.includes("400")) {
-        // Try to get more specific error information
-        let specificError = "Plaid API returned 400 error - this usually means the access token is invalid, expired, or the account access has been revoked. You may need to reconnect this institution.";
-        
-        // Check if we can extract more specific error information
-        if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response) {
-          const plaidError = (error.response as any).data;
-          if (plaidError.error_code) {
-            switch (plaidError.error_code) {
-              case "ITEM_LOGIN_REQUIRED":
-                specificError = "Institution requires re-authentication. Please reconnect this institution.";
-                break;
-              case "INVALID_ACCESS_TOKEN":
-                specificError = "Access token is invalid or expired. Please reconnect this institution.";
-                break;
-              case "INVALID_CREDENTIALS":
-                specificError = "Institution credentials are invalid. Please update your login information.";
-                break;
-              case "INSTITUTION_DOWN":
-                specificError = "Institution is temporarily unavailable. Please try again later.";
-                break;
-              case "ITEM_LOCKED":
-                specificError = "Account is locked due to suspicious activity. Please contact the institution.";
-                break;
-              case "ITEM_PENDING_EXPIRATION":
-                specificError = "Access will expire soon. Please reconnect this institution.";
-                break;
-              case "ITEM_EXPIRED":
-                specificError = "Access has expired. Please reconnect this institution.";
-                break;
-              default:
-                specificError = `Plaid error: ${plaidError.error_code} - ${plaidError.error_message || 'Unknown error'}. Please reconnect this institution.`;
-            }
-          }
-        }
-        
         accounts.forEach((account: any) => {
           results.errors.push({ accountId: account.id, error: specificError });
         });
-      } else {
-        throw error;
+        return;
+      }
+    } catch (itemError) {
+      console.error("Error checking Plaid item status:", itemError);
+      // Continue with balance fetch even if item check fails
+    }
+    
+    let response;
+    try {
+      response = await plaidClient.accountsBalanceGet({
+        access_token: firstAccount.plaidItem.accessToken,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error("Plaid accountsBalanceGet error:", errorMessage);
+      accounts.forEach((account: any) => {
+        results.errors.push({ accountId: account.id, error: errorMessage });
+      });
+      return;
+    }
+    
+    // Validate Plaid response
+    if (!response.data?.accounts || !Array.isArray(response.data.accounts)) {
+      const errorMsg = "Invalid response from Plaid API";
+      accounts.forEach((account: any) => {
+        results.errors.push({ accountId: account.id, error: errorMsg });
+      });
+      return;
+    }
+    
+    // Get liability data for credit/loan accounts if available
+    let liabilityData = null;
+    const hasCreditOrLoanAccounts = accounts.some(account => 
+      account.type === "credit" || account.type === "loan"
+    );
+    if (hasCreditOrLoanAccounts) {
+      try {
+        liabilityData = await fetchBatchedLiabilities(firstAccount.plaidItem.accessToken, accounts);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.warn("Failed to fetch liability data:", errorMessage);
+        // Log and continue, but do not throw
       }
     }
+    
+    for (const account of accounts) {
+      try {
+        const plaidAccount = response.data.accounts.find(
+          (acc: any) => acc.account_id === account.plaidId
+        );
+        if (!plaidAccount) {
+          const errorMsg = `Account not found in Plaid response (plaidId: ${account.plaidId}) - account may have been removed or access revoked`;
+          console.error(errorMsg);
+          results.errors.push({ accountId: account.id, error: errorMsg });
+          continue;
+        }
+        // Create new balance record
+        await prisma.accountBalance.create({
+          data: {
+            accountId: account.id,
+            current: plaidAccount.balances.current || 0,
+            available: plaidAccount.balances.available || null,
+            limit: plaidAccount.balances.limit || null,
+          },
+        });
+        // Update liability data if available
+        if (liabilityData && (account.type === "credit" || account.type === "loan")) {
+          try {
+            await updateAccountLiabilities(account, liabilityData);
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            console.warn(`Failed to update liability data for account ${account.id}:`, errorMessage);
+          }
+        }
+        results.refreshed.push(account.id);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.error(`Error processing account ${account.id}:`, errorMessage);
+        results.errors.push({ accountId: account.id, error: errorMessage });
+      }
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error(`Error refreshing Plaid institution:`, errorMessage);
+    accounts.forEach((account: any) => {
+      results.errors.push({ accountId: account.id, error: errorMessage });
+    });
+    // Do not throw, just return
+    return;
   }
 }
 
