@@ -196,8 +196,8 @@ export function CategoryTransactionsList({ transactions, categoryType }: Categor
                   </td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                     <div className="text-xs">
-                      <div>{showSensitiveData ? (transaction.account.plaidItem.institutionName || 'Unknown') : "••••••••••"}</div>
-                      <div>{showSensitiveData ? transaction.account.name : "••••••••••"}</div>
+                      <div>{showSensitiveData ? (transaction.account?.plaidItem?.institutionName || 'Unknown') : "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"}</div>
+                      <div>{showSensitiveData ? (transaction.account?.name || 'Unknown') : "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"}</div>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
