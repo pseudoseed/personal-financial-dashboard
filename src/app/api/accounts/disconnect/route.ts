@@ -5,6 +5,10 @@ export async function POST(request: Request) {
   try {
     const { institutionId } = await request.json();
 
+    console.log(`[DISCONNECT] Received institutionId: ${institutionId}`);
+    const foundItems = await prisma.plaidItem.findMany({ where: { institutionId } });
+    console.log(`[DISCONNECT] Found Plaid items:`, foundItems.map(i => ({ id: i.id, institutionId: i.institutionId, itemId: i.itemId })));
+
     if (!institutionId) {
       return NextResponse.json(
         { error: "Institution ID is required" },

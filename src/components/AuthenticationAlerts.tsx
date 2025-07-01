@@ -95,6 +95,19 @@ export function AuthenticationAlerts() {
           body: JSON.stringify({ publicToken: public_token }),
         });
         if (!response.ok) throw new Error("Failed to exchange token");
+        // Remove from sessionStorage dismissed alerts
+        if (selectedInstitution) {
+          const stored = sessionStorage.getItem("dismissedAuthAlerts");
+          if (stored) {
+            try {
+              const set = new Set(JSON.parse(stored));
+              set.delete(selectedInstitution);
+              sessionStorage.setItem("dismissedAuthAlerts", JSON.stringify([...set]));
+            } catch {
+              sessionStorage.removeItem("dismissedAuthAlerts");
+            }
+          }
+        }
         // Refresh the auth status
         await checkAuthStatus();
         setSelectedInstitution(null);

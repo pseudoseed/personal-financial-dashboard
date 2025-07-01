@@ -60,6 +60,14 @@ export default function AccountsPage() {
 
   const hiddenAccounts = (accountsData || []).filter((account) => account.hidden);
 
+  // Build a mapping from display name to Plaid institutionId
+  const institutionIdMap = (accountsData || []).reduce((acc, account) => {
+    if (account.institution && account.plaidItem?.institutionId) {
+      acc[account.institution] = account.plaidItem.institutionId;
+    }
+    return acc;
+  }, {} as Record<string, string>);
+
   const refreshInstitutions = async () => {
     try {
       setIsRefreshingInstitutions(true);
@@ -132,16 +140,17 @@ export default function AccountsPage() {
     }
   };
 
-  const refreshInstitution = async (institutionId: string) => {
+  const refreshInstitution = async (institution: string) => {
+    const apiInstitutionId = institutionIdMap[institution] || institution;
     try {
-      setRefreshingInstitutions((prev) => ({ ...prev, [institutionId]: true }));
+      setRefreshingInstitutions((prev) => ({ ...prev, [institution]: true }));
       const response = await fetch("/api/accounts/refresh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ 
-          institutionId,
+          institutionId: apiInstitutionId,
           manual: true 
         }),
       });
@@ -154,7 +163,7 @@ export default function AccountsPage() {
       const data = await response.json();
       
       // Show success notification
-      const successMessage = `Refreshed ${data.accountsRefreshed} accounts in ${institutionId}${data.errors > 0 ? `, ${data.errors} errors` : ''}`;
+      const successMessage = `Refreshed ${data.accountsRefreshed} accounts in ${institution}${data.errors > 0 ? `, ${data.errors} errors` : ''}`;
       addNotification({
         type: "success",
         title: "Institution Refresh Complete",
@@ -173,17 +182,17 @@ export default function AccountsPage() {
     } finally {
       setRefreshingInstitutions((prev) => ({
         ...prev,
-        [institutionId]: false,
+        [institution]: false,
       }));
     }
   };
 
-  const disconnectInstitution = async (institutionId: string) => {
+  const disconnectInstitution = async (institution: string) => {
     // Map "Manual Account" to "manual" for the API
-    const apiInstitutionId = institutionId === "Manual Account" ? "manual" : institutionId;
+    const apiInstitutionId = institution === "Manual Account" ? "manual" : (institutionIdMap[institution] || institution);
     
     const confirmed = confirm(
-      `Are you sure you want to disconnect "${institutionId}"?\n\n` +
+      `Are you sure you want to disconnect "${institution}"?\n\n` +
       "⚠️  WARNING: This action will:\n" +
       "• Remove ALL accounts associated with this institution\n" +
       "• Delete all transaction history for these accounts\n" +
@@ -198,7 +207,7 @@ export default function AccountsPage() {
     try {
       setDisconnectingInstitutions((prev) => ({
         ...prev,
-        [institutionId]: true,
+        [institution]: true,
       }));
 
       const response = await fetch("/api/accounts/disconnect", {
@@ -211,7 +220,7 @@ export default function AccountsPage() {
         addNotification({
           type: "success",
           title: "Institution disconnected",
-          message: `Successfully disconnected ${institutionId} and all associated accounts.`,
+          message: `Successfully disconnected ${institution} and all associated accounts.`,
         });
         // Invalidate queries to refresh the data
         queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -229,7 +238,7 @@ export default function AccountsPage() {
     } finally {
       setDisconnectingInstitutions((prev) => ({
         ...prev,
-        [institutionId]: false,
+        [institution]: false,
       }));
     }
   };

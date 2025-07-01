@@ -110,6 +110,8 @@ export async function POST(request: Request) {
         },
       });
 
+      console.log(`[PLAID] Updated PlaidItem: id=${existingInstitution.id}, institutionId=${institutionId}, plaidItemId=${plaidItemId}`);
+
       // Get existing accounts for this institution
       const existingAccounts = await prisma.account.findMany({
         where: { itemId: existingInstitution.id },
@@ -162,7 +164,7 @@ export async function POST(request: Request) {
       if (duplicateGroup && duplicateGroup.shouldMerge) {
         const mergeResult = await mergeDuplicateAccounts(duplicateGroup);
         mergeMessage = getMergeMessage(duplicateGroup, mergeResult);
-        console.log("Auto-merged duplicates:", mergeMessage);
+        console.log(`[PLAID] Auto-merged duplicates for institutionId=${institutionId}:`, mergeMessage);
       }
 
       return NextResponse.json({
@@ -181,6 +183,8 @@ export async function POST(request: Request) {
           institutionLogo: institution.logo ?? null,
         },
       });
+
+      console.log(`[PLAID] Created PlaidItem: id=${newInstitution.id}, institutionId=${institutionId}, plaidItemId=${plaidItemId}`);
 
       // Get accounts from Plaid
       const accountsResponse = await plaidClient.accountsGet({
@@ -211,7 +215,7 @@ export async function POST(request: Request) {
       if (duplicateGroup && duplicateGroup.shouldMerge) {
         const mergeResult = await mergeDuplicateAccounts(duplicateGroup);
         mergeMessage = getMergeMessage(duplicateGroup, mergeResult);
-        console.log("Auto-merged duplicates:", mergeMessage);
+        console.log(`[PLAID] Auto-merged duplicates for institutionId=${institutionId}:`, mergeMessage);
       }
 
       return NextResponse.json({
