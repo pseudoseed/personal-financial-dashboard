@@ -118,34 +118,6 @@ export default function RecurringExpensesPage() {
     }
   }
 
-  // Filter and sort expenses
-  const filteredExpenses = expenses.filter(exp => 
-    exp.merchantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (exp.category && exp.category.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
-  const sortedExpenses = [...filteredExpenses].sort((a, b) => {
-    let aVal: any = a[sortBy];
-    let bVal: any = b[sortBy];
-    
-    if (sortBy === "nextDueDate") {
-      aVal = aVal ? new Date(aVal).getTime() : 0;
-      bVal = bVal ? new Date(bVal).getTime() : 0;
-    }
-    
-    if (sortOrder === "asc") {
-      return aVal > bVal ? 1 : -1;
-    } else {
-      return aVal < bVal ? 1 : -1;
-    }
-  });
-
-  const paginatedExpenses = sortedExpenses.slice(
-    (page - 1) * ITEMS_PER_PAGE,
-    page * ITEMS_PER_PAGE
-  );
-
   // Pagination logic
   const confirmedTotalPages = Math.ceil(confirmedExpenses.length / ITEMS_PER_PAGE) || 1;
   const potentialTotalPages = Math.ceil(potentialExpenses.length / ITEMS_PER_PAGE) || 1;
@@ -160,9 +132,12 @@ export default function RecurringExpensesPage() {
         : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 bg-gray-50 dark:bg-zinc-800'
     }`;
 
-  const totalMonthly = expenses
+  // Summary values
+  const totalActive = confirmedExpenses.length;
+  const totalMonthly = confirmedExpenses
     .filter(e => e.isActive && e.frequency === "monthly")
     .reduce((sum, e) => sum + e.amount, 0);
+  const totalUnconfirmed = potentialExpenses.length;
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 80) return "text-success-600 dark:text-success-400";
@@ -182,6 +157,28 @@ export default function RecurringExpensesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Summary Card */}
+      <DashboardCard title="Summary" subtitle="Overview of your confirmed recurring expenses and unconfirmed recommendations." className="mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <span className="text-surface-600 dark:text-surface-400">Total Active:</span>
+            <span className="ml-2 font-semibold">{totalActive}</span>
+          </div>
+          <div>
+            <span className="text-surface-600 dark:text-surface-400">Monthly Total:</span>
+            <span className="ml-2 font-semibold text-success-600 dark:text-success-400">
+              ${totalMonthly.toFixed(2)}
+            </span>
+          </div>
+          <div>
+            <span className="text-surface-600 dark:text-surface-400">Unconfirmed:</span>
+            <span className="ml-2 font-semibold text-warning-600 dark:text-warning-400">
+              {totalUnconfirmed}
+            </span>
+          </div>
+        </div>
+      </DashboardCard>
+      {/* Main Card with Tabs */}
       <DashboardCard
         title="Recurring Expenses"
         subtitle="Manage and track your regular payments and subscriptions"
