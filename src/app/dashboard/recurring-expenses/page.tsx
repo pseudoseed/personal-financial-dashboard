@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { format } from "date-fns";
-import { PlusIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, MagnifyingGlassIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 interface RecurringExpense {
   id: string;
@@ -41,7 +41,7 @@ export default function RecurringExpensesPage() {
     try {
       const res = await fetch("/api/recurring-expenses");
       const data = await res.json();
-      setExpenses(data.expenses || []);
+      setExpenses(data || []);
     } catch (err) {
       setError("Failed to load recurring expenses");
     } finally {
@@ -85,6 +85,8 @@ export default function RecurringExpensesPage() {
       const res = await fetch(`/api/recurring-expenses/${id}`, { method: "DELETE" });
       if (res.ok) {
         await fetchExpenses();
+      } else {
+        setError("Failed to delete recurring expense");
       }
     } catch (err) {
       setError("Failed to delete recurring expense");
@@ -252,85 +254,42 @@ export default function RecurringExpensesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {paginatedExpenses.map((expense) => (
-            <div key={expense.id} className="card">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-surface-900 dark:text-surface-100">
-                      {expense.merchantName || expense.name}
-                    </h3>
-                    {!expense.isConfirmed && (
-                      <span className="px-2 py-1 text-xs bg-warning-100 dark:bg-warning-900/20 text-warning-700 dark:text-warning-300 rounded">
-                        Unconfirmed
-                      </span>
-                    )}
-                    {!expense.isActive && (
-                      <span className="px-2 py-1 text-xs bg-surface-100 dark:bg-surface-700 text-surface-600 dark:text-surface-400 rounded">
-                        Inactive
-                      </span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-surface-600 dark:text-surface-400">Amount:</span>
-                      <span className="ml-2 font-semibold">${expense.amount.toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span className="text-surface-600 dark:text-surface-400">Frequency:</span>
-                      <span className={`ml-2 font-semibold ${getFrequencyColor(expense.frequency)}`}>
-                        {expense.frequency}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-surface-600 dark:text-surface-400">Next Due:</span>
-                      <span className="ml-2">
-                        {expense.nextDueDate ? format(new Date(expense.nextDueDate), "MMM d, yyyy") : "Unknown"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-surface-600 dark:text-surface-400">Confidence:</span>
-                      <span className={`ml-2 font-semibold ${getConfidenceColor(expense.confidence)}`}>
-                        {expense.confidence}%
-                      </span>
-                    </div>
-                  </div>
-                  {expense.category && (
-                    <div className="mt-2">
-                      <span className="text-surface-600 dark:text-surface-400">Category:</span>
-                      <span className="ml-2">{expense.category}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {!expense.isConfirmed && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => updateExpense(expense.id, { isConfirmed: true })}
-                    >
-                      Confirm
-                    </Button>
-                  )}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => updateExpense(expense.id, { isActive: !expense.isActive })}
-                  >
-                    {expense.isActive ? "Deactivate" : "Activate"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteExpense(expense.id)}
-                    className="text-error-600 dark:text-error-400 hover:bg-error-50 dark:hover:bg-error-900/20"
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
+          <div className="card mb-6">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-surface-200 dark:divide-surface-700">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Merchant</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Frequency</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Next Due</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Confidence</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedExpenses.map(exp => (
+                    <tr key={exp.id} className="bg-white dark:bg-surface-900">
+                      <td className="px-4 py-2 whitespace-nowrap font-medium">{exp.merchantName || exp.name}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">${exp.amount.toFixed(2)}</td>
+                      <td className="px-4 py-2 whitespace-nowrap capitalize">{exp.frequency}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{exp.nextDueDate ? format(new Date(exp.nextDueDate), 'MMM d, yyyy') : '-'}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{exp.confidence}%</td>
+                      <td className="px-4 py-2 whitespace-nowrap text-right">
+                        <button
+                          onClick={() => deleteExpense(exp.id)}
+                          className="text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-200 p-1 rounded focus:outline-none focus:ring-2 focus:ring-error-500"
+                          title="Delete recurring expense"
+                        >
+                          <TrashIcon className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
+          </div>
         </div>
       )}
 

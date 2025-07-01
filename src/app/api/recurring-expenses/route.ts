@@ -27,34 +27,31 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const userId = await getCurrentUserId();
-    let body;
+    let body = null;
     try {
       body = await request.json();
     } catch (jsonError) {
-      console.error('Invalid or missing JSON in request body:', jsonError);
-      return NextResponse.json(
-        { error: 'Invalid or missing JSON in request body' },
-        { status: 400 }
-      );
-    }
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
-      console.error('Request body must be a valid JSON object:', body);
-      return NextResponse.json(
-        { error: 'Request body must be a valid JSON object' },
-        { status: 400 }
-      );
+      // No body or invalid JSON: treat as detection request
     }
 
-    console.log('Attempting to create recurring expense with body:', body);
-
-    const recurringExpense = await prisma.recurringExpense.create({
-      data: {
-        ...body,
-        userId,
-      },
-    });
-
-    return NextResponse.json(recurringExpense);
+    if (!body || (typeof body === 'object' && Object.keys(body).length === 0)) {
+      // Detection flow: no body or empty object
+      const detected = await detectRecurringExpenses(userId);
+      if (detected.length > 0) {
+        await saveDetectedExpenses(userId, detected);
+      }
+      return NextResponse.json({ detected });
+    } else {
+      // Manual creation flow
+      console.log('Attempting to create recurring expense with body:', body);
+      const recurringExpense = await prisma.recurringExpense.create({
+        data: {
+          ...body,
+          userId,
+        },
+      });
+      return NextResponse.json(recurringExpense);
+    }
   } catch (error) {
     console.error('Error creating recurring expense:', error);
     if (error instanceof Error && error.message) {
