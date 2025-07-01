@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { format } from "date-fns";
 import { PlusIcon, MagnifyingGlassIcon, TrashIcon } from "@heroicons/react/24/outline";
@@ -36,10 +36,36 @@ export default function RecurringExpensesPage() {
   const [sortBy, setSortBy] = useState<"nextDueDate" | "amount" | "confidence" | "merchantName">("nextDueDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const { showSensitiveData } = useSensitiveData();
+  const [latestAmounts, setLatestAmounts] = useState<Record<string, { latestAmount: number | null, latestDate: string | null }>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+  const fetchedLatest = useRef(false);
 
   useEffect(() => {
     fetchExpenses();
   }, []);
+
+  useEffect(() => {
+    // Batch fetch latest amounts only once after expenses are loaded
+    if (!loading && expenses.length > 0 && !fetchedLatest.current) {
+      fetchedLatest.current = true;
+      const merchants = expenses.map(e => ({ merchantName: e.merchantName, name: e.name }));
+      fetch("/api/recurring-expenses/latest-amounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ merchants }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          const map: Record<string, { latestAmount: number | null, latestDate: string | null }> = {};
+          (data.results || []).forEach((r: any) => {
+            // Use merchantName+name as key for uniqueness
+            map[`${r.merchantName || ""}__${r.name || ""}`] = { latestAmount: r.latestAmount, latestDate: r.latestDate };
+          });
+          setLatestAmounts(map);
+        });
+    }
+  }, [loading, expenses]);
 
   async function fetchExpenses() {
     setLoading(true);
@@ -157,24 +183,29 @@ export default function RecurringExpensesPage() {
     }
   };
 
+  // Helper to get latest amount for an expense
+  function getLatestForExpense(exp: RecurringExpense) {
+    return latestAmounts[`${exp.merchantName || ""}__${exp.name || ""}`] || { latestAmount: null, latestDate: null };
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Summary Card */}
       <DashboardCard title="Summary" subtitle="Overview of your confirmed recurring expenses and unconfirmed recommendations." className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div className="flex flex-col md:grid md:grid-cols-3 gap-4 text-sm text-center">
           <div>
-            <span className="text-surface-600 dark:text-surface-400">Total Active:</span>
-            <span className="ml-2 font-semibold">{totalActive}</span>
+            <span className="text-surface-600 dark:text-surface-400 block">Recurring Expenses</span>
+            <span className="mt-1 block text-lg font-semibold">{totalActive}</span>
           </div>
           <div>
-            <span className="text-surface-600 dark:text-surface-400">Monthly Total:</span>
-            <span className="ml-2 font-semibold text-success-600 dark:text-success-400">
+            <span className="text-surface-600 dark:text-surface-400 block">Total Monthly Expenses</span>
+            <span className="mt-1 block text-lg font-semibold text-success-600 dark:text-success-400">
               {showSensitiveData ? `$${totalMonthly.toFixed(2)}` : "••••••"}
             </span>
           </div>
           <div>
-            <span className="text-surface-600 dark:text-surface-400">Unconfirmed:</span>
-            <span className="ml-2 font-semibold text-warning-600 dark:text-warning-400">
+            <span className="text-surface-600 dark:text-surface-400 block">Unconfirmed Expenses</span>
+            <span className="mt-1 block text-lg font-semibold text-warning-600 dark:text-warning-400">
               {totalUnconfirmed}
             </span>
           </div>
@@ -224,31 +255,79 @@ export default function RecurringExpensesPage() {
                       <tr>
                         <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Merchant</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Amount</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Frequency</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Next Due</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Confidence</th>
-                        <th className="px-4 py-2"></th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Latest</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider hidden sm:table-cell">Frequency</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider hidden md:table-cell">Next Due</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider hidden md:table-cell">Confidence</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-surface-500 dark:text-surface-400 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {confirmedPaginated.map(exp => (
-                        <tr key={exp.id} className="bg-white dark:bg-surface-900">
-                          <td className="px-4 py-2 whitespace-nowrap font-medium">{exp.merchantName || exp.name}</td>
-                          <td className="px-4 py-2 whitespace-nowrap">{showSensitiveData ? `$${exp.amount.toFixed(2)}` : "••••••"}</td>
-                          <td className="px-4 py-2 whitespace-nowrap capitalize">{exp.frequency}</td>
-                          <td className="px-4 py-2 whitespace-nowrap">{exp.nextDueDate ? format(new Date(exp.nextDueDate), 'MMM d, yyyy') : '-'}</td>
-                          <td className="px-4 py-2 whitespace-nowrap">{exp.confidence}%</td>
-                          <td className="px-4 py-2 whitespace-nowrap text-right">
-                            <button
-                              onClick={() => deleteExpense(exp.id)}
-                              className="text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-200 p-1 rounded focus:outline-none focus:ring-2 focus:ring-error-500"
-                              title="Delete recurring expense"
-                            >
-                              <TrashIcon className="w-5 h-5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {confirmedPaginated.map(exp => {
+                        const { latestAmount } = getLatestForExpense(exp);
+                        const showUpdate = latestAmount !== null && Math.abs(latestAmount - exp.amount) > 0.01;
+                        return (
+                          <tr key={exp.id} className="bg-white dark:bg-surface-900">
+                            <td className="px-4 py-2 whitespace-nowrap font-medium">{exp.merchantName || exp.name}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">
+                              {editingId === exp.id ? (
+                                <input
+                                  type="number"
+                                  className="border rounded px-2 py-1 w-24"
+                                  value={editValue}
+                                  onChange={e => setEditValue(e.target.value)}
+                                  onBlur={() => setEditingId(null)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      updateExpense(exp.id, { amount: parseFloat(editValue) });
+                                      setEditingId(null);
+                                    }
+                                  }}
+                                  autoFocus
+                                />
+                              ) : (
+                                <span>{showSensitiveData ? `$${exp.amount.toFixed(2)}` : "••••••"}</span>
+                              )}
+                              <button
+                                className="ml-2 text-xs text-blue-600 dark:text-blue-400 underline"
+                                onClick={() => {
+                                  setEditingId(exp.id);
+                                  setEditValue(exp.amount.toString());
+                                }}
+                                title="Edit amount"
+                              >Edit</button>
+                            </td>
+                            <td className="px-4 py-2 whitespace-nowrap">
+                              {latestAmount !== null ? (
+                                <span className={showUpdate ? "text-warning-600 font-semibold" : "text-surface-600"}>
+                                  {showSensitiveData ? `$${latestAmount.toFixed(2)}` : "••••••"}
+                                </span>
+                              ) : (
+                                <span className="text-surface-400">-</span>
+                              )}
+                              {showUpdate && (
+                                <button
+                                  className="ml-2 text-xs text-success-600 underline"
+                                  onClick={() => updateExpense(exp.id, { amount: latestAmount })}
+                                  title={`Update to $${latestAmount}`}
+                                >Update?</button>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 whitespace-nowrap capitalize hidden sm:table-cell">{exp.frequency}</td>
+                            <td className="px-4 py-2 whitespace-nowrap hidden md:table-cell">{exp.nextDueDate ? format(new Date(exp.nextDueDate), 'MMM d, yyyy') : '-'}</td>
+                            <td className="px-4 py-2 whitespace-nowrap hidden md:table-cell">{exp.confidence}%</td>
+                            <td className="px-4 py-2 whitespace-nowrap text-center">
+                              <button
+                                onClick={() => deleteExpense(exp.id)}
+                                className="text-error-600 hover:text-error-800 dark:text-error-400 dark:hover:text-error-200 p-1 rounded focus:outline-none focus:ring-2 focus:ring-error-500"
+                                title="Delete recurring expense"
+                              >
+                                <TrashIcon className="w-5 h-5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

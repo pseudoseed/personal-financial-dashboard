@@ -230,7 +230,7 @@ export default function AnalyticsPage() {
 
         {/* Subscriptions Card */}
         <div className="mb-6">
-          <SubscriptionsCard />
+          <SubscriptionsCard showViewAllLink />
         </div>
 
         {/* Suggested Recurring Payments - Now at the end */}

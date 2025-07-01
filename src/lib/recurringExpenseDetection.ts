@@ -1,5 +1,6 @@
 import { prisma } from './db';
 import { subYears, addMonths, addWeeks, addQuarters, addYears, differenceInDays } from 'date-fns';
+import { getLatestTransactionForMerchant } from './transactions';
 
 // Helper: group transactions by merchant and amount (with tolerance)
 function groupTransactions(transactions: any[]) {
@@ -166,11 +167,18 @@ export async function detectRecurringExpenses(_userId: string) {
       continue;
     }
     
+    // Use the latest transaction amount for this merchant/name
+    const latestTx = await getLatestTransactionForMerchant({
+      prisma,
+      userId,
+      merchantName: txs[0].merchantName,
+      name: txs[0].name
+    });
     const detectedExpense = {
       name: txs[0].name,
       merchantName: txs[0].merchantName || txs[0].name,
       category: txs[0].category || txs[0].categoryAi,
-      amount: Math.abs(txs[0].amount),
+      amount: latestTx ? Math.abs(latestTx.amount) : Math.abs(txs[0].amount),
       frequency,
       nextDueDate,
       lastTransactionDate,
