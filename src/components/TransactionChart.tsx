@@ -26,6 +26,14 @@ import {
   saveSettings,
   buildApiUrl,
 } from "@/lib/transactionChartSettings";
+import {
+  getThisWeek,
+  getThisMonth,
+  getThisQuarter,
+  getLastQuarter,
+  getFiscalYear,
+  getYearToDate,
+} from "@/lib/dateUtils";
 import type { ChartData } from "chart.js";
 import { useTheme } from "@/app/providers";
 import { useSensitiveData } from "@/app/providers";
@@ -58,7 +66,30 @@ export function TransactionChart({}: TransactionChartProps) {
   useEffect(() => {
     setMounted(true);
     // On mount, load settings from localStorage (client-only)
-    const loaded = loadSettings();
+    let loaded = loadSettings();
+    // If period is set but no date range, compute and set date range
+    if (loaded && (!loaded.startDate || !loaded.endDate)) {
+      let dateRange;
+      switch (loaded.period) {
+        case 'daily':
+          // For 'daily', just use today as both start and end
+          const today = new Date();
+          dateRange = { startDate: today, endDate: today };
+          break;
+        case 'weekly':
+          dateRange = getThisWeek();
+          break;
+        case 'monthly':
+        default:
+          dateRange = getThisMonth();
+      }
+      loaded = {
+        ...loaded,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      };
+      saveSettings(loaded);
+    }
     setSettings(loaded);
   }, []);
 
