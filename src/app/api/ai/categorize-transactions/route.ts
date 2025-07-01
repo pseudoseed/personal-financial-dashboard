@@ -1,32 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/db';
+import { 
+  enrichTransaction,
+  applyRuleBasedCategorization,
+  shouldUseRuleBasedCategorization,
+  PartialTransaction
+} from '../../../../lib/transactionEnrichment';
+import { 
+  findSimilarMerchants,
+  getMerchantCategorizationPatterns,
+  getLocationBasedPatterns
+} from '../../../../lib/similarMerchantService';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const TEST_MODE = true; // Toggle this for test mode
+const TEST_MODE = process.env.NODE_ENV === 'development';
 
-const GENERAL_CATEGORIES = [
-  "Housing", "Utilities", "Food & Dining", "Groceries", "Transportation", "Shopping", "Health & Fitness", "Entertainment", "Travel", "Personal Care", "Education", "Insurance", "Financial", "Gifts & Donations", "Kids", "Pets", "Miscellaneous"
-];
-
-const GRANULAR_CATEGORIES = [
-  "Rent/Mortgage", "Home Maintenance", "Electricity", "Water/Sewer", "Gas Utility", "Internet", "Cell Phone", "Streaming Services", "Groceries", "Fast Food", "Restaurants", "Coffee Shops", "Alcohol/Bars", "Gas Station", "Public Transit", "Ride Sharing (Uber/Lyft)", "Car Payment", "Car Insurance", "Parking", "Flights", "Hotels", "Vacation Rental", "Online Shopping", "Clothing", "Electronics", "Beauty/Personal Care", "Gym/Fitness", "Medical Expenses", "Health Insurance", "Pharmacy", "Subscriptions", "Childcare", "Tuition", "Student Loans", "Books & Supplies", "Credit Card Payment", "Loan Payment", "Savings", "Investments", "ATM Withdrawal", "Fees & Charges", "Gifts", "Donations", "Pets", "Hobbies", "Games", "Miscellaneous"
-];
-
-// Helper: Map Plaid category array to our taxonomy (granular/general)
-function mapPlaidCategoryToTaxonomy(plaidCategoryArr: string[]): { granular: string; general: string } {
-  // Example mapping logic (expand as needed)
-  if (!plaidCategoryArr || plaidCategoryArr.length === 0) return { granular: 'Miscellaneous', general: 'Miscellaneous' };
-  const joined = plaidCategoryArr.join(' > ').toLowerCase();
-  if (joined.includes('fast food')) return { granular: 'Fast Food', general: 'Food & Dining' };
-  if (joined.includes('restaurants')) return { granular: 'Restaurants', general: 'Food & Dining' };
-  if (joined.includes('coffee')) return { granular: 'Coffee Shops', general: 'Food & Dining' };
-  if (joined.includes('groceries')) return { granular: 'Groceries', general: 'Groceries' };
-  if (joined.includes('gas')) return { granular: 'Gas Station', general: 'Transportation' };
-  if (joined.includes('shopping')) return { granular: 'Online Shopping', general: 'Shopping' };
-  if (joined.includes('travel')) return { granular: 'Flights', general: 'Travel' };
-  // ...add more mappings as needed...
-  return { granular: plaidCategoryArr[plaidCategoryArr.length-1] || 'Miscellaneous', general: plaidCategoryArr[0] || 'Miscellaneous' };
-}
+// Budgeting-focused categories
+const BUDGETING_CATEGORIES = {
+  essential: [
+    'Housing', 'Transportation', 'Groceries', 'Healthcare', 'Basic Utilities',
+    'Gas Station', 'Car Payment', 'Car Insurance', 'Public Transit',
+    'Electricity', 'Water', 'Internet', 'Cell Phone', 'Medical Expenses',
+    'Health Insurance', 'Pharmacy', 'Rent/Mortgage', 'Home Maintenance'
+  ],
+  nonEssential: [
+    'Entertainment', 'Luxury Food', 'Shopping', 'Hobbies', 'Personal Care',
+    'Fast Food', 'Restaurants', 'Coffee Shops', 'Bars', 'Streaming Services',
+    'Online Shopping', 'Clothing', 'Electronics', 'Beauty/Personal Care',
+    'Gym/Fitness', 'Subscriptions', 'Gifts', 'Donations', 'Games'
+  ],
+  mixed: [
+    'Gas Station Snacks', 'Work Dining', 'Entertainment Dining',
+    'Essential Shopping', 'Luxury Shopping'
+  ]
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,6 +50,8 @@ export async function POST(req: NextRequest) {
     if (!OPENAI_API_KEY) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
     }
+
+    console.log(`[AI CATEGORIZATION] Processing ${transactions.length} transactions`);
 
     // Step 1: Get existing categories from database
     const transactionIds = transactions.map(t => t.id).filter(Boolean);
@@ -76,259 +85,257 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ categories, fromCache: true });
     }
 
-    // Step 3: Smart filtering - only exclude obvious non-spending transactions
-    // To do this correctly, we need account type for each transaction
-    // If not present, fetch from DB
-    let transactionsWithType = toCategorize;
-    if (!toCategorize[0]?.accountType) {
-      const ids = toCategorize.map(t => `'${t.accountId}'`).join(',');
-      const accountTypes = await prisma.$queryRawUnsafe(`
-        SELECT id, type FROM "Account" WHERE id IN (${ids})
-      `) as any[];
-      const typeMap = new Map(accountTypes.map((a: any) => [a.id, a.type]));
-      transactionsWithType = toCategorize.map(t => ({ ...t, accountType: typeMap.get(t.accountId) }));
-    }
-    const filteredOut: any[] = [];
-    const spendingTransactions = transactionsWithType.filter((t) => {
-      const name = (t.name || t.merchantName || '').toLowerCase();
-      const amount = t.amount;
-      const accountType = t.accountType || '';
-      // Basic validation
-      if (typeof amount !== 'number' || isNaN(amount)) {
-        filteredOut.push({ reason: 'invalid amount', t });
-        return false;
-      }
-      // Handle subscription services that might have positive amounts
-      const subscriptionServices = [
-        'tidal', 'netflix', 'spotify', 'hulu', 'disney', 'hbo', 'prime video', 
-        'youtube premium', 'apple music', 'amazon prime', 'peacock', 'paramount',
-        'crunchyroll', 'funimation', 'shudder', 'mubi', 'criterion'
-      ];
-      const isSubscriptionService = subscriptionServices.some(service => 
-        name.includes(service)
-      );
-      if (isSubscriptionService) {
-        return true;
-      }
-      // Spend logic: credit = purchases are positive, depository = purchases are negative
-      let isSpend = false;
-      if (accountType.toLowerCase() === 'credit') {
-        isSpend = amount > 0;
-      } else if (accountType.toLowerCase() === 'depository') {
-        isSpend = amount < 0;
+    // Step 3: Enrich transactions with location and merchant context
+    const enrichedTransactions = toCategorize.map(t => enrichTransaction(t as PartialTransaction));
+
+    // Step 4: Multi-stage categorization
+    const ruleBasedResults = new Map();
+    const aiCategorizationQueue: any[] = [];
+
+    for (const transaction of enrichedTransactions) {
+      // Apply rule-based categorization first
+      const ruleResult = applyRuleBasedCategorization(transaction);
+      if (ruleResult) {
+        ruleBasedResults.set(transaction.id, ruleResult);
+        if (TEST_MODE) {
+          console.log(`[RULE-BASED] ${transaction.name} → ${ruleResult.granular}`);
+        }
       } else {
-        // fallback: treat negative as spend
-        isSpend = amount < 0;
+        // Queue for AI categorization
+        aiCategorizationQueue.push(transaction);
       }
-      if (!isSpend) {
-        filteredOut.push({ reason: 'not spend', t });
-        return false;
-      }
-      // Exclude obvious transfers and payments (but let AI handle ambiguous cases)
-      const obviousTransfers = [
-        'zelle payment from',
-        'venmo payment from', 
-        'paypal payment from',
-        'deposit',
-        'atm deposit',
-        'atm credit',
-        'atm refund',
-        'credit card payment',
-        'creditcardpayment',
-        'loan payment',
-        'loan repayment',
-        'payment thank you',
-        'redemption credit',
-        'constant con-osv',
-        'online transfer from',
-        'apple cash bank xfer',
-        'cash app.*cash out',
-        'refund',
-        'reversal',
-        'credit'
-      ];
-      if (obviousTransfers.some(pattern => new RegExp(pattern).test(name))) {
-        filteredOut.push({ reason: 'obvious transfer/payment', t });
-        return false;
-      }
-      return true;
-    });
-    
-    if (TEST_MODE) {
-      console.log('[FILTERED OUT TRANSACTIONS]', filteredOut.map(f => ({ reason: f.reason, name: f.t.name || f.t.merchantName, amount: f.t.amount })));
-      console.log('[TRANSACTIONS SENT TO AI]', spendingTransactions.map(t => ({ name: t.name || t.merchantName, amount: t.amount })));
     }
 
-    // Step 4: AI categorization with improved prompt
-    const categorized: string[] = [];
-    const costTrackers: any[] = [];
-    const batchSize = 50; // Smaller batches for better AI performance
-    const newCategories = new Map();
-    
-    for (let i = 0; i < spendingTransactions.length; i += batchSize) {
-      const batch = spendingTransactions.slice(i, i + batchSize);
+    console.log(`[AI CATEGORIZATION] Rule-based: ${ruleBasedResults.size}, AI queue: ${aiCategorizationQueue.length}`);
 
-      // Enhanced AI prompt for dual-level categorization
-      const prompt = [
-        'You are an expert financial transaction categorizer. Your job is to assign BOTH a granular and a general category to each transaction, using the provided lists.',
-        '',
-        'GENERAL CATEGORIES:',
-        GENERAL_CATEGORIES.join(', '),
-        '',
-        'GRANULAR CATEGORIES:',
-        GRANULAR_CATEGORIES.join(', '),
-        '',
-        'IMPORTANT GUIDELINES:',
-        '- Use your knowledge of companies, brands, and services to make intelligent categorizations.',
-        '- For each transaction, return BOTH a granular and a general category.',
-        '- Only use "Miscellaneous" if, based on general public knowledge of the merchant name, you cannot reasonably determine a more specific category from the provided list.',
-        '- If a transaction could fit multiple categories, choose the most specific and relevant one.',
-        '- Example mappings:',
-        '  - Starbucks → Granular: Coffee Shops, General: Food & Dining',
-        '  - Amazon → Granular: Online Shopping, General: Shopping',
-        '  - Shell → Granular: Gas Station, General: Transportation',
-        '',
-        'Return ONLY a JSON array like this:',
-        '[',
-        '  { "name": "Amazon", "granularCategory": "Online Shopping", "generalCategory": "Shopping" },',
-        '  ...',
-        ']',
-        '',
-        'Transactions to categorize:',
-        JSON.stringify(batch.map(t => ({ name: t.name || t.merchantName, amount: t.amount })), null, 2),
-        '',
-        'Do not explain your answers. Do not wrap in Markdown.'
-      ].join('\n');
-
-      if (TEST_MODE) {
-        console.log({ batch: Math.floor(i / batchSize) + 1, promptPreview: prompt.slice(0, 1000) });
-      }
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: 'You are a helpful assistant that categorizes financial transactions using your knowledge of companies and services.' },
-            { role: 'user', content: prompt },
-          ],
-          max_tokens: 2048,
-          temperature: 0.1, // Lower temperature for more consistent results
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} ${error}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content?.trim();
-
-      // Parse the JSON response
-      let parsed;
-      try {
-        // Find the first and last brackets to extract JSON
-        const firstBracket = content.indexOf('[');
-        const lastBracket = content.lastIndexOf(']');
-        if (firstBracket === -1 || lastBracket === -1) {
-          console.error('Malformed AI response (no brackets):', content);
-          continue;
+    // Step 5: AI categorization for remaining transactions
+    const aiResults = new Map();
+    if (aiCategorizationQueue.length > 0) {
+      const batchSize = 20; // Smaller batches for better AI performance
+      
+      for (let i = 0; i < aiCategorizationQueue.length; i += batchSize) {
+        const batch = aiCategorizationQueue.slice(i, i + batchSize);
+        const batchResults = await categorizeBatchWithAI(batch);
+        
+        batchResults.forEach((result, transactionId) => {
+          aiResults.set(transactionId, result);
+        });
+        
+        if (TEST_MODE) {
+          console.log(`[AI BATCH] Processed ${batch.length} transactions (${i + batch.length}/${aiCategorizationQueue.length})`);
         }
-        const jsonContent = content.slice(firstBracket, lastBracket + 1);
-        parsed = JSON.parse(jsonContent);
-        if (!Array.isArray(parsed)) {
-          console.error('AI response is not an array:', parsed);
-          continue;
-        }
-      } catch (parseError) {
-        const firstBracket = content.indexOf('[');
-        const lastBracket = content.lastIndexOf(']');
-        console.error('JSON parse error:', parseError, 'Content:', content.slice(firstBracket, lastBracket + 1));
-        continue;
       }
-
-      // Process the categorized transactions
-      parsed.forEach((item: any) => {
-        if (item.name && item.granularCategory && item.generalCategory) {
-          const granularCategory = item.granularCategory.trim();
-          const generalCategory = item.generalCategory.trim();
-          if (GRANULAR_CATEGORIES.includes(granularCategory) && GENERAL_CATEGORIES.includes(generalCategory)) {
-            newCategories.set(item.name, { granular: granularCategory, general: generalCategory });
-            categorized.push(granularCategory);
-          } else {
-            // If AI returned a non-standard category, map it to Miscellaneous
-            newCategories.set(item.name, { granular: 'Miscellaneous', general: 'Miscellaneous' });
-            categorized.push('Miscellaneous');
-          }
-        }
-      });
     }
 
-    // Step 5: Update database with new categories
-    if (newCategories.size > 0) {
-      try {
-        // Get transaction IDs and Plaid categories for the categorized names
-        const categorizedNames = Array.from(newCategories.keys());
-        const dbTransactions: any[] = await prisma.$queryRawUnsafe(`
-          SELECT id, name, "merchantName", category, "plaidId" FROM "Transaction" 
-          WHERE name IN (${categorizedNames.map(name => `'${name.replace(/'/g, "''")}'`).join(',')})
-          OR "merchantName" IN (${categorizedNames.map(name => `'${name.replace(/'/g, "''")}'`).join(',')})
-        `);
-
-        // Prepare update cases for dual-level categories
-        const updateCasesGranular: string[] = [];
-        const updateCasesGeneral: string[] = [];
-        for (const t of dbTransactions) {
-          const aiCat = newCategories.get(t.name) || newCategories.get(t.merchantName);
-          let granular = aiCat?.granular || 'Miscellaneous';
-          let general = aiCat?.general || 'Miscellaneous';
-          // Fallback: If AI returned Miscellaneous, try Plaid
-          if (granular === 'Miscellaneous' && t.category) {
-            const plaidMapped = mapPlaidCategoryToTaxonomy([t.category]);
-            if (plaidMapped.granular !== 'Miscellaneous') {
-              granular = plaidMapped.granular;
-              general = plaidMapped.general;
-            }
-          }
-          updateCasesGranular.push(`WHEN '${t.id}' THEN '${granular.replace(/'/g, "''")}'`);
-          updateCasesGeneral.push(`WHEN '${t.id}' THEN '${general.replace(/'/g, "''")}'`);
-        }
-        const dbIds: string[] = dbTransactions.map((t: any) => t.id);
-        if (dbIds.length > 0) {
-          const sql = `
-            UPDATE "Transaction" 
-            SET "categoryAiGranular" = CASE id ${updateCasesGranular.join(' ')} END,
-                "categoryAiGeneral" = CASE id ${updateCasesGeneral.join(' ')} END
-            WHERE id IN (${dbIds.map((id: string) => `'${id}'`).join(',')})
-          `;
-          await prisma.$executeRawUnsafe(sql);
-        }
-        // Log unique categories saved in this batch
-        const uniqueGranular = new Set(Array.from(newCategories.values()).map(v => v.granular));
-        const uniqueGeneral = new Set(Array.from(newCategories.values()).map(v => v.general));
-        console.log('[AI CATEGORIZATION] Saved categories (granular):', Array.from(uniqueGranular));
-        console.log('[AI CATEGORIZATION] Saved categories (general):', Array.from(uniqueGeneral));
-      } catch (dbError) {
-        console.error('[DATABASE ERROR] Failed to store categories:', dbError);
-      }
+    // Step 6: Combine results and update database
+    const allResults = new Map([...ruleBasedResults, ...aiResults]);
+    
+    if (allResults.size > 0) {
+      await updateDatabaseWithCategories(allResults);
     }
 
     return NextResponse.json({
       totalProcessed: transactions.length,
       fromCache: existingCategories.size,
-      newlyCategorized: newCategories.size,
-      categories: [...new Set([...Array.from(existingCategories.values()), ...categorized])],
+      ruleBasedCategorized: ruleBasedResults.size,
+      aiCategorized: aiResults.size,
+      newlyCategorized: allResults.size,
+      categories: Array.from(allResults.values()),
     });
+
   } catch (error) {
     console.error('Server error in categorize-transactions:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Categorize a batch of transactions using AI with enhanced context
+ */
+async function categorizeBatchWithAI(transactions: any[]): Promise<Map<string, { granular: string; general: string }>> {
+  const results = new Map();
+  
+  try {
+    // Get merchant patterns for context
+    const merchantPatterns = await getMerchantCategorizationPatterns();
+    
+    // Prepare transaction data with similar merchant context
+    const transactionData = await Promise.all(
+      transactions.map(async (transaction) => {
+        const similarMerchants = await findSimilarMerchants(transaction, 3);
+        return {
+          id: transaction.id,
+          context: transaction.enriched.aiContext,
+          similarMerchants: similarMerchants.map(m => `${m.merchantName} (${m.location}) → ${m.category}`).join('\n'),
+          amount: transaction.amount,
+          merchantName: transaction.name
+        };
+      })
+    );
+
+    // Create enhanced AI prompt
+    const prompt = createEnhancedAIPrompt(transactionData, merchantPatterns);
+
+    if (TEST_MODE) {
+      console.log('[AI PROMPT PREVIEW]', prompt.substring(0, 1000) + '...');
+    }
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are a budgeting expert that categorizes financial transactions to help users identify essential vs non-essential spending and find waste in their budget.' 
+          },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 2048,
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content?.trim();
+
+    // Parse the JSON response
+    const parsed = parseAIResponse(content);
+    
+    // Map results back to transaction IDs
+    parsed.forEach((item: any) => {
+      const transaction = transactionData.find(t => t.merchantName === item.merchant);
+      if (transaction) {
+        results.set(transaction.id, {
+          granular: item.granularCategory || 'Miscellaneous',
+          general: item.generalCategory || 'Miscellaneous'
+        });
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in AI categorization batch:', error);
+    // Fallback: assign miscellaneous categories
+    transactions.forEach(transaction => {
+      results.set(transaction.id, { granular: 'Miscellaneous', general: 'Miscellaneous' });
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Create enhanced AI prompt with budgeting focus and rich context
+ */
+function createEnhancedAIPrompt(transactions: any[], merchantPatterns: string): string {
+  const allCategories = [
+    ...BUDGETING_CATEGORIES.essential,
+    ...BUDGETING_CATEGORIES.nonEssential,
+    ...BUDGETING_CATEGORIES.mixed
+  ];
+
+  return [
+    'You are a budgeting expert. Categorize these transactions to help users identify:',
+    '1. Essential spending (needs) vs Non-essential spending (wants)',
+    '2. Areas of potential waste',
+    '3. Opportunities for budget optimization',
+    '',
+    'AVAILABLE CATEGORIES:',
+    allCategories.join(', '),
+    '',
+    'CATEGORIZATION GUIDELINES:',
+    '- Focus on budgeting insights (essential vs non-essential)',
+    '- Use location context for merchant disambiguation',
+    '- Consider payment method and channel',
+    '- Split gas station transactions (gas vs snacks)',
+    '- Distinguish work dining from entertainment',
+    '- Use similar merchant examples as guidance',
+    '',
+    'MERCHANT PATTERNS (for reference):',
+    merchantPatterns,
+    '',
+    'SIMILAR MERCHANT EXAMPLES:',
+    transactions.map(t => `Transaction: ${t.merchantName}\nContext: ${t.context}\nSimilar: ${t.similarMerchants || 'None'}`).join('\n\n'),
+    '',
+    'Return ONLY a JSON array like this:',
+    '[',
+    '  { "merchant": "Shell 1234", "granularCategory": "Gas Station", "generalCategory": "Transportation" },',
+    '  { "merchant": "Starbucks", "granularCategory": "Coffee Shops", "generalCategory": "Food & Dining" }',
+    ']',
+    '',
+    'Transactions to categorize:',
+    JSON.stringify(transactions.map(t => ({ merchant: t.merchantName, amount: t.amount })), null, 2),
+    '',
+    'Do not explain your answers. Do not wrap in Markdown.'
+  ].join('\n');
+}
+
+/**
+ * Parse AI response and extract categories
+ */
+function parseAIResponse(content: string): any[] {
+  try {
+    // Find the first and last brackets to extract JSON
+    const firstBracket = content.indexOf('[');
+    const lastBracket = content.lastIndexOf(']');
+    if (firstBracket === -1 || lastBracket === -1) {
+      console.error('Malformed AI response (no brackets):', content);
+      return [];
+    }
+    const jsonContent = content.slice(firstBracket, lastBracket + 1);
+    const parsed = JSON.parse(jsonContent);
+    if (!Array.isArray(parsed)) {
+      console.error('AI response is not an array:', parsed);
+      return [];
+    }
+    return parsed;
+  } catch (parseError) {
+    console.error('JSON parse error:', parseError, 'Content:', content);
+    return [];
+  }
+}
+
+/**
+ * Update database with new categories
+ */
+async function updateDatabaseWithCategories(
+  categoryMap: Map<string, { granular: string; general: string }>
+): Promise<void> {
+  try {
+    const updateCasesGranular: string[] = [];
+    const updateCasesGeneral: string[] = [];
+    
+    for (const [transactionId, categories] of categoryMap) {
+      updateCasesGranular.push(`WHEN '${transactionId}' THEN '${categories.granular.replace(/'/g, "''")}'`);
+      updateCasesGeneral.push(`WHEN '${transactionId}' THEN '${categories.general.replace(/'/g, "''")}'`);
+    }
+    
+    const transactionIds = Array.from(categoryMap.keys());
+    if (transactionIds.length > 0) {
+      const sql = `
+        UPDATE "Transaction" 
+        SET "categoryAiGranular" = CASE id ${updateCasesGranular.join(' ')} END,
+            "categoryAiGeneral" = CASE id ${updateCasesGeneral.join(' ')} END
+        WHERE id IN (${transactionIds.map(id => `'${id}'`).join(',')})
+      `;
+      await prisma.$executeRawUnsafe(sql);
+      
+      console.log(`[DATABASE] Updated ${transactionIds.length} transactions with new categories`);
+    }
+  } catch (error) {
+    console.error('[DATABASE ERROR] Failed to store categories:', error);
+    throw error;
   }
 }

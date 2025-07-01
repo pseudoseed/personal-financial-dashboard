@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/db';
+import { 
+  enrichTransaction,
+  PartialTransaction
+} from '../../../../lib/transactionEnrichment';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -10,6 +14,7 @@ export async function GET(request: NextRequest) {
   const categories = searchParams.get('categories')?.split(',') || [];
   const minAmount = searchParams.get('minAmount') ? parseFloat(searchParams.get('minAmount')!) : undefined;
   const maxAmount = searchParams.get('maxAmount') ? parseFloat(searchParams.get('maxAmount')!) : undefined;
+  const includeEnriched = searchParams.get('includeEnriched') === 'true';
 
   try {
     // Build where clause for transactions
@@ -39,23 +44,52 @@ export async function GET(request: NextRequest) {
       if (maxAmount !== undefined) whereClause.amount.lte = maxAmount;
     }
 
+    // Enhanced select to include all data needed for enrichment
+    const selectFields = {
+      id: true,
+      name: true,
+      amount: true,
+      category: true,
+      categoryAiGranular: true,
+      categoryAiGeneral: true,
+      merchantName: true,
+      locationAddress: true,
+      locationCity: true,
+      locationRegion: true,
+      locationCountry: true,
+      locationLat: true,
+      locationLon: true,
+      locationPostalCode: true,
+      paymentChannel: true,
+      paymentMethod: true,
+      paymentProcessor: true,
+      personalFinanceCategory: true,
+      date: true,
+      accountId: true,
+    };
+
     const transactions = await prisma.transaction.findMany({
       where: whereClause,
       take: limit,
       orderBy: {
         date: 'desc',
       },
-      select: {
-        id: true,
-        name: true,
-        amount: true,
-        category: true,
-        categoryAiGranular: true,
-        categoryAiGeneral: true,
-      },
+      select: selectFields,
     });
 
-    return NextResponse.json({ transactions: transactions || [] });
+    // Enrich transactions with additional context if requested
+    let enrichedTransactions: any[] = transactions;
+    if (includeEnriched) {
+      enrichedTransactions = transactions.map(transaction => 
+        enrichTransaction(transaction as PartialTransaction)
+      );
+    }
+
+    return NextResponse.json({ 
+      transactions: enrichedTransactions || [],
+      total: enrichedTransactions.length,
+      enriched: includeEnriched
+    });
   } catch (error) {
     const errObj = error instanceof Error ? error : { message: String(error) };
     console.error('Error in /api/transactions/for-ai:', errObj);
