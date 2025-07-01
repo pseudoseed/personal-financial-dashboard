@@ -42,45 +42,43 @@ export async function getActivityFeedData(_userId: string, limit: number = 20): 
   const userId = 'default';
   const activities: Activity[] = [];
   
-  // Get recent transactions
+  // Get recent transactions from connected accounts only (exclude manual)
   const transactions = await prisma.transaction.findMany({
     where: { 
-      account: { userId, hidden: false } 
+      account: {
+        userId,
+        hidden: false,
+        plaidItem: {
+          NOT: { accessToken: 'manual' },
+        },
+      },
     },
     include: {
-      account: true,
+      account: { include: { plaidItem: true } },
     },
     orderBy: { date: 'desc' },
-    take: Math.floor(limit * 0.4), // 40% of activities
+    take: Math.floor(limit * 0.6), // 60% of activities
   });
 
-  // Get account balance changes
+  // Get account balance changes from connected accounts only (exclude manual)
   const balanceChanges = await prisma.accountBalance.findMany({
     where: { 
-      account: { userId, hidden: false } 
+      account: {
+        userId,
+        hidden: false,
+        plaidItem: {
+          NOT: { accessToken: 'manual' },
+        },
+      },
     },
     include: {
-      account: true,
+      account: { include: { plaidItem: true } },
     },
     orderBy: { date: 'desc' },
     take: Math.floor(limit * 0.2), // 20% of activities
   });
 
-  // Get recurring expenses
-  const recurringExpenses = await prisma.recurringExpense.findMany({
-    where: { userId },
-    orderBy: { updatedAt: 'desc' },
-    take: Math.floor(limit * 0.15), // 15% of activities
-  });
-
-  // Get recurring payments
-  const recurringPayments = await prisma.recurringPayment.findMany({
-    where: { userId },
-    orderBy: { updatedAt: 'desc' },
-    take: Math.floor(limit * 0.15), // 15% of activities
-  });
-
-  // Get anomaly detections
+  // Get anomaly detections (keep as is)
   const anomalies = await prisma.anomalyDetectionResult.findMany({
     where: { 
       settings: { userId },
@@ -88,15 +86,19 @@ export async function getActivityFeedData(_userId: string, limit: number = 20): 
     },
     include: {
       transaction: {
-        include: { account: true }
+        include: { account: { include: { plaidItem: true } } }
       },
     },
     orderBy: { createdAt: 'desc' },
-    take: Math.floor(limit * 0.1), // 10% of activities
+    take: Math.floor(limit * 0.2), // 20% of activities
   });
 
-  // Convert transactions to activities
+  // Convert transactions to activities (only from connected accounts)
   transactions.forEach(transaction => {
+    // Only include if account is not manual (Plaid or Coinbase)
+    const provider = transaction.account?.plaidItem?.provider;
+    if (transaction.account?.plaidItem?.accessToken === 'manual') return;
+    // Optionally, you could check for provider === 'coinbase' to include Coinbase
     activities.push({
       id: `transaction-${transaction.id}`,
       type: 'transaction',
@@ -109,20 +111,20 @@ export async function getActivityFeedData(_userId: string, limit: number = 20): 
       metadata: {
         merchantName: transaction.merchantName,
         accountName: transaction.account.nickname || transaction.account.name,
+        provider,
       },
     });
   });
 
-  // Convert balance changes to activities
+  // Convert balance changes to activities (only from connected accounts)
   balanceChanges.forEach((balance, index) => {
     if (index === 0) return; // Skip the most recent balance as it's current
-    
     const previousBalance = balanceChanges[index + 1];
     if (!previousBalance) return;
-    
+    if (balance.account?.plaidItem?.accessToken === 'manual') return;
+    const provider = balance.account?.plaidItem?.provider;
     const change = balance.current - previousBalance.current;
     if (Math.abs(change) < 0.01) return; // Ignore tiny changes
-    
     activities.push({
       id: `balance-${balance.id}`,
       type: 'balance_change',
@@ -136,49 +138,12 @@ export async function getActivityFeedData(_userId: string, limit: number = 20): 
         accountName: balance.account.nickname || balance.account.name,
         newBalance: balance.current,
         previousBalance: previousBalance.current,
+        provider,
       },
     });
   });
 
-  // Convert recurring expenses to activities
-  recurringExpenses.forEach(expense => {
-    activities.push({
-      id: `expense-${expense.id}`,
-      type: 'recurring_expense',
-      title: `Recurring Expense: ${expense.name}`,
-      description: `${expense.amount.toFixed(2)} ${expense.frequency}`,
-      amount: -expense.amount,
-      date: expense.updatedAt.toISOString(),
-      status: 'completed',
-      category: expense.category || 'Recurring Expense',
-      metadata: {
-        merchantName: expense.merchantName,
-        frequency: expense.frequency,
-        confidence: expense.confidence,
-      },
-    });
-  });
-
-  // Convert recurring payments to activities
-  recurringPayments.forEach(payment => {
-    activities.push({
-      id: `payment-${payment.id}`,
-      type: 'recurring_payment',
-      title: `Recurring Payment: ${payment.name}`,
-      description: `${payment.amount.toFixed(2)} ${payment.frequency}`,
-      amount: payment.amount,
-      date: payment.updatedAt.toISOString(),
-      status: 'completed',
-      category: payment.paymentType,
-      metadata: {
-        frequency: payment.frequency,
-        confidence: payment.confidence,
-        targetAccount: payment.targetAccountId,
-      },
-    });
-  });
-
-  // Convert anomalies to activities
+  // Convert anomalies to activities (keep as is)
   anomalies.forEach(anomaly => {
     activities.push({
       id: `anomaly-${anomaly.id}`,
@@ -193,6 +158,7 @@ export async function getActivityFeedData(_userId: string, limit: number = 20): 
         anomalyType: anomaly.type,
         severity: anomaly.severity,
         accountName: anomaly.transaction.account.nickname || anomaly.transaction.account.name,
+        provider: anomaly.transaction.account?.plaidItem?.provider,
       },
     });
   });
