@@ -596,7 +596,7 @@ export function TransactionChart({}: TransactionChartProps) {
               : "max-h-0 opacity-0"
           }`}
         >
-          {selectedCategory && (
+          {selectedCategory && Array.isArray(filteredTransactions) && (
             <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 mt-6 dark:text-gray-100">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold dark:text-gray-100">
