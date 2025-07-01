@@ -4,6 +4,9 @@ import { prisma } from '@/lib/db';
 import type { PlaidApiCallLog } from '@prisma/client';
 import React from 'react';
 
+// Force dynamic rendering to prevent build-time database access
+export const dynamic = 'force-dynamic';
+
 // Plaid pricing structure
 const PLAID_PRICING = {
   balance: { perCall: 0.10 },
