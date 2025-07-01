@@ -2,6 +2,7 @@ import { prisma } from "./db";
 import { plaidClient } from "./plaid";
 import { smartSyncTransactions } from "./transactionSyncService";
 import { getCurrentUserId } from "./userManagement";
+import { v4 as uuidv4 } from 'uuid';
 
 // Cache for storing refresh timestamps and data
 const refreshCache = new Map<string, { timestamp: number; data: any }>();
@@ -145,9 +146,9 @@ export async function smartRefreshAccounts(
     // Filter to specific account
     whereClause.id = targetAccountId;
   } else if (targetInstitutionId) {
-    // Filter to specific institution
+    // Filter to all accounts for the institution (by institutionId, not plaidItem.id)
     whereClause.plaidItem = {
-      id: targetInstitutionId
+      institutionId: targetInstitutionId
     };
   }
   
@@ -365,13 +366,35 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
     }
     
     let response;
+    let plaidApiCallStart = Date.now();
+    let plaidApiCallError = null;
     try {
       response = await plaidClient.accountsBalanceGet({
         access_token: firstAccount.plaidItem.accessToken,
       });
+      await logPlaidApiCall({
+        prisma,
+        endpoint: '/accounts/balance/get',
+        responseStatus: 200,
+        institutionId: firstAccount.plaidItem.institutionId,
+        accountId: firstAccount.id,
+        durationMs: Date.now() - plaidApiCallStart,
+        userId: firstAccount.userId,
+      });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error("Plaid accountsBalanceGet error:", errorMessage);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      plaidApiCallError = errorMessage;
+      await logPlaidApiCall({
+        prisma,
+        endpoint: '/accounts/balance/get',
+        responseStatus: (error as any)?.response?.status || 500,
+        institutionId: firstAccount.plaidItem.institutionId,
+        accountId: firstAccount.id,
+        durationMs: Date.now() - plaidApiCallStart,
+        errorMessage,
+        userId: firstAccount.userId,
+      });
+      console.error('Plaid accountsBalanceGet error:', errorMessage);
       accounts.forEach((account: any) => {
         results.errors.push({ accountId: account.id, error: errorMessage });
       });
@@ -624,4 +647,45 @@ export function logAccountValidationIssues(accounts: any[]): void {
   }
   
   console.log("=== End Validation Report ===");
+}
+
+async function logPlaidApiCall({
+  prisma,
+  endpoint,
+  responseStatus,
+  institutionId,
+  accountId,
+  durationMs,
+  errorMessage,
+  userId,
+  appInstanceId
+}: {
+  prisma: any,
+  endpoint: string,
+  responseStatus: number,
+  institutionId?: string,
+  accountId?: string,
+  durationMs?: number,
+  errorMessage?: string,
+  userId?: string,
+  appInstanceId?: string
+}) {
+  try {
+    await prisma.plaidApiCallLog.create({
+      data: {
+        id: uuidv4(),
+        timestamp: new Date(),
+        endpoint,
+        responseStatus,
+        institutionId: institutionId || null,
+        accountId: accountId || null,
+        userId: userId || null,
+        durationMs: durationMs || null,
+        errorMessage: errorMessage || null,
+        appInstanceId: appInstanceId || null,
+      },
+    });
+  } catch (err) {
+    console.error('[PlaidApiCallLog] Failed to log Plaid API call:', err);
+  }
 } 

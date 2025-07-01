@@ -7,6 +7,7 @@ import {
   InvestmentTransaction,
   Security,
 } from "plaid";
+import { v4 as uuidv4 } from 'uuid';
 
 const plaidClient = new PlaidApi(
   new Configuration({
@@ -48,15 +49,43 @@ async function handleRegularTransactions(
 
   // Keep fetching transactions until we get them all
   while (hasMore) {
-    const response = await plaidClient.transactionsSync({
-      access_token: account.plaidItem.accessToken,
-      cursor,
-      count: 500,
-      options: {
-        include_original_description: true,
-        account_id: account.plaidId,
-      },
-    });
+    let plaidApiCallStart = Date.now();
+    let plaidApiCallError = null;
+    let response;
+    try {
+      response = await plaidClient.transactionsSync({
+        access_token: account.plaidItem.accessToken,
+        cursor,
+        count: 500,
+        options: {
+          include_original_description: true,
+          account_id: account.plaidId,
+        },
+      });
+      await logPlaidApiCall({
+        prisma,
+        endpoint: '/transactions/sync',
+        responseStatus: 200,
+        institutionId: account.plaidItem.institutionId,
+        accountId: account.id,
+        durationMs: Date.now() - plaidApiCallStart,
+        userId: account.userId,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      plaidApiCallError = errorMessage;
+      await logPlaidApiCall({
+        prisma,
+        endpoint: '/transactions/sync',
+        responseStatus: (error as any)?.response?.status || 500,
+        institutionId: account.plaidItem.institutionId,
+        accountId: account.id,
+        durationMs: Date.now() - plaidApiCallStart,
+        errorMessage,
+        userId: account.userId,
+      });
+      throw error;
+    }
 
     // Filter transactions for this account
     const addedTransactions = response.data.added.filter(
@@ -431,4 +460,45 @@ export async function getLatestTransactionForMerchant({
     where,
     orderBy: { date: 'desc' },
   });
+}
+
+async function logPlaidApiCall({
+  prisma,
+  endpoint,
+  responseStatus,
+  institutionId,
+  accountId,
+  durationMs,
+  errorMessage,
+  userId,
+  appInstanceId
+}: {
+  prisma: any,
+  endpoint: string,
+  responseStatus: number,
+  institutionId?: string,
+  accountId?: string,
+  durationMs?: number,
+  errorMessage?: string,
+  userId?: string,
+  appInstanceId?: string
+}) {
+  try {
+    await prisma.plaidApiCallLog.create({
+      data: {
+        id: uuidv4(),
+        timestamp: new Date(),
+        endpoint,
+        responseStatus,
+        institutionId: institutionId || null,
+        accountId: accountId || null,
+        userId: userId || null,
+        durationMs: durationMs || null,
+        errorMessage: errorMessage || null,
+        appInstanceId: appInstanceId || null,
+      },
+    });
+  } catch (err) {
+    console.error('[PlaidApiCallLog] Failed to log Plaid API call:', err);
+  }
 }
