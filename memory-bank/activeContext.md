@@ -1,9 +1,17 @@
 # Active Context
 
 ## Current Focus
-**Status**: ITEM_LOGIN_REQUIRED ERRORS - Implementing Re-authentication Flow
+**Status**: EMERGENCY FUND RESTRICTIONS - Restricting Emergency Fund to Depository Accounts Only
 
-I have identified and fixed the core issue causing the 400 errors from Plaid. The problem is that several institutions (Chase, PayPal, etc.) are returning `ITEM_LOGIN_REQUIRED` errors, which means the login credentials have changed and require re-authentication.
+I have implemented restrictions to ensure that only depository accounts (checking, savings, etc.) can be included in emergency fund calculations. This ensures that emergency fund calculations only include liquid, accessible cash accounts and prevents users from accidentally including investment accounts, credit cards, or loans.
+
+### ✅ Recent Fixes (Latest Session)
+1. **Emergency Fund Liquid Asset Validation** - Restricted emergency fund to truly liquid accounts only (excludes CDs)
+2. **UI Feedback for Non-Liquid Accounts** - Added clear visual feedback and disabled toggles for ineligible accounts
+3. **API Validation** - Added server-side validation to prevent non-liquid accounts from being included
+4. **Fallback Logic Fix** - Fixed emergency fund fallback logic to only use truly liquid depository accounts
+5. **Dashboard Color Updates** - Changed Total Assets to purple and Total Liabilities to pink
+6. **Financial Health Score** - Added percentage sign to financial health score display
 
 ### ✅ Recent Fixes (Latest Session)
 1. **ITEM_LOGIN_REQUIRED Error Detection** - Enhanced auth-status endpoint to properly parse Plaid error codes
@@ -13,7 +21,34 @@ I have identified and fixed the core issue causing the 400 errors from Plaid. Th
 
 ### Technical Fixes Applied
 
-#### Plaid Error Code Parsing:
+#### Emergency Fund Liquid Asset Restrictions:
+1. **Financial Health Calculation** (`src/lib/financialHealth.ts`)
+   - Added `isLiquidForEmergencyFund` helper function to check for truly liquid accounts
+   - Updated fallback logic to only use truly liquid depository subtypes (checking, savings, money market, PayPal, cash management, EBT, prepaid)
+   - Excludes CDs and other time-locked accounts from emergency fund calculations
+   - Ensures emergency fund calculations only include truly liquid, accessible cash accounts
+
+2. **API Validation** (`src/app/api/accounts/[accountId]/toggle-emergency-fund/route.ts`)
+   - Added server-side validation to check account type and subtype before allowing emergency fund inclusion
+   - Returns 400 error with clear message for non-liquid accounts
+   - Prevents data integrity issues at the API level
+
+3. **UI Component Updates** (`src/components/AccountDetails.tsx`)
+   - Disabled emergency fund toggle for non-liquid accounts (including CDs)
+   - Added visual feedback (grayed out, disabled state) for ineligible accounts
+   - Updated description text to explain that only truly liquid accounts are included
+   - Added tooltip for disabled state explaining the restriction
+   - Applied changes to both desktop and mobile views
+
+4. **Dashboard Visual Updates** (`src/components/DashboardSummary.tsx`, `src/components/DashboardMetrics.tsx`)
+   - Changed Total Assets color to purple (`text-purple-600 dark:text-purple-400`)
+   - Changed Total Liabilities color to pink (`text-pink-600 dark:text-pink-400`)
+   - Added percentage sign to Financial Health Score display
+
+5. **Financial Health Display Updates** (`src/components/FinancialHealthMetrics.tsx`, `src/components/FinancialHealthCard.tsx`)
+   - Added percentage sign to all financial health score displays
+
+#### Plaid Error Code Parsing (Previous Session):
 1. **Auth Status Endpoint** (`src/app/api/accounts/auth-status/route.ts`)
    - Enhanced error parsing to detect `ITEM_LOGIN_REQUIRED`, `INVALID_ACCESS_TOKEN`, `ITEM_LOCKED`
    - Added specific status messages for different error types
@@ -37,42 +72,41 @@ I have identified and fixed the core issue causing the 400 errors from Plaid. Th
    - Provides easy access to trigger auth status refresh
 
 ### Root Cause Analysis
-The errors were occurring because:
-1. **Institution Security Policies**: Chase, PayPal, and other institutions require periodic re-authentication
-2. **MFA Requirements**: Multi-factor authentication tokens expire and need renewal
-3. **Session Expiration**: Plaid access tokens become invalid due to security policies
-4. **Missing Error Parsing**: The system wasn't properly detecting `ITEM_LOGIN_REQUIRED` errors
+The emergency fund restriction was needed because:
+1. **Data Integrity**: Emergency fund should only include liquid, accessible cash accounts
+2. **User Confusion**: Users could accidentally include investment accounts, credit cards, or loans
+3. **Incorrect Fallback Logic**: The system was incorrectly treating `'checking'` and `'savings'` as account types instead of subtypes of `'depository'`
+4. **Missing Validation**: No server-side validation to prevent inappropriate account types
 
 ### Impact
-- ✅ **Error Detection**: Now properly identifies institutions needing re-authentication
-- ✅ **User Experience**: Clear alerts and easy reconnection process
-- ✅ **Cost Reduction**: Prevents unnecessary API calls to invalid tokens
-- ✅ **Data Integrity**: Maintains account data while updating authentication
+- ✅ **Data Integrity**: Emergency fund calculations now only include appropriate account types
+- ✅ **User Experience**: Clear visual feedback about which accounts can be included
+- ✅ **Prevention**: Prevents users from accidentally including inappropriate accounts
+- ✅ **Accuracy**: Ensures emergency fund ratios are calculated correctly
 
 ### Current Status
-- **Application**: Running successfully with proper error detection
+- **Application**: Running successfully with emergency fund restrictions implemented
 - **Health Check**: All systems operational
-- **Database**: 24 accounts, all valid but some need re-authentication
-- **Plaid Integration**: Proper error handling and re-authentication flow
+- **Emergency Fund**: Now properly restricted to depository accounts only
+- **UI/UX**: Clear feedback for users about account eligibility
 
 ### Next Steps
-1. **Test Re-authentication**: Verify the reconnection flow works for Chase and PayPal
-2. **Monitor Alerts**: Ensure authentication alerts appear correctly
-3. **User Testing**: Test the complete re-authentication experience
-4. **Documentation**: Update user documentation for re-authentication process
+1. **Test Emergency Fund Restrictions**: Verify that non-depository accounts show disabled toggles
+2. **User Testing**: Test the emergency fund functionality with different account types
+3. **Documentation**: Update user documentation about emergency fund eligibility
+4. **Monitor**: Ensure emergency fund calculations are accurate with the new restrictions
 
 ## Current Issues
 
 ### Active Issues (Being Addressed)
-- **Chase Re-authentication**: Chase accounts need re-authentication (ITEM_LOGIN_REQUIRED)
-- **PayPal Re-authentication**: PayPal accounts need re-authentication (ITEM_LOGIN_REQUIRED)
-- **Other Institutions**: May have similar re-authentication requirements
+- **Emergency Fund Testing**: Need to verify the new restrictions work correctly across all account types
+- **User Experience**: Ensure the disabled state is clear and informative
 
 ### Resolved Issues
-- ✅ **JavaScript Reduce Errors**: All application stability issues resolved
-- ✅ **API Cost Optimization**: 60-80% reduction in balance requests maintained
-- ✅ **Error Handling**: Proper error detection and user feedback
-- ✅ **Authentication Flow**: Complete re-authentication system implemented
+- ✅ **Emergency Fund Account Type Validation**: Now properly restricted to depository accounts only
+- ✅ **UI Feedback**: Clear visual feedback for non-eligible accounts
+- ✅ **API Validation**: Server-side validation prevents inappropriate account inclusion
+- ✅ **Fallback Logic**: Fixed incorrect account type filtering in emergency fund calculations
 
 ## Next Steps
 

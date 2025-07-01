@@ -437,14 +437,24 @@ export function AccountDetails({ account }: AccountDetailsProps) {
               <div className="flex justify-between items-center py-3">
                 <div>
                   <span className="font-medium text-surface-700 dark:text-gray-300">Include in Emergency Fund</span>
-                  <p className="text-sm text-surface-600 dark:text-gray-400">Include this account's balance in emergency fund calculations.</p>
+                  <p className="text-sm text-surface-600 dark:text-gray-400">
+                    {account.type === 'depository' && account.subtype && ['checking', 'savings', 'money market', 'paypal', 'cash management', 'ebt', 'prepaid'].includes(account.subtype.toLowerCase())
+                      ? "Include this account's balance in emergency fund calculations."
+                      : "Only truly liquid accounts (checking, savings, money market, PayPal, etc.) can be included in emergency fund calculations. CDs and other time-locked accounts are excluded."
+                    }
+                  </p>
                 </div>
                 <button
                   onClick={handleToggleEmergencyFund}
-                  disabled={isEmergencyLoading || isEmergencyFund === null}
-                  className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none ${
-                    isEmergencyFund ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
+                  disabled={isEmergencyLoading || isEmergencyFund === null || !(account.type === 'depository' && account.subtype && ['checking', 'savings', 'money market', 'paypal', 'cash management', 'ebt', 'prepaid'].includes(account.subtype.toLowerCase()))}
+                  className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full transition-colors ease-in-out duration-200 focus:outline-none ${
+                    !(account.type === 'depository' && account.subtype && ['checking', 'savings', 'money market', 'paypal', 'cash management', 'ebt', 'prepaid'].includes(account.subtype.toLowerCase()))
+                      ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed opacity-50"
+                      : isEmergencyFund 
+                        ? "bg-primary-600 cursor-pointer" 
+                        : "bg-gray-200 dark:bg-gray-700 cursor-pointer"
                   }`}
+                  title={!(account.type === 'depository' && account.subtype && ['checking', 'savings', 'money market', 'paypal', 'cash management', 'ebt', 'prepaid'].includes(account.subtype.toLowerCase())) ? "Only truly liquid accounts can be included in emergency fund" : undefined}
                 >
                   <span
                     aria-hidden="true"
@@ -757,14 +767,24 @@ export function AccountDetails({ account }: AccountDetailsProps) {
             <div className="flex justify-between items-center py-3">
               <div>
                 <span className="font-medium text-surface-700 dark:text-gray-300">Include in Emergency Fund</span>
-                <p className="text-sm text-surface-600 dark:text-gray-400">Include this account's balance in emergency fund calculations.</p>
+                <p className="text-sm text-surface-600 dark:text-gray-400">
+                  {account.type === 'depository' && account.subtype && ['checking', 'savings', 'money market', 'paypal', 'cash management', 'ebt', 'prepaid'].includes(account.subtype.toLowerCase())
+                    ? "Include this account's balance in emergency fund calculations."
+                    : "Only truly liquid accounts (checking, savings, money market, PayPal, etc.) can be included in emergency fund calculations. CDs and other time-locked accounts are excluded."
+                  }
+                </p>
               </div>
               <button
                 onClick={handleToggleEmergencyFund}
-                disabled={isEmergencyLoading || isEmergencyFund === null}
-                className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none ${
-                  isEmergencyFund ? "bg-primary-600" : "bg-gray-200 dark:bg-gray-700"
+                disabled={isEmergencyLoading || isEmergencyFund === null || !(account.type === 'depository' && account.subtype && ['checking', 'savings', 'money market', 'paypal', 'cash management', 'ebt', 'prepaid'].includes(account.subtype.toLowerCase()))}
+                className={`relative inline-flex flex-shrink-0 h-7 w-12 border-2 border-transparent rounded-full transition-colors ease-in-out duration-200 focus:outline-none ${
+                  !(account.type === 'depository' && account.subtype && ['checking', 'savings', 'money market', 'paypal', 'cash management', 'ebt', 'prepaid'].includes(account.subtype.toLowerCase()))
+                    ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed opacity-50"
+                    : isEmergencyFund 
+                      ? "bg-primary-600 cursor-pointer" 
+                      : "bg-gray-200 dark:bg-gray-700 cursor-pointer"
                 }`}
+                title={!(account.type === 'depository' && account.subtype && ['checking', 'savings', 'money market', 'paypal', 'cash management', 'ebt', 'prepaid'].includes(account.subtype.toLowerCase())) ? "Only truly liquid accounts can be included in emergency fund" : undefined}
               >
                 <span
                   aria-hidden="true"
