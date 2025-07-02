@@ -50,10 +50,11 @@ model Account {
   user                       User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   plaidItem                  PlaidItem                @relation(fields: [itemId], references: [id], onDelete: Cascade)
   balances                   AccountBalance[]
+  emergencyFundAccounts      EmergencyFundAccount[]
+  loanDetails                LoanDetails?
+  recurringPayments          RecurringPayment[]
   transactions               Transaction[]
   downloadLogs               TransactionDownloadLog[]
-  recurringPayments          RecurringPayment[]
-  emergencyFundAccounts      EmergencyFundAccount[]
 }
 
 model AccountBalance {
@@ -69,67 +70,68 @@ model AccountBalance {
 }
 
 model Transaction {
-  id                      String                   @id @default(cuid())
-  accountId               String
-  plaidId                 String
-  date                    DateTime
-  name                    String
-  amount                  Float
-  category                String?
-  merchantName            String?
-  pending                 Boolean                  @default(false)
-  createdAt               DateTime                 @default(now())
-  updatedAt               DateTime                 @updatedAt
-  fees                    Float?
-  isoCurrencyCode         String?
-  price                   Float?
-  quantity                Float?
-  securityId              String?
-  subtype                 String?
-  tickerSymbol            String?
-  type                    String?
-  authorizedDate          DateTime?
-  authorizedDatetime      DateTime?
-  byOrderOf               String?
-  closePrice              Float?
-  closePriceAsOf          DateTime?
-  cusip                   String?
-  datetime                DateTime?
-  industry                String?
-  institutionSecurityId   String?
-  isCashEquivalent        Boolean?
-  isin                    String?
-  locationAddress         String?
-  locationCity            String?
-  locationCountry         String?
-  locationLat             Float?
-  locationLon             Float?
-  locationPostalCode      String?
-  locationRegion          String?
-  marketIdentifierCode    String?
-  merchantEntityId        String?
-  payee                   String?
-  payer                   String?
-  paymentChannel          String?
-  paymentMethod           String?
-  paymentProcessor        String?
-  personalFinanceCategory String?
-  ppd_id                  String?
-  reason                  String?
-  referenceNumber         String?
-  sector                  String?
-  securityName            String?
-  securityType            String?
-  sedol                   String?
-  transactionCode         String?
-  unofficialCurrencyCode  String?
-  categoryAiGranular      String?
-  categoryAiGeneral       String?
-  categoryPlaidGranular   String?
-  categoryPlaidGeneral    String?
-  anomalies               AnomalyDetectionResult[]
-  account                 Account                  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id                           String                        @id @default(cuid())
+  accountId                    String
+  plaidId                      String
+  date                         DateTime
+  name                         String
+  amount                       Float
+  category                     String?
+  merchantName                 String?
+  pending                      Boolean                       @default(false)
+  createdAt                    DateTime                      @default(now())
+  updatedAt                    DateTime                      @updatedAt
+  fees                         Float?
+  isoCurrencyCode              String?
+  price                        Float?
+  quantity                     Float?
+  securityId                   String?
+  subtype                      String?
+  tickerSymbol                 String?
+  type                         String?
+  authorizedDate               DateTime?
+  authorizedDatetime           DateTime?
+  byOrderOf                    String?
+  closePrice                   Float?
+  closePriceAsOf               DateTime?
+  cusip                        String?
+  datetime                     DateTime?
+  industry                     String?
+  institutionSecurityId        String?
+  isCashEquivalent             Boolean?
+  isin                         String?
+  locationAddress              String?
+  locationCity                 String?
+  locationCountry              String?
+  locationLat                  Float?
+  locationLon                  Float?
+  locationPostalCode           String?
+  locationRegion               String?
+  marketIdentifierCode         String?
+  merchantEntityId             String?
+  payee                        String?
+  payer                        String?
+  paymentChannel               String?
+  paymentMethod                String?
+  paymentProcessor             String?
+  personalFinanceCategory      String?
+  ppd_id                       String?
+  reason                       String?
+  referenceNumber              String?
+  sector                       String?
+  securityName                 String?
+  securityType                 String?
+  sedol                        String?
+  transactionCode              String?
+  unofficialCurrencyCode       String?
+  categoryAiGranular           String?
+  categoryAiGeneral            String?
+  categoryPlaidGranular        String?
+  categoryPlaidGeneral         String?
+  anomalies                    AnomalyDetectionResult[]
   recurringExpenseTransactions RecurringExpenseTransaction[]
+  account                      Account                       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transactionLinks             TransactionLink[]
 
   @@unique([accountId, plaidId])
   @@index([date])
@@ -157,12 +159,13 @@ model User {
   updatedAt              DateTime                  @updatedAt
   accounts               Account[]
   anomalySettings        AnomalyDetectionSettings?
-  emailNotifications     EmailNotification[]
   dismissalRules         AnomalyDismissalRule[]
+  emailNotifications     EmailNotification[]
+  emergencyFundAccounts  EmergencyFundAccount[]
+  financialHealthMetrics FinancialHealthMetrics[]
+  loanDetails            LoanDetails[]
   recurringExpenses      RecurringExpense[]
   recurringPayments      RecurringPayment[]
-  financialHealthMetrics FinancialHealthMetrics[]
-  emergencyFundAccounts  EmergencyFundAccount[]
 
   @@map("users")
 }
@@ -199,8 +202,8 @@ model AnomalyDetectionResult {
   resolvedAt    DateTime?
   resolvedBy    String?
   createdAt     DateTime                 @default(now())
-  transaction   Transaction              @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   settings      AnomalyDetectionSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  transaction   Transaction              @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@index([settingsId])
   @@index([transactionId])
@@ -229,33 +232,33 @@ model EmailNotification {
 }
 
 model AnomalyDismissalRule {
-  id          String   @id @default(cuid())
-  userId      String
-  ruleType    String   // 'merchant', 'category', 'amount_range'
-  ruleValue   String   // JSON string containing rule criteria
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  ruleType  String
+  ruleValue String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model RecurringExpense {
-  id                    String                        @id @default(cuid())
-  userId                String                        @default("default")
-  name                  String                        // Human-readable name (e.g., "Netflix Subscription")
-  merchantName          String                        // Original merchant name from transactions
-  category              String?                       // Transaction category
-  amount                Float                         // Expected amount
-  frequency             String                        // 'monthly', 'weekly', 'quarterly', 'yearly'
-  nextDueDate           DateTime?                     // When the next payment is expected
-  lastTransactionDate   DateTime                      // Date of last occurrence
-  confidence            Int                           // Detection confidence score (0-100)
-  isActive              Boolean                       @default(true)
-  isConfirmed           Boolean                       @default(false)
-  createdAt             DateTime                      @default(now())
-  updatedAt             DateTime                      @updatedAt
-  user                  User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions          RecurringExpenseTransaction[]
+  id                  String                        @id @default(cuid())
+  userId              String                        @default("default")
+  name                String
+  merchantName        String
+  category            String?
+  amount              Float
+  frequency           String
+  nextDueDate         DateTime?
+  lastTransactionDate DateTime
+  confidence          Int
+  isActive            Boolean                       @default(true)
+  isConfirmed         Boolean                       @default(false)
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+  user                User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions        RecurringExpenseTransaction[]
 
   @@index([userId])
   @@index([merchantName])
@@ -264,12 +267,12 @@ model RecurringExpense {
 }
 
 model RecurringExpenseTransaction {
-  id                  String           @id @default(cuid())
-  recurringExpenseId  String
-  transactionId       String
-  createdAt           DateTime         @default(now())
-  recurringExpense    RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
-  transaction         Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  id                 String           @id @default(cuid())
+  recurringExpenseId String
+  transactionId      String
+  createdAt          DateTime         @default(now())
+  transaction        Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  recurringExpense   RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
 
   @@unique([recurringExpenseId, transactionId])
   @@index([recurringExpenseId])
@@ -277,24 +280,24 @@ model RecurringExpenseTransaction {
 }
 
 model RecurringPayment {
-  id                    String                        @id @default(cuid())
-  userId                String                        @default("default")
-  name                  String                        // Human-readable name (e.g., "Bi-weekly Paycheck")
-  amount                Float                         // Expected payment amount
-  frequency             String                        // 'weekly', 'bi-weekly', 'monthly', 'quarterly', 'yearly'
-  nextPaymentDate       DateTime                      // When the next payment is expected
-  lastPaymentDate       DateTime?                     // Date of last occurrence (optional for new payments)
-  dayOfWeek             Int?                          // Day of week (0-6, Sunday=0) for weekly/bi-weekly
-  dayOfMonth            Int?                          // Day of month (1-31) for monthly payments
-  paymentType           String                        // 'direct_deposit', 'paycheck', 'investment_dividend', 'other'
-  targetAccountId       String?                       // Account where payment is deposited
-  isActive              Boolean                       @default(true)
-  isConfirmed           Boolean                       @default(false)
-  confidence            Int                           // Detection confidence score (0-100)
-  createdAt             DateTime                      @default(now())
-  updatedAt             DateTime                      @updatedAt
-  user                  User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  targetAccount         Account?                      @relation(fields: [targetAccountId], references: [id], onDelete: SetNull)
+  id              String    @id @default(cuid())
+  userId          String    @default("default")
+  name            String
+  amount          Float
+  frequency       String
+  nextPaymentDate DateTime
+  lastPaymentDate DateTime?
+  dayOfWeek       Int?
+  dayOfMonth      Int?
+  paymentType     String
+  targetAccountId String?
+  isActive        Boolean   @default(true)
+  isConfirmed     Boolean   @default(false)
+  confidence      Int
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  targetAccount   Account?  @relation(fields: [targetAccountId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isActive])
@@ -304,15 +307,15 @@ model RecurringPayment {
 }
 
 model FinancialHealthMetrics {
-  id                   String   @id @default(cuid())
-  userId               String
-  overallScore         Int      // 0-100 score
-  emergencyFundRatio   Float?   // Months of expenses covered
-  debtToIncomeRatio    Float?   // Total debt / monthly income
-  savingsRate          Float?   // Monthly savings / monthly income
-  creditUtilization    Float?   // Credit used / total credit limit
-  calculatedAt         DateTime @default(now())
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  userId             String
+  overallScore       Int
+  emergencyFundRatio Float?
+  debtToIncomeRatio  Float?
+  savingsRate        Float?
+  creditUtilization  Float?
+  calculatedAt       DateTime @default(now())
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([calculatedAt])
@@ -323,8 +326,8 @@ model EmergencyFundAccount {
   userId    String
   accountId String
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, accountId])
 }
@@ -345,4 +348,95 @@ model PlaidApiCallLog {
   @@index([endpoint])
   @@index([institutionId])
   @@index([responseStatus])
+}
+
+model LoanDetails {
+  id                           String               @id @default(cuid())
+  accountId                    String               @unique
+  userId                       String               @default("default")
+  originalAmount               Float?
+  currentBalance               Float?
+  startDate                    DateTime?
+  paymentsMade                 Float?
+  currentInterestRate          Float?
+  currentInterestRateSource    String               @default("plaid")
+  introductoryRate             Float?
+  introductoryRateSource       String               @default("plaid")
+  introductoryRateExpiry       DateTime?
+  introductoryRateExpirySource String               @default("plaid")
+  rateType                     String?
+  paymentsPerMonth             Int                  @default(1)
+  paymentsPerMonthSource       String               @default("manual")
+  paymentsRemaining            Int?
+  paymentsRemainingSource      String               @default("calculated")
+  paymentsRemainingDate        DateTime?
+  autoCalculatePayments        Boolean              @default(true)
+  lastCalculationDate          DateTime?
+  loanType                     String?
+  loanTerm                     Int?
+  gracePeriod                  Int?
+  lastPlaidSync                DateTime?
+  plaidDataFields              String?
+  createdAt                    DateTime             @default(now())
+  updatedAt                    DateTime             @updatedAt
+  balanceOverride              Boolean              @default(false)
+  overrideDate                 DateTime?
+  alerts                       LoanAlert[]
+  user                         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account                      Account              @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  paymentHistory               LoanPaymentHistory[]
+
+  @@index([userId])
+  @@index([introductoryRateExpiry])
+  @@index([lastPlaidSync])
+  @@index([paymentsRemainingDate])
+}
+
+model LoanPaymentHistory {
+  id          String      @id @default(cuid())
+  loanId      String
+  paymentDate DateTime
+  amount      Float
+  isScheduled Boolean     @default(false)
+  notes       String?
+  createdAt   DateTime    @default(now())
+  loan        LoanDetails @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@index([paymentDate])
+}
+
+model LoanAlert {
+  id          String      @id @default(cuid())
+  loanId      String
+  alertType   String
+  title       String
+  message     String
+  severity    String
+  isActive    Boolean     @default(true)
+  isDismissed Boolean     @default(false)
+  dismissedAt DateTime?
+  createdAt   DateTime    @default(now())
+  loan        LoanDetails @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@index([alertType])
+  @@index([isActive])
+  @@index([severity])
+}
+
+model TransactionLink {
+  id            String      @id @default(cuid())
+  transactionId String
+  entityType    String
+  entityId      String
+  metadata      Json?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@index([transactionId])
+  @@index([createdAt])
 }

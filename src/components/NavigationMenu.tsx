@@ -9,7 +9,8 @@ import {
   ArrowPathIcon, 
   ChartBarIcon,
   BanknotesIcon,
-  CalendarIcon
+  CalendarIcon,
+  CreditCardIcon as LoansIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -29,6 +30,13 @@ const navigation = [
     description: 'Account management',
     icon: CreditCardIcon,
     color: 'text-purple-600 dark:text-purple-400'
+  },
+  { 
+    name: 'Loans', 
+    href: '/loans', 
+    description: 'Loan management',
+    icon: LoansIcon,
+    color: 'text-red-600 dark:text-red-400'
   },
   { 
     name: 'Transactions', 

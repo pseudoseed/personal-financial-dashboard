@@ -94,22 +94,32 @@ export function Modal({ isOpen, onClose, title, subtitle, icon, children, footer
     >
       <div
         ref={contentRef}
-        className={`bg-white dark:bg-zinc-800 rounded-lg shadow-xl w-full max-h-[90vh] overflow-y-auto p-0 relative animate-modalIn flex flex-col outline-none ${maxWidth}`}
+        className={`bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full min-w-[600px] max-w-[900px] !w-full !max-w-[900px] !min-w-[600px] max-h-[90vh] overflow-y-auto p-0 relative animate-modalIn flex flex-col outline-none`}
         role="document"
       >
         {/* Header */}
         {(title || subtitle || icon) && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-zinc-700">
+          <div className="flex items-center justify-between px-5 pt-5 pb-2">
             <div className="flex items-center space-x-3">
-              {icon && <span>{icon}</span>}
-              <div>
-                {title && <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>}
-                {subtitle && <p className="text-sm text-gray-600 dark:text-gray-400">{subtitle}</p>}
+              {icon && (
+                <span className="flex-shrink-0">
+                  <span className='inline-flex items-center justify-center w-9 h-9'>
+                    {React.isValidElement(icon)
+                      ? React.cloneElement(icon as React.ReactElement<any, any>, {
+                          className: [(icon as React.ReactElement<any, any>).props.className, 'w-9 h-9 text-gray-400'].filter(Boolean).join(' ')
+                        })
+                      : icon}
+                  </span>
+                </span>
+              )}
+              <div className="flex flex-col justify-center">
+                {title && <h2 className="text-2xl font-semibold text-gray-900 dark:text-white leading-tight">{title}</h2>}
+                {subtitle && <p className="text-base text-gray-600 dark:text-gray-400 mt-0.5">{subtitle}</p>}
               </div>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
               aria-label="Close modal"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -119,12 +129,12 @@ export function Modal({ isOpen, onClose, title, subtitle, icon, children, footer
           </div>
         )}
         {/* Content */}
-        <div className="p-6 space-y-6 text-gray-900 dark:text-white">
+        <div className="pt-0 px-5 pb-5 space-y-4 text-gray-900 dark:text-white">
           {children}
         </div>
         {/* Footer */}
         {footer && (
-          <div className="px-6 pb-6 pt-2 border-t border-gray-200 dark:border-zinc-700 flex justify-end">
+          <div className="px-8 pb-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-end">
             {footer}
           </div>
         )}

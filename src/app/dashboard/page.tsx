@@ -14,6 +14,7 @@ import { RecurringPaymentsCard } from '@/components/RecurringPaymentsCard';
 import { InvestmentPerformanceCard } from '@/components/InvestmentPerformanceCard';
 import { EnhancedBillsCard } from '@/components/EnhancedBillsCard';
 import { ActivityFeedCard } from '@/components/ActivityFeedCard';
+import { LoanSummaryCard } from '@/components/LoanSummaryCard';
 import { EmptyStateDashboard } from "@/components/EmptyStateDashboard";
 
 // Fetch accounts data
@@ -173,6 +174,10 @@ export default function DashboardPage() {
           <InvestmentPerformanceCard />
           <EnhancedBillsCard />
           <RecurringPaymentsCard />
+          <LoanSummaryCard 
+            onViewAllLoans={() => window.location.href = '/loans'}
+            onAddLoan={() => window.location.href = '/loans'}
+          />
         </div>
 
         {/* Sidebar */}
