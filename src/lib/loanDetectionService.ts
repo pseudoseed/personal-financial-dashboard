@@ -177,7 +177,10 @@ export class LoanDetectionService {
       loanTerm: additionalData?.loanTerm || null,
       gracePeriod: null,
       lastPlaidSync: new Date(),
-      plaidDataFields: this.getPlaidDataFields(plaidData)
+      plaidDataFields: (() => {
+        const fields = this.getPlaidDataFields(plaidData);
+        return fields.length > 0 ? fields.join(',') : null;
+      })()
     };
 
     return await prisma.loanDetails.create({
@@ -252,7 +255,7 @@ export class LoanDetectionService {
 
     if (Object.keys(updates).length > 0) {
       updates.lastPlaidSync = new Date();
-      updates.plaidDataFields = plaidDataFields;
+      updates.plaidDataFields = plaidDataFields.length > 0 ? plaidDataFields.join(',') : null;
 
       return await prisma.loanDetails.update({
         where: { id: loanId },
