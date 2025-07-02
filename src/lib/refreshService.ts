@@ -497,6 +497,10 @@ async function fetchBatchedLiabilities(accessToken: string, accounts: any[]) {
     },
   });
   
+  console.log('=== Plaid Liabilities Raw Response ===');
+  console.dir(response.data, { depth: 10 });
+  console.log('=== End Plaid Liabilities Raw Response ===');
+  
   // Cache the response
   liabilityCache.set(cacheKey, { 
     timestamp: Date.now(), 
@@ -513,6 +517,7 @@ async function updateAccountLiabilities(account: any, liabilityData: any) {
   // Handle credit card liabilities
   const credit = liabilityData.credit?.find((c: any) => c.account_id === account.plaidId);
   if (credit) {
+    console.log(`[Liabilities Mapping] Updating credit card account ${account.id} (${account.name}) with:`, credit);
     await prisma.account.update({
       where: { id: account.id },
       data: {
@@ -528,6 +533,7 @@ async function updateAccountLiabilities(account: any, liabilityData: any) {
   // Handle mortgage liabilities
   const mortgage = liabilityData.mortgage?.find((m: any) => m.account_id === account.plaidId);
   if (mortgage) {
+    console.log(`[Liabilities Mapping] Updating mortgage account ${account.id} (${account.name}) with:`, mortgage);
     await prisma.account.update({
       where: { id: account.id },
       data: {
@@ -541,6 +547,7 @@ async function updateAccountLiabilities(account: any, liabilityData: any) {
   // Handle student loan liabilities
   const student = liabilityData.student?.find((s: any) => s.account_id === account.plaidId);
   if (student) {
+    console.log(`[Liabilities Mapping] Updating student loan account ${account.id} (${account.name}) with:`, student);
     await prisma.account.update({
       where: { id: account.id },
       data: {
