@@ -13,22 +13,23 @@ export function cn(...inputs: ClassValue[]) {
  * Button component variants using class-variance-authority
  */
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation",
+  "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation",
   {
     variants: {
       variant: {
-        primary: "bg-primary-500 text-white border border-primary-500 hover:bg-primary-600 hover:border-primary-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-95",
-        secondary: "bg-surface-0 text-foreground border border-gray-200 hover:bg-surface-100 hover:border-gray-300 hover:shadow-sm hover:-translate-y-0.5 active:scale-95 dark:bg-surface-100 dark:border-gray-700 dark:hover:bg-surface-200 dark:hover:border-gray-600",
-        ghost: "bg-transparent text-secondary-600 border border-transparent hover:bg-surface-100 hover:text-foreground active:scale-95 dark:text-secondary-400 dark:hover:bg-surface-200",
-        success: "bg-success-500 text-white border border-success-500 hover:bg-success-600 hover:border-success-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-95",
-        error: "bg-error-500 text-white border border-error-500 hover:bg-error-600 hover:border-error-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-95",
-        warning: "bg-warning-500 text-white border border-warning-500 hover:bg-warning-600 hover:border-warning-600 hover:shadow-lg hover:-translate-y-0.5 active:scale-95",
+        primary: "bg-primary-500 text-white border border-primary-500 hover:bg-primary-600 hover:border-primary-600 hover:shadow-md focus:ring-primary-500/20 active:scale-[0.98]",
+        secondary: "bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 hover:shadow-sm focus:ring-gray-500/20 active:scale-[0.98] dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-500",
+        outline: "bg-transparent text-gray-700 border border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus:ring-gray-500/20 active:scale-[0.98] dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-white",
+        ghost: "bg-transparent text-gray-600 border border-transparent hover:bg-gray-100 hover:text-gray-900 focus:ring-gray-500/20 active:scale-[0.98] dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white",
+        success: "bg-green-600 text-white border border-green-600 hover:bg-green-700 hover:border-green-700 hover:shadow-md focus:ring-green-500/20 active:scale-[0.98]",
+        error: "bg-red-600 text-white border border-red-600 hover:bg-red-700 hover:border-red-700 hover:shadow-md focus:ring-red-500/20 active:scale-[0.98]",
+        warning: "bg-yellow-600 text-white border border-yellow-600 hover:bg-yellow-700 hover:border-yellow-700 hover:shadow-md focus:ring-yellow-500/20 active:scale-[0.98]",
       },
       size: {
-        sm: "px-3 py-2 text-sm min-h-[44px]",
-        md: "px-4 py-2.5 text-sm min-h-[44px]",
-        lg: "px-6 py-3 text-base min-h-[48px]",
-        xl: "px-8 py-4 text-lg min-h-[52px]",
+        sm: "px-3 py-2 text-sm h-9 min-w-[72px]",
+        md: "px-4 py-2.5 text-sm h-10 min-w-[80px]",
+        lg: "px-6 py-3 text-base h-11 min-w-[96px]",
+        xl: "px-8 py-4 text-lg h-12 min-w-[112px]",
       },
       fullWidth: {
         true: "w-full",
@@ -49,13 +50,13 @@ export type ButtonVariants = VariantProps<typeof buttonVariants>;
  * Card component variants
  */
 export const cardVariants = cva(
-  "rounded-lg transition-all duration-200",
+  "rounded-xl transition-all duration-200",
   {
     variants: {
       variant: {
-        default: "bg-surface-100 shadow-md hover:shadow-lg hover:-translate-y-0.5 dark:bg-surface-800 dark:shadow-lg dark:hover:shadow-xl",
-        elevated: "bg-surface-0 shadow-lg hover:shadow-xl hover:-translate-y-1 dark:bg-surface-900 dark:shadow-xl dark:hover:shadow-2xl",
-        outline: "bg-transparent border border-border hover:bg-surface-50 dark:hover:bg-surface-800",
+        default: "bg-white shadow-sm border border-gray-200 hover:shadow-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-700 dark:hover:border-gray-600",
+        elevated: "bg-white shadow-md border border-gray-200 hover:shadow-lg hover:border-gray-300 dark:bg-gray-900 dark:border-gray-700 dark:hover:border-gray-600",
+        outline: "bg-transparent border border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800",
       },
       padding: {
         none: "p-0",
@@ -78,18 +79,18 @@ export type CardVariants = VariantProps<typeof cardVariants>;
  * Input component variants
  */
 export const inputVariants = cva(
-  "w-full rounded-lg border bg-surface-0 px-4 py-3 text-sm transition-all duration-200 placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-100 dark:placeholder:text-secondary-500",
+  "w-full rounded-lg border bg-white px-4 py-3 text-sm transition-all duration-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-900 dark:placeholder:text-gray-500",
   {
     variants: {
       variant: {
-        default: "border-border focus:border-primary-500 focus:ring-primary-500/20",
-        error: "border-error-500 focus:border-error-500 focus:ring-error-500/20",
-        success: "border-success-500 focus:border-success-500 focus:ring-success-500/20",
+        default: "border-gray-300 focus:border-primary-500 focus:ring-primary-500/20 dark:border-gray-600",
+        error: "border-red-500 focus:border-red-500 focus:ring-red-500/20",
+        success: "border-green-500 focus:border-green-500 focus:ring-green-500/20",
       },
       size: {
-        sm: "px-3 py-2 text-sm",
-        md: "px-4 py-3 text-sm",
-        lg: "px-6 py-4 text-base",
+        sm: "px-3 py-2 text-sm h-9",
+        md: "px-4 py-3 text-sm h-11",
+        lg: "px-6 py-4 text-base h-12",
       },
     },
     defaultVariants: {

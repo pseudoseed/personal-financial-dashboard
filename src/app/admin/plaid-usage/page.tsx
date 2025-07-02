@@ -24,8 +24,10 @@ interface MonthlyUsage {
   month: string;
   balanceCalls: number;
   transactionCalls: number;
+  liabilityCalls: number;
   totalCost: number;
   uniqueAccounts: number;
+  forcedRefreshes: number;
 }
 
 interface ApiCallStats {
@@ -64,6 +66,8 @@ export default async function PlaidUsagePage() {
 
     const balanceCalls = monthLogs.filter(log => log.endpoint === '/accounts/balance/get').length;
     const transactionCalls = monthLogs.filter(log => log.endpoint === '/transactions/sync').length;
+    const liabilityCalls = monthLogs.filter(log => log.endpoint === '/liabilities/get').length;
+    const forcedRefreshes = monthLogs.filter(log => log.endpoint === '/liabilities/get' && log.errorMessage?.includes('force')).length;
     
     // Get unique accounts for this month
     const uniqueAccounts = new Set(
@@ -75,14 +79,17 @@ export default async function PlaidUsagePage() {
     // Calculate costs
     const balanceCost = balanceCalls * PLAID_PRICING.balance.perCall;
     const transactionCost = uniqueAccounts * PLAID_PRICING.transactions.perAccountPerMonth;
-    const totalCost = balanceCost + transactionCost;
+    const liabilityCost = uniqueAccounts * PLAID_PRICING.liabilities.perAccountPerMonth;
+    const totalCost = balanceCost + transactionCost + liabilityCost;
 
     monthlyUsage.push({
       month: monthKey,
       balanceCalls,
       transactionCalls,
+      liabilityCalls,
       totalCost,
-      uniqueAccounts
+      uniqueAccounts,
+      forcedRefreshes
     });
   }
 
@@ -90,12 +97,15 @@ export default async function PlaidUsagePage() {
   const totalCalls = logs.length;
   const balanceCalls = logs.filter(log => log.endpoint === '/accounts/balance/get').length;
   const transactionCalls = logs.filter(log => log.endpoint === '/transactions/sync').length;
+  const liabilityCalls = logs.filter(log => log.endpoint === '/liabilities/get').length;
+  const forcedRefreshes = logs.filter(log => log.endpoint === '/liabilities/get' && log.errorMessage?.includes('force')).length;
   const errorCalls = logs.filter(log => log.responseStatus >= 400).length;
   const errorRate = totalCalls > 0 ? (errorCalls / totalCalls) * 100 : 0;
 
   const callsByType = {
     'Balance': balanceCalls,
     'Transactions': transactionCalls,
+    'Liabilities': liabilityCalls,
   };
 
   const totalCost = monthlyUsage.reduce((sum, month) => sum + month.totalCost, 0);
