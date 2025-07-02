@@ -97,6 +97,7 @@ async function fetchDetectedLoans(): Promise<Array<{
   suggestedLoanType: string;
   confidence: number;
   reason: string;
+  plaidData?: any;
 }>> {
   const response = await fetch('/api/loans/detect');
   if (!response.ok) {
@@ -115,6 +116,7 @@ export default function LoansPage() {
   const [isDetectionOpen, setIsDetectionOpen] = useState(false);
   const [selectedLoanForDetails, setSelectedLoanForDetails] = useState<LoanWithDetails | null>(null);
   const [selectedLoanForCalculation, setSelectedLoanForCalculation] = useState<LoanWithDetails | null>(null);
+  const [isAddingLoan, setIsAddingLoan] = useState(false);
   const queryClient = useQueryClient();
 
   const {
@@ -435,6 +437,16 @@ export default function LoansPage() {
           loanType: editingLoan.loanType,
           loanTerm: editingLoan.loanTerm,
           gracePeriod: editingLoan.gracePeriod,
+          originalAmount: editingLoan.originalAmount,
+          currentBalance: editingLoan.currentBalance,
+          startDate: editingLoan.startDate
+            ? (typeof editingLoan.startDate === 'string'
+                ? editingLoan.startDate
+                : editingLoan.startDate instanceof Date
+                  ? editingLoan.startDate.toISOString().slice(0, 10)
+                  : undefined)
+            : undefined,
+          paymentsMade: editingLoan.paymentsMade,
         } : undefined}
         accounts={accounts || []}
         mode={editingLoan ? 'edit' : 'create'}
@@ -470,36 +482,30 @@ export default function LoansPage() {
                     </div>
                     <Button
                       size="sm"
-                      onClick={() => {
-                        // Pre-fill form with detection data
-                        setEditingLoan({
-                          id: '',
-                          accountId: detection.accountId,
-                          currentInterestRate: undefined,
-                          introductoryRate: undefined,
-                          introductoryRateExpiry: undefined,
-                          rateType: undefined,
-                          paymentsPerMonth: 1,
-                          paymentsRemaining: undefined,
-                          autoCalculatePayments: true,
-                          loanType: detection.suggestedLoanType as any,
-                          loanTerm: undefined,
-                          gracePeriod: undefined,
-                          userId: 'default',
-                          currentInterestRateSource: 'manual',
-                          introductoryRateSource: 'manual',
-                          introductoryRateExpirySource: 'manual',
-                          paymentsPerMonthSource: 'manual',
-                          paymentsRemainingSource: 'user_provided',
-                          createdAt: new Date(),
-                          updatedAt: new Date(),
-                          account: accounts?.find(a => a.id === detection.accountId)
-                        } as any);
+                      disabled={isAddingLoan}
+                      onClick={async () => {
                         setIsDetectionOpen(false);
-                        setIsLoanFormOpen(true);
+                        setIsAddingLoan(true);
+                        try {
+                          const res = await fetch('/api/loans/detect', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ detectionId: detection.accountId }),
+                          });
+                          if (!res.ok) throw new Error('Failed to add loan');
+                          const result = await res.json();
+                          const newLoan = result.data;
+                          setEditingLoan(newLoan);
+                          setIsLoanFormOpen(true);
+                          queryClient.invalidateQueries({ queryKey: ['loans'] });
+                        } catch (err) {
+                          alert('Failed to add loan');
+                        } finally {
+                          setIsAddingLoan(false);
+                        }
                       }}
                     >
-                      Use Detection
+                      {isAddingLoan ? 'Adding...' : 'Use Detection'}
                     </Button>
                   </div>
                 </div>
