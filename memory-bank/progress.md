@@ -82,6 +82,7 @@ Based on the project files and TODO list, the following features are currently w
 - ✅ Integration with balance refresh (30% probability)
 - ✅ Force sync logic for accounts >7 days old
 - ✅ **Error-Based Optimization**: Prevents API calls to invalid tokens
+- ✅ **Plaid Token Disconnection**: Properly revokes access tokens for duplicate accounts to prevent orphaned API usage
 
 ### Transaction Management
 - ✅ Transaction history display
@@ -126,6 +127,7 @@ Based on the project files and TODO list, the following features are currently w
 ## Current Status
 
 ### Recent Achievements
+- **Plaid Token Disconnection**: Implemented proper token revocation for duplicate accounts to prevent orphaned API usage and improve security
 - **ITEM_LOGIN_REQUIRED Error Fix**: Successfully identified and fixed the core issue causing 400 errors
 - **Re-authentication Flow**: Implemented complete system for handling expired Plaid tokens
 - **Authentication Alerts**: Added clear UI alerts for institutions needing re-authentication

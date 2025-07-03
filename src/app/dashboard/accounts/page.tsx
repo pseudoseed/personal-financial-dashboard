@@ -46,9 +46,10 @@ export default function AccountsPage() {
     },
   });
 
-  // Group accounts by institution
+  // Group accounts by institution, only include active Plaid accounts
   const accountsByInstitution =
     (accountsData || []).reduce((acc, account) => {
+      if (account.plaidItem?.status !== 'active') return acc;
       if (account.institution && !acc[account.institution]) {
         acc[account.institution] = [];
       }
@@ -67,6 +68,10 @@ export default function AccountsPage() {
     }
     return acc;
   }, {} as Record<string, string>);
+
+  const activeAccounts = accountsData?.filter(
+    (account) => account.plaidItem && account.plaidItem.status === 'active'
+  ) || [];
 
   const refreshInstitutions = async () => {
     try {
@@ -262,8 +267,8 @@ export default function AccountsPage() {
       <AuthenticationAlerts />
 
       {/* Cost Optimization Card - Only show if there are Plaid accounts */}
-      {accountsData && accountsData.length > 0 && (
-        <CostOptimizationCard accounts={accountsData} />
+      {activeAccounts.length > 0 && (
+        <CostOptimizationCard accounts={activeAccounts} />
       )}
 
       <div className="space-y-6">
@@ -357,7 +362,9 @@ export default function AccountsPage() {
 
         <div className="space-y-6">
           {Object.entries(accountsByInstitution).map(([institution, accounts]) => {
-            const visibleAccounts = accounts.filter((account) => !account.hidden);
+            const activeAccountsForInstitution = accounts.filter(
+              (account) => account.plaidItem?.status === 'active'
+            );
             const hiddenAccountsForInstitution = accounts.filter(
               (account) => account.hidden
             );
@@ -402,7 +409,7 @@ export default function AccountsPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {visibleAccounts.map((account) => (
+                  {activeAccountsForInstitution.map((account) => (
                     <AccountCard
                       key={account.id}
                       account={account}

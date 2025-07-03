@@ -165,6 +165,7 @@ export async function POST(request: Request) {
         const mergeResult = await mergeDuplicateAccounts(duplicateGroup);
         mergeMessage = getMergeMessage(duplicateGroup, mergeResult);
         console.log(`[PLAID] Auto-merged duplicates for institutionId=${institutionId}:`, mergeMessage);
+        console.log(`[PLAID] Disconnected ${mergeResult.disconnectedTokens.length} Plaid tokens during merge`);
       }
 
       return NextResponse.json({
@@ -216,6 +217,7 @@ export async function POST(request: Request) {
         const mergeResult = await mergeDuplicateAccounts(duplicateGroup);
         mergeMessage = getMergeMessage(duplicateGroup, mergeResult);
         console.log(`[PLAID] Auto-merged duplicates for institutionId=${institutionId}:`, mergeMessage);
+        console.log(`[PLAID] Disconnected ${mergeResult.disconnectedTokens.length} Plaid tokens during merge`);
       }
 
       return NextResponse.json({
