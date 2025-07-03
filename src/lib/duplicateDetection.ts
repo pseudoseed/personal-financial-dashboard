@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { disconnectPlaidTokens } from "./plaid";
 
 export interface DuplicateAccount {
   id: string;
@@ -112,10 +113,12 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
   merged: number;
   kept: string[];
   removed: string[];
+  disconnectedTokens: string[];
 }> {
   const { accounts } = duplicateGroup;
   const kept: string[] = [];
   const removed: string[] = [];
+  const disconnectedTokens: string[] = [];
 
   // Group by account type, subtype, name, and mask (same logic as detection)
   const accountGroups = new Map<string, DuplicateAccount[]>();
@@ -205,22 +208,74 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
     }
   }
 
-  // After merging, clean up any Plaid items for this institutionId that have no accounts
-  const emptyItems = await prisma.plaidItem.findMany({
+  // After merging accounts, identify PlaidItems that should be disconnected
+  // Get all PlaidItems for this institution
+  const allPlaidItems = await prisma.plaidItem.findMany({
     where: {
       institutionId: duplicateGroup.institutionId,
-      accounts: { none: {} }
+    },
+    include: {
+      accounts: true
     }
   });
-  for (const item of emptyItems) {
-    console.log(`[MERGE CLEANUP] Deleting empty PlaidItem ID: ${item.id} | InstitutionId: ${item.institutionId} | InstitutionName: ${item.institutionName}`);
-    await prisma.plaidItem.delete({ where: { id: item.id } });
+
+  // Filter to only active items and find empty ones
+  const activePlaidItems = allPlaidItems.filter(item => (item as any).status === 'active');
+  const emptyPlaidItems = activePlaidItems.filter(item => item.accounts.length === 0);
+  
+  // Find PlaidItems that have accounts but are duplicates (keep the one with most accounts)
+  const plaidItemsWithAccounts = activePlaidItems.filter(item => item.accounts.length > 0);
+  
+  if (plaidItemsWithAccounts.length > 1) {
+    // Sort by number of accounts (keep the one with most accounts)
+    const sortedItems = plaidItemsWithAccounts.sort((a, b) => b.accounts.length - a.accounts.length);
+    const itemToKeep = sortedItems[0];
+    const itemsToDisconnect = sortedItems.slice(1);
+    
+    console.log(`[MERGE] Keeping PlaidItem ${itemToKeep.id} with ${itemToKeep.accounts.length} accounts, disconnecting ${itemsToDisconnect.length} duplicate items`);
+    
+    // Disconnect the duplicate PlaidItems
+    const disconnectResult = await disconnectPlaidTokens(
+      itemsToDisconnect.map(item => ({
+        id: item.id,
+        accessToken: item.accessToken,
+        institutionId: item.institutionId,
+        institutionName: item.institutionName
+      }))
+    );
+    
+    disconnectedTokens.push(...disconnectResult.success);
+    
+    if (disconnectResult.failed.length > 0) {
+      console.warn(`[MERGE] Failed to disconnect some PlaidItems:`, disconnectResult.failed);
+    }
+  }
+
+  // Disconnect empty PlaidItems
+  if (emptyPlaidItems.length > 0) {
+    console.log(`[MERGE] Disconnecting ${emptyPlaidItems.length} empty PlaidItems`);
+    
+    const disconnectResult = await disconnectPlaidTokens(
+      emptyPlaidItems.map(item => ({
+        id: item.id,
+        accessToken: item.accessToken,
+        institutionId: item.institutionId,
+        institutionName: item.institutionName
+      }))
+    );
+    
+    disconnectedTokens.push(...disconnectResult.success);
+    
+    if (disconnectResult.failed.length > 0) {
+      console.warn(`[MERGE] Failed to disconnect some empty PlaidItems:`, disconnectResult.failed);
+    }
   }
 
   return {
     merged: accountGroups.size,
     kept,
     removed,
+    disconnectedTokens,
   };
 }
 
@@ -258,9 +313,10 @@ export function getMergeMessage(duplicateGroup: DuplicateGroup, mergeResult: {
   merged: number;
   kept: string[];
   removed: string[];
+  disconnectedTokens: string[];
 }): string {
   const { institutionName, accounts } = duplicateGroup;
-  const { merged, removed } = mergeResult;
+  const { merged, removed, disconnectedTokens } = mergeResult;
 
   if (removed.length === 0) {
     return `No duplicates found for ${institutionName || 'Unknown Institution'}`;
@@ -268,5 +324,11 @@ export function getMergeMessage(duplicateGroup: DuplicateGroup, mergeResult: {
 
   const accountTypes = [...new Set(accounts.map(a => `${a.type}/${a.subtype}`))];
   
-  return `Merged ${removed.length} duplicate accounts for ${institutionName || 'Unknown Institution'}. Kept the most recent data for: ${accountTypes.join(', ')}`;
+  let message = `Merged ${removed.length} duplicate accounts for ${institutionName || 'Unknown Institution'}. Kept the most recent data for: ${accountTypes.join(', ')}`;
+  
+  if (disconnectedTokens.length > 0) {
+    message += `\n\nDisconnected ${disconnectedTokens.length} duplicate Plaid connection(s) to optimize API usage and maintain security.`;
+  }
+  
+  return message;
 } 

@@ -1,6 +1,155 @@
 # Active Context
 
-## Current Focus: Loan Tracking System - Phase 2 Complete ✅
+## Current Focus: Admin Panel Enhancement - COMPLETED ✅
+
+### 🎯 **Admin Panel Enhancement Status: COMPLETE**
+
+**Problem Solved:**
+- The admin panel was basic with only Plaid usage tracking
+- No comprehensive admin tools for system management
+- No easy access to admin panel from user interface
+- Limited administrative capabilities for troubleshooting and maintenance
+
+**Solution Implemented:**
+- Created comprehensive admin toolkit with four main tools
+- Added admin panel link to Advanced Settings in settings dialog
+- Implemented reusable admin components for consistent UI
+- Built full API endpoints for all admin functionality
+
+**Key Features Implemented:**
+
+#### 1. **Plaid Billing Audit** (`/admin/billing-audit`)
+- **Purpose**: Track and analyze Plaid API usage and costs
+- **Features**:
+  - Daily/weekly/monthly API call counts and cost breakdown
+  - Endpoint usage analysis with percentage breakdown
+  - Institution-specific usage tracking
+  - Cost optimization recommendations
+  - Real-time usage statistics
+
+#### 2. **Orphaned Data Finder** (`/admin/orphaned-data`)
+- **Purpose**: Identify and clean up orphaned database records
+- **Features**:
+  - Find accounts without PlaidItems
+  - Find transactions without accounts
+  - Find balance records without accounts
+  - Find loan details without accounts
+  - Bulk cleanup operations with confirmation
+  - Comprehensive data integrity checking
+
+#### 3. **Manual Plaid Actions** (`/admin/plaid-actions`)
+- **Purpose**: Direct Plaid API operations for troubleshooting
+- **Features**:
+  - Test Plaid item status
+  - Force refresh access tokens
+  - Manual institution sync (accounts, balances, transactions)
+  - Token validation and management
+  - Error diagnostics and logging
+  - Item disconnection with proper cleanup
+
+#### 4. **User Account Lookup** (`/admin/user-lookup`)
+- **Purpose**: Search and manage user accounts
+- **Features**:
+  - Search by email, name, or institution
+  - View account details and history
+  - Account status overview and management
+  - Manual account operations (hide/show)
+  - User activity tracking
+  - Account balance and transaction counts
+
+#### 5. **Admin Panel Integration**
+- **Enhanced Main Admin Page**: Updated `/admin/plaid-usage` with navigation to all tools
+- **Settings Integration**: Added admin panel link in Advanced Settings section
+- **Consistent UI**: All tools use shared admin components for consistent design
+
+**Technical Implementation:**
+
+#### Reusable Admin Components Created:
+- `AdminToolCard` - Standard card layout for admin tools
+- `AdminDataTable` - Reusable data table with sorting/filtering/pagination
+- `AdminActionButton` - Standard action button styling
+- `AdminStatusBadge` - Status indicators for various states
+
+#### API Endpoints Created:
+- `/api/admin/billing-audit` - Plaid usage and cost analysis
+- `/api/admin/orphaned-data` - Orphaned record detection and cleanup
+- `/api/admin/plaid-actions` - Manual Plaid API operations
+- `/api/admin/user-lookup` - User search and account management
+- `/api/admin/user-lookup/[userId]/accounts` - User account details
+- `/api/admin/user-lookup/accounts/[accountId]/[action]` - Account actions
+
+#### Database Integration:
+- Uses existing Prisma schema with proper relationships
+- Raw SQL queries for orphaned data detection
+- Comprehensive error handling and logging
+- Safe cleanup operations with confirmation
+
+**Benefits:**
+- **System Management**: Comprehensive tools for system administration
+- **Cost Optimization**: Detailed API usage tracking and cost analysis
+- **Data Integrity**: Automated detection and cleanup of orphaned records
+- **Troubleshooting**: Direct Plaid API access for debugging
+- **User Management**: Complete user account oversight and management
+- **Consistent UX**: Unified admin interface with shared components and consistent metric cards
+- **Easy Access**: Admin panel accessible from settings dialog
+- **Visual Consistency**: Admin tools now use the same MetricCard components as the rest of the app
+
+**Current Status:**
+- ✅ All four admin tools fully implemented and functional
+- ✅ Admin panel link added to Advanced Settings
+- ✅ All API endpoints working and tested
+- ✅ Build successful with no errors
+- ✅ UI consistency improved - replaced custom AdminToolCard with MetricCard for summary statistics
+- ✅ Bug fix: Fixed console.error TypeError in admin API routes by adding null checks
+- ✅ Ready for production use
+
+---
+
+## Previous Focus: Plaid Token Disconnection for Duplicate Accounts - COMPLETED ✅
+
+### 🎯 **Plaid Token Disconnection Implementation Status: COMPLETE**
+
+**Problem Solved:**
+- When users connected duplicate accounts via Plaid, the system was deleting duplicate PlaidItems from the database
+- This left orphaned Plaid access tokens that continued to count against API usage limits
+- No proper token revocation was happening, creating security and cost concerns
+
+**Solution Implemented:**
+- Enhanced duplicate detection and merging to properly handle Plaid token disconnection
+- Created `disconnectPlaidTokens` utility function to revoke access tokens via Plaid API
+- Modified `mergeDuplicateAccounts` to mark duplicate PlaidItems as `status: 'disconnected'` instead of deleting them
+- Added comprehensive logging and error handling for token disconnection process
+
+**Key Features:**
+1. **Token Revocation**: Properly calls Plaid's `/item/remove` API to revoke access tokens
+2. **Database Integrity**: Marks PlaidItems as disconnected instead of deleting them for audit trail
+3. **Smart Merging**: Keeps the PlaidItem with the most accounts, disconnects duplicates
+4. **Empty Item Cleanup**: Disconnects PlaidItems that have no accounts after merge
+5. **Error Handling**: Continues merge process even if token disconnection fails
+6. **User Feedback**: Enhanced merge messages to inform users about token disconnections
+
+**Technical Implementation:**
+- **New Function**: `disconnectPlaidTokens()` in `src/lib/plaid.ts`
+- **Enhanced Logic**: Updated `mergeDuplicateAccounts()` in `src/lib/duplicateDetection.ts`
+- **API Integration**: Updated Plaid token exchange route to handle new return type
+- **Testing**: Created `scripts/test-token-disconnection.js` for verification
+
+**Benefits:**
+- **Cost Optimization**: Prevents unnecessary Plaid API usage charges from orphaned tokens
+- **Security**: Properly revokes access to financial data
+- **Compliance**: Follows Plaid's best practices for token management
+- **Audit Trail**: Maintains complete history of all institution connections
+- **User Experience**: Clear feedback about what happens during duplicate merges
+
+**Current Status:**
+- ✅ Implementation complete and tested
+- ✅ Build successful with no errors
+- ✅ Ready for production use
+- ✅ 3 active PlaidItems in database, 0 disconnected (ready for testing)
+
+---
+
+## Previous Focus: Loan Tracking System - Phase 2 Complete ✅
 
 ### 🎯 **Phase 2 Implementation Status: COMPLETE**
 
