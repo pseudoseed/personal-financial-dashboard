@@ -5,17 +5,11 @@ set -e
 mkdir -p /app/logs
 mkdir -p /app/backups
 
-# Write out the cron job (idempotent)
-CRON_FILE=/etc/cron.d/access-token-backup
-BACKUP_CMD="cd /app && /usr/local/bin/node /app/scripts/backup-access-tokens.js >> /app/logs/access-token-backup.log 2>&1"
-echo "0 2 * * * root $BACKUP_CMD" > $CRON_FILE
-chmod 0644 $CRON_FILE
+# Set up environment variables
+export DATABASE_URL="file:/app/data/dev.db"
+export NODE_ENV="production"
 
-# Ensure cron is running in the foreground (for Docker best practices)
-# Start cron in the background
-crond
-
-# Start the main app process
+# Start the main app process with built-in scheduler
 node server.js &
 APP_PID=$!
 

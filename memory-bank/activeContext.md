@@ -1,8 +1,83 @@
 # Active Context
 
-## Current Focus: Docker Container Permission and Startup Fix - COMPLETED ✅
+## Current Focus: Comprehensive Backup System Permission Fix - COMPLETED ✅
 
-### 🎯 **Docker Container Permission and Startup Fix Status: COMPLETE**
+### 🎯 **Comprehensive Backup System Permission Fix Status: COMPLETE**
+
+**Problem Solved:**
+- Docker container was failing to start with permission errors: "can't create /etc/cron.d/access-token-backup: Permission denied"
+- Multiple permission issues with cron, file paths, and user context
+- Backup system was trying to use system-level cron in a containerized environment
+
+**Root Cause Analysis:**
+1. **System Cron Permission Issues**: Script was trying to write to `/etc/cron.d/` as non-root user
+2. **User Context Problems**: Container runs as `nextjs` user but cron needs root permissions
+3. **Path Inconsistencies**: Backup paths were relative instead of absolute
+4. **Container Architecture Mismatch**: Traditional cron doesn't work well in containerized environments
+
+**Solution Implemented:**
+
+#### 1. **Replaced Cron with Node.js Scheduler** ✅
+- **File**: `src/lib/startupBackup.ts`
+- **Change**: Integrated Node.js-based scheduler into existing startup backup system
+- **Logic**: Uses `setTimeout` and `setInterval` for scheduling instead of cron
+- **Benefits**: No system-level permission issues, runs in same user context
+
+#### 2. **Fixed Backup Directory Paths** ✅
+- **File**: `src/lib/accessTokenBackup.js`
+- **Change**: Updated from relative `process.cwd()/backups` to absolute `/app/backups`
+- **Reason**: Ensures consistent path resolution in container environment
+
+#### 3. **Simplified Container Startup** ✅
+- **File**: `scripts/start-with-backup-cron.sh`
+- **Change**: Removed cron daemon startup and user switching complexity
+- **Logic**: Now just starts the Node.js application with built-in scheduler
+
+#### 4. **Maintained Security** ✅
+- **File**: `Dockerfile`
+- **Change**: Container runs as `nextjs` user throughout
+- **Benefits**: No root user required, maintains security best practices
+
+**Technical Changes:**
+- **File**: `src/lib/startupBackup.ts`
+  - Added Node.js scheduler functions (`scheduleBackupJob`, `runBackupJob`, `startScheduler`)
+  - Integrated scheduler into existing startup backup flow
+  - Added scheduler state management to prevent multiple instances
+- **File**: `src/lib/accessTokenBackup.js`
+  - Fixed backup directory path to use absolute `/app/backups`
+- **File**: `scripts/start-with-backup-cron.sh`
+  - Removed cron daemon startup and user-level cron setup
+  - Simplified to just start Node.js application
+- **File**: `Dockerfile`
+  - Removed complex user switching wrapper
+  - Container runs as `nextjs` user throughout
+
+**Benefits:**
+- ✅ **No Permission Errors** - No system-level file operations required
+- ✅ **Container-Friendly** - Uses Node.js scheduling instead of cron
+- ✅ **Consistent User Context** - Everything runs as nextjs user
+- ✅ **Maintains Functionality** - Backup jobs still run at 2 AM daily
+- ✅ **Better Security** - No root user required
+- ✅ **Simplified Architecture** - Removed complex user switching logic
+- ✅ **Reliable Scheduling** - Node.js timers are more reliable in containers
+
+**Scheduler Features:**
+- **Daily at 2 AM**: Backup job runs automatically
+- **Smart Timing**: Calculates time until next 2 AM run
+- **Production Only**: Scheduler only runs in production environment
+- **Error Handling**: Graceful error handling without blocking application
+- **Logging**: Comprehensive logging for monitoring
+
+**Verification:**
+- Local Docker build and run completed successfully
+- Container starts without permission errors
+- Next.js application responds on port 3000
+- Scheduler is integrated into existing startup backup system
+- All backup functionality preserved
+
+**Status: COMPLETE** - Comprehensive backup system now works without permission issues
+
+## Previous Focus: Docker Container Permission and Startup Fix - COMPLETED ✅
 
 **Problem Solved:**
 - Docker container was failing to start with permission errors: "mkdir: can't create directory '/logs': Permission denied"
