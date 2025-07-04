@@ -1,6 +1,52 @@
 # Active Context
 
-## Current Focus: Orphaned Data Page Fix - COMPLETED ✅
+## Current Focus: Manual Account Plaid API Error Fix - COMPLETED ✅
+
+### 🎯 **Manual Account Plaid API Error Fix Status: COMPLETE**
+
+**Problem Solved:**
+- Manual accounts were triggering 400 errors when trying to create update link tokens
+- Error: "Request failed with status code 400" from Plaid API
+- Manual accounts have `accessToken: "manual"` which is not a valid Plaid token
+- The create-update-link-token endpoint was trying to use "manual" token with Plaid API
+
+**Root Cause:**
+- Manual accounts don't need Plaid integration since they're manually managed
+- The create-update-link-token endpoint wasn't checking if the PlaidItem was a manual account
+- Frontend was trying to re-authenticate manual accounts through Plaid
+
+**Solution Implemented:**
+
+#### 1. **Backend Validation** ✅
+- **Added**: Check for manual accounts in `/api/plaid/create-update-link-token/route.ts`
+- **Logic**: If `plaidItem.accessToken === "manual"`, return appropriate error
+- **Response**: Clear error message explaining manual accounts don't need Plaid re-authentication
+
+#### 2. **Frontend Error Handling** ✅
+- **Updated**: `AuthenticationAlerts.tsx` to handle manual account errors gracefully
+- **Added**: Specific error handling for "Manual accounts" error message
+- **User Experience**: Shows helpful message instead of generic error
+
+#### 3. **Error Prevention** ✅
+- **Prevents**: 400 errors from Plaid API for manual accounts
+- **Improves**: User experience with clear messaging
+- **Maintains**: Proper separation between manual and Plaid accounts
+
+**Technical Changes:**
+- **File**: `/src/app/api/plaid/create-update-link-token/route.ts`
+  - Added validation for manual accounts before Plaid API call
+- **File**: `/src/components/AuthenticationAlerts.tsx`
+  - Added specific error handling for manual account case
+
+**Benefits:**
+- ✅ **No More 400 Errors** - Manual accounts no longer trigger Plaid API errors
+- ✅ **Clear User Messaging** - Users understand why manual accounts don't need re-authentication
+- ✅ **Proper Error Handling** - Graceful degradation for manual accounts
+- ✅ **Better UX** - No confusing error messages for manual accounts
+
+**Status: COMPLETE** - Manual accounts no longer cause Plaid API errors
+
+## Previous Focus: Orphaned Data Page Fix - COMPLETED ✅
 
 ### 🎯 **Orphaned Data Page Fix Status: COMPLETE**
 

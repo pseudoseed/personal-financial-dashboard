@@ -30,6 +30,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if this is a manual account (which doesn't need Plaid link tokens)
+    if (plaidItem.accessToken === "manual") {
+      return NextResponse.json(
+        { error: "Manual accounts do not require Plaid re-authentication" },
+        { status: 400 }
+      );
+    }
+
     const userId = await getCurrentUserId();
     const appInstanceId = getAppInstanceId();
 

@@ -758,7 +758,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                   <Button
                     onClick={() => {
                       onClose();
-                      router.push('/admin/plaid-usage');
+                      router.push('/admin');
                     }}
                     className="w-full justify-start bg-purple-600 hover:bg-purple-700 text-white dark:bg-purple-700 dark:hover:bg-purple-800"
                   >
