@@ -32,6 +32,7 @@ model Account {
   subtype                    String?
   mask                       String?
   hidden                     Boolean                  @default(false)
+  archived                   Boolean                  @default(false)
   metadata                   String?
   url                        String?
   invertTransactions         Boolean                  @default(false)

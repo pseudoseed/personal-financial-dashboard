@@ -163,11 +163,19 @@ export function AccountConnectionButtons() {
       setShowAccountTypeSelector(false);
       setSelectedAccountType(null);
       
-      // Show success notification
+      // Show success notification based on whether this was a re-authentication
+      const title = result.isReauthentication 
+        ? "Account Re-authenticated Successfully!" 
+        : "Account Connected Successfully!";
+      
+      const message = result.isReauthentication
+        ? "Your account has been re-authenticated and is now up to date."
+        : "Your account has been connected and is now visible on your dashboard.";
+      
       addNotification({
         type: "success",
-        title: "Account Connected Successfully!",
-        message: "Your account has been connected and is now visible on your dashboard."
+        title,
+        message
       });
       
       // Show merge message if duplicates were handled

@@ -20,6 +20,7 @@ import {
   ChartBarIcon,
   WalletIcon,
   QuestionMarkCircleIcon,
+  ArchiveBoxIcon,
 } from "@heroicons/react/24/outline";
 import { Account } from "@/types/account";
 import { getAccountTypeInfo } from "@/lib/accountTypes";
@@ -33,6 +34,7 @@ interface AccountCardProps {
   onRefresh?: () => void;
   onDisconnect?: () => void;
   onToggleVisibility?: () => void;
+  onArchive?: () => void;
   isHidden?: boolean;
 }
 
@@ -41,6 +43,7 @@ export function AccountCard({
   onRefresh,
   onDisconnect,
   onToggleVisibility,
+  onArchive,
   isHidden = false
 }: AccountCardProps) {
   const { showSensitiveData } = useSensitiveData();
@@ -197,6 +200,14 @@ export function AccountCard({
     setIsEditing(false);
   };
 
+  const handleArchive = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onArchive) {
+      onArchive();
+    }
+  };
+
   const toggleVisibility = async () => {
     setIsUpdating(true);
     try {
@@ -268,6 +279,15 @@ export function AccountCard({
               ) : (
                 <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               )}
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleArchive} 
+              className="p-1"
+              title="Archive account"
+            >
+              <ArchiveBoxIcon className="h-4 w-4" />
             </Button>
           </div>
         </div>

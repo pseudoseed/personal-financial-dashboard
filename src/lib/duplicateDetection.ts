@@ -219,12 +219,33 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
     }
   });
 
-  // Filter to only active items and find empty ones
+  // Separate active and disconnected items
   const activePlaidItems = allPlaidItems.filter(item => (item as any).status === 'active');
-  const emptyPlaidItems = activePlaidItems.filter(item => item.accounts.length === 0);
+  const disconnectedPlaidItems = allPlaidItems.filter(item => (item as any).status === 'disconnected');
+  
+  // Find empty active items
+  const emptyActivePlaidItems = activePlaidItems.filter(item => item.accounts.length === 0);
   
   // Find PlaidItems that have accounts but are duplicates (keep the one with most accounts)
   const plaidItemsWithAccounts = activePlaidItems.filter(item => item.accounts.length > 0);
+  
+  // If we have disconnected items with accounts, we should clean them up
+  const disconnectedItemsWithAccounts = disconnectedPlaidItems.filter(item => item.accounts.length > 0);
+  if (disconnectedItemsWithAccounts.length > 0) {
+    console.log(`[MERGE] Found ${disconnectedItemsWithAccounts.length} disconnected PlaidItems with accounts - cleaning up`);
+    
+    // Disconnect these items (they're already marked as disconnected, but we need to ensure they're properly cleaned up)
+    const disconnectResult = await disconnectPlaidTokens(
+      disconnectedItemsWithAccounts.map(item => ({
+        id: item.id,
+        accessToken: item.accessToken,
+        institutionId: item.institutionId,
+        institutionName: item.institutionName
+      }))
+    );
+    
+    console.log(`[MERGE] Cleaned up ${disconnectResult.success.length} disconnected PlaidItems`);
+  }
   
   if (plaidItemsWithAccounts.length > 1) {
     // Sort by number of accounts (keep the one with most accounts)
@@ -252,11 +273,11 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
   }
 
   // Disconnect empty PlaidItems
-  if (emptyPlaidItems.length > 0) {
-    console.log(`[MERGE] Disconnecting ${emptyPlaidItems.length} empty PlaidItems`);
+  if (emptyActivePlaidItems.length > 0) {
+    console.log(`[MERGE] Disconnecting ${emptyActivePlaidItems.length} empty active PlaidItems`);
     
     const disconnectResult = await disconnectPlaidTokens(
-      emptyPlaidItems.map(item => ({
+      emptyActivePlaidItems.map((item: any) => ({
         id: item.id,
         accessToken: item.accessToken,
         institutionId: item.institutionId,

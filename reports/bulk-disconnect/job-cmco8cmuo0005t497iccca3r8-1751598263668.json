@@ -1,0 +1,250 @@
+{
+  "jobId": "cmco8cmuo0005t497iccca3r8",
+  "createdAt": "2025-07-04T03:03:32.785Z",
+  "totalTokens": 48,
+  "successCount": 47,
+  "failureCount": 1,
+  "results": [
+    {
+      "accessToken": "access-production-4e40f718-8196-40c7-8e7e-0b3089c56e1f",
+      "institutionName": "Unknown",
+      "success": false,
+      "error": "Request failed with status code 400"
+    },
+    {
+      "accessToken": "access-production-36a4ef33-d2aa-4006-b1ee-1d684a712e99",
+      "institutionName": "SoFi",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-b9971001-9234-4fa1-ba27-757fc5bba4b1",
+      "institutionName": "Discover",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-10be5781-87e8-440b-bdf8-dc53c2acce37",
+      "institutionName": "SoFi",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-3b54a56e-207b-40b4-9026-feac2306c490",
+      "institutionName": "SoFi",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-07978262-30d4-46f1-b664-fa003ed6ad0d",
+      "institutionName": "PayPal",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-49bcc808-e990-4e89-8908-7046dd7d306f",
+      "institutionName": "Robinhood",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-bc070c08-2bc2-43dc-9049-161c1211ae8c",
+      "institutionName": "U.S. Bank",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-80fb150e-2b78-4d0f-8891-e19f25898d6f",
+      "institutionName": "SoFi",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-14b7dd24-276f-4251-b0dd-a135258af22a",
+      "institutionName": "Discover",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-067f6612-a451-4424-9381-f3215b5f6480",
+      "institutionName": "U.S. Bank",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-62223c6e-9fa9-4b6d-9e02-632e965bc32e",
+      "institutionName": "PayPal",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-026421a2-9d72-4249-bc93-3d5e22958cff",
+      "institutionName": "Discover",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-b179c64b-34ce-4116-844c-a02fb372388f",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-6929bd71-180a-4ed2-9f0d-8817e4a595d9",
+      "institutionName": "PNC",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-6822af8a-0095-4d71-8277-7f2b795b699e",
+      "institutionName": "Discover",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-68ea3da5-aa23-4fc1-bcf8-d24de00d1dfd",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-fbf1bbdb-8041-48da-bdba-b21203ab1b43",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-33fa58fe-683b-4e82-bb73-f9fccd1d7aa4",
+      "institutionName": "U.S. Bank",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-0e7d60d9-8e4b-434f-a44b-8caba50ce277",
+      "institutionName": "PNC",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-dd0d1a85-34e9-4688-9d59-261ab8273e5f",
+      "institutionName": "SoFi",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-cdf8c1dc-c399-4b7f-bc62-19ebbb6596ac",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-24f9d675-e7c4-4bdc-ab8a-97a4a415f886",
+      "institutionName": "PayPal",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-3a27dbb3-5361-4edd-88b2-3eb5fd59f105",
+      "institutionName": "Robinhood",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-b1a181fb-7581-4379-a21a-1799c7d81bb5",
+      "institutionName": "U.S. Bank",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-164c728e-d9ae-4542-bf4e-57bd4c866380",
+      "institutionName": "PayPal",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-ccd928d9-dc33-48c7-8f35-9a1ea518733e",
+      "institutionName": "PayPal",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-865d6d28-eda4-400d-8312-4ab98151b5e5",
+      "institutionName": "PNC",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-adb98289-6989-42d1-b0e7-7533037561c3",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-db7715aa-d3ed-4e24-92ca-b65b1e740c9b",
+      "institutionName": "PNC",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-79c18e06-3902-4ae2-bb0b-a206d18c27b9",
+      "institutionName": "Robinhood",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-a7f3d680-3dff-4b25-8ace-43c9079cc051",
+      "institutionName": "PayPal",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-c2c55ec5-5ff5-4f31-afe8-5775e81f2eb1",
+      "institutionName": "Robinhood",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-6ccb63c9-b65a-4404-9ef4-2022d4f85b4c",
+      "institutionName": "U.S. Bank",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-9c7b6463-1877-487f-a710-974f23aa8fa0",
+      "institutionName": "SoFi",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-289e861d-f63a-4aa3-a2e8-8635b71f2b61",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-d5d49aa3-359c-4a1e-ace9-9cfe73fa4ed0",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-60470c35-dfa7-4c86-a1d4-dc0b987e3c21",
+      "institutionName": "Discover",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-76f463af-f3b7-41d1-8148-1f3ea8396c52",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-d03d26af-f67c-4620-970e-e772b01627ab",
+      "institutionName": "Discover",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-7d6479e0-70a2-4bb4-8efe-fc3083339c77",
+      "institutionName": "Discover",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-a27e61bd-2368-4dfa-a773-ea333b22dc5f",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-4eb888c7-f7c4-4a72-a4a7-246ca6b8beb7",
+      "institutionName": "Robinhood",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-4f7116fe-7f05-409d-9c07-495872c5ce60",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-73d554be-4672-450c-9f45-2b1eb92e6850",
+      "institutionName": "Chase",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-3de0c14c-8e02-421a-80ba-25c3c1fd8f5d",
+      "institutionName": "SoFi - Servicing MOHELA",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-5b02a66a-ea1f-4436-8613-f91d02e956ec",
+      "institutionName": "PNC",
+      "success": true
+    },
+    {
+      "accessToken": "access-production-0645e706-2563-4c7b-9419-fe617a8b50b4",
+      "institutionName": "SoFi",
+      "success": true
+    }
+  ]
+}

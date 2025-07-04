@@ -1,20 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { downloadTransactions } from '@/lib/transactions';
 import { ensureDefaultUser } from '@/lib/startupValidation';
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Ensure default user exists before processing request
-    const userExists = await ensureDefaultUser();
-    if (!userExists) {
-      console.error('[ACCOUNTS] Default user not found and could not be created');
-      return NextResponse.json({ error: 'System not properly initialized' }, { status: 503 });
-    }
+    const { searchParams } = new URL(request.url);
+    const includeArchived = searchParams.get("includeArchived") === "true";
 
     const accounts = await prisma.account.findMany({
+      where: {
+        // Only show non-archived accounts by default
+        ...(includeArchived ? {} : { archived: false }),
+      },
       include: {
         plaidItem: {
           select: {
@@ -22,6 +22,7 @@ export async function GET() {
             institutionName: true,
             institutionLogo: true,
             accessToken: true,
+            status: true,
           },
         },
         balances: {
@@ -30,6 +31,9 @@ export async function GET() {
           },
           take: 1,
         },
+      },
+      orderBy: {
+        name: "asc",
       },
     });
 
@@ -41,25 +45,13 @@ export async function GET() {
       subtype: account.subtype,
       mask: account.mask,
       hidden: account.hidden,
-      institution:
-        account.plaidItem.institutionName || account.plaidItem.institutionId,
-      institutionLogo: account.plaidItem.institutionLogo,
-      balance: account.balances[0] || {
-        current: 0,
-        available: null,
-        limit: null,
-        date: new Date().toISOString(),
-      },
-      lastUpdated: account.balances[0]?.date.toISOString() || null,
-      url: account.url,
+      archived: account.archived,
       metadata: account.metadata,
+      url: account.url,
+      invertTransactions: account.invertTransactions,
+      plaidId: account.plaidId,
       plaidSyncCursor: account.plaidSyncCursor,
       lastSyncTime: account.lastSyncTime,
-      plaidItem: {
-        institutionId: account.plaidItem.institutionId,
-        accessToken: account.plaidItem.accessToken,
-      },
-      // Liability fields
       lastStatementBalance: account.lastStatementBalance,
       minimumPaymentAmount: account.minimumPaymentAmount,
       nextPaymentDueDate: account.nextPaymentDueDate,
@@ -68,17 +60,27 @@ export async function GET() {
       nextMonthlyPayment: account.nextMonthlyPayment,
       originationDate: account.originationDate,
       originationPrincipalAmount: account.originationPrincipalAmount,
-      invertTransactions: account.invertTransactions,
+      createdAt: account.createdAt,
+      updatedAt: account.updatedAt,
+      plaidItem: account.plaidItem,
+      balance: {
+        current: account.balances[0]?.current || 0,
+        available: account.balances[0]?.available || null,
+        limit: account.balances[0]?.limit || null,
+      },
+      balances: account.balances,
+      currentBalance: account.balances[0]?.current || 0,
+      availableBalance: account.balances[0]?.available || 0,
+      limit: account.balances[0]?.limit || 0,
     }));
 
     return NextResponse.json(formattedAccounts);
   } catch (error) {
-    const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
-    console.log("Error fetching accounts:", {
-      message: errorMessage,
-      errorType: error ? typeof error : 'null/undefined'
-    });
-    return NextResponse.json({ error: 'Failed to fetch accounts' }, { status: 500 });
+    console.error("Error fetching accounts:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch accounts" },
+      { status: 500 }
+    );
   }
 }
 

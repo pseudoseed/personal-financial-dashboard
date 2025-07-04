@@ -330,12 +330,46 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
         const errorMsg = `Plaid item error: ${item.error.error_code} - ${item.error.error_message}`;
         console.error(errorMsg);
         let specificError = errorMsg;
+        // Check if this is a token revocation error that should mark the item as disconnected
+        const shouldMarkDisconnected = [
+          "ITEM_NOT_FOUND",
+          "INVALID_ACCESS_TOKEN",
+          "ITEM_EXPIRED"
+        ].includes(item.error.error_code);
+
+        if (shouldMarkDisconnected) {
+          console.log(`[REFRESH] Marking PlaidItem ${firstAccount.plaidItem.id} as disconnected due to error: ${item.error.error_code}`);
+          
+          // Mark the PlaidItem as disconnected
+          await prisma.plaidItem.update({
+            where: { id: firstAccount.plaidItem.id },
+            data: { status: 'disconnected' } as any
+          });
+          
+          // Update all accounts in this institution to reflect the disconnected status
+          for (const account of accounts) {
+            await prisma.account.update({
+              where: { id: account.id },
+              data: { 
+                plaidItem: {
+                  update: {
+                    status: 'disconnected'
+                  }
+                } as any
+              }
+            });
+          }
+        }
+
         switch (item.error.error_code) {
           case "ITEM_LOGIN_REQUIRED":
             specificError = "Institution requires re-authentication. Please reconnect this institution.";
             break;
           case "INVALID_ACCESS_TOKEN":
-            specificError = "Access token is invalid or expired. Please reconnect this institution.";
+            specificError = "Access token has been revoked. Please reconnect this institution.";
+            break;
+          case "ITEM_NOT_FOUND":
+            specificError = "Account access has been revoked. Please reconnect this institution.";
             break;
           case "INVALID_CREDENTIALS":
             specificError = "Institution credentials are invalid. Please update your login information.";

@@ -142,6 +142,13 @@ Based on the project files and TODO list, the following features are currently w
 ## Current Status
 
 ### Recent Achievements
+- **Manual Account Display Fix**: Fixed issue where manual accounts weren't displaying on accounts page due to status filtering - now manual accounts are treated as always "active"
+- **Enhanced Account Deletion System**: Added database schema for archived accounts with transaction/balance history preservation
+- **Auth Status Endpoint Optimization**: Fixed issue where auth-status endpoint was making unnecessary API calls to disconnected PlaidItems, reducing API usage and eliminating error logs
+- **Accounts Page Display Fix**: Fixed critical issue where accounts page wasn't displaying any accounts due to missing status field in API response
+- **External Token Revocation Handling**: Fixed critical issue where externally revoked tokens showed generic errors instead of clear reconnection guidance
+- **Account Linking and Merging Fix**: Fixed critical issue where linking accounts created duplicate PlaidItems instead of updating existing ones
+- **Re-authentication Handling**: Implemented proper re-authentication flow that updates existing connections instead of creating duplicates
 - **Plaid Token Disconnection**: Implemented proper token revocation for duplicate accounts to prevent orphaned API usage and improve security
 - **ITEM_LOGIN_REQUIRED Error Fix**: Successfully identified and fixed the core issue causing 400 errors
 - **Re-authentication Flow**: Implemented complete system for handling expired Plaid tokens
