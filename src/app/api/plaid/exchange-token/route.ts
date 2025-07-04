@@ -43,6 +43,104 @@ function findMatchingAccount(account: any, existingAccounts: any[]) {
   );
 }
 
+/**
+ * Safely synchronize plaidId values for accounts after merge operations
+ * This function prevents unique constraint violations by checking for conflicts
+ */
+async function synchronizePlaidIdsSafely(itemId: string, plaidAccounts: any[]) {
+  try {
+    // Get all remaining accounts for this PlaidItem
+    const remainingAccounts = await prisma.account.findMany({
+      where: { 
+        itemId: itemId,
+        archived: false
+      },
+    });
+
+    // Create a map of target plaidId to account for conflict detection
+    const targetPlaidIdMap = new Map<string, any>();
+    const updatesNeeded: Array<{ accountId: string, oldPlaidId: string, newPlaidId: string }> = [];
+
+    // First pass: identify all needed updates and check for conflicts
+    for (const plaidAccount of plaidAccounts) {
+      // Find matching account by name, type, and subtype (not plaidId since it might be outdated)
+      const matchingAccount = remainingAccounts.find(
+        (acc) => acc.name === plaidAccount.name && 
+                 acc.type === plaidAccount.type && 
+                 acc.subtype === plaidAccount.subtype &&
+                 (acc.mask === plaidAccount.mask || (!acc.mask && !plaidAccount.mask))
+      );
+      
+      if (matchingAccount && matchingAccount.plaidId !== plaidAccount.account_id) {
+        // Check if the target plaidId is already assigned to another account
+        const existingAccountWithTargetPlaidId = remainingAccounts.find(
+          acc => acc.id !== matchingAccount.id && acc.plaidId === plaidAccount.account_id
+        );
+
+        if (existingAccountWithTargetPlaidId) {
+          console.log(`[PLAID] CONFLICT: Target plaidId ${plaidAccount.account_id} already assigned to account ${existingAccountWithTargetPlaidId.id} (${existingAccountWithTargetPlaidId.name})`);
+          console.log(`[PLAID] Skipping update for account ${matchingAccount.id} (${matchingAccount.name}) to avoid constraint violation`);
+          continue;
+        }
+
+        // Check if this target plaidId is already queued for another update
+        if (targetPlaidIdMap.has(plaidAccount.account_id)) {
+          console.log(`[PLAID] CONFLICT: Target plaidId ${plaidAccount.account_id} already queued for update to account ${targetPlaidIdMap.get(plaidAccount.account_id).accountId}`);
+          console.log(`[PLAID] Skipping update for account ${matchingAccount.id} (${matchingAccount.name}) to avoid constraint violation`);
+          continue;
+        }
+
+        // This update is safe to proceed
+        targetPlaidIdMap.set(plaidAccount.account_id, matchingAccount);
+        updatesNeeded.push({
+          accountId: matchingAccount.id,
+          oldPlaidId: matchingAccount.plaidId,
+          newPlaidId: plaidAccount.account_id
+        });
+      }
+    }
+
+    if (updatesNeeded.length === 0) {
+      console.log(`[PLAID] No plaidId updates needed for item ${itemId}`);
+      return;
+    }
+
+    console.log(`[PLAID] Found ${updatesNeeded.length} safe plaidId updates for item ${itemId}`);
+
+    // Second pass: execute updates within a transaction for consistency
+    await prisma.$transaction(async (tx) => {
+      for (const update of updatesNeeded) {
+        console.log(`[PLAID] Updating plaidId for account ${update.accountId} from ${update.oldPlaidId} to ${update.newPlaidId}`);
+        
+        // Double-check that the target plaidId is still available
+        const conflictingAccount = await tx.account.findFirst({
+          where: {
+            plaidId: update.newPlaidId,
+            id: { not: update.accountId }
+          }
+        });
+
+        if (conflictingAccount) {
+          console.log(`[PLAID] CONFLICT DETECTED: plaidId ${update.newPlaidId} now assigned to account ${conflictingAccount.id} - skipping update`);
+          continue;
+        }
+
+        // Perform the update
+        await tx.account.update({
+          where: { id: update.accountId },
+          data: { plaidId: update.newPlaidId },
+        });
+      }
+    });
+
+    console.log(`[PLAID] Successfully synchronized plaidId values for item ${itemId}`);
+  } catch (error) {
+    console.error(`[PLAID] Error synchronizing plaidId values for item ${itemId}:`, error);
+    // Don't throw the error - this is a non-critical operation
+    // The main token exchange should still succeed even if plaidId sync fails
+  }
+}
+
 export async function POST(request: Request) {
   try {
     // Ensure default user exists
@@ -248,6 +346,17 @@ export async function POST(request: Request) {
             },
           });
         } else {
+          // Check if this plaidId already exists in the database (from another institution)
+          const existingAccountWithPlaidId = await prisma.account.findUnique({
+            where: { plaidId: plaidAccount.account_id }
+          });
+
+          if (existingAccountWithPlaidId) {
+            console.log(`[PLAID] WARNING: plaidId ${plaidAccount.account_id} already exists for account ${existingAccountWithPlaidId.id} (${existingAccountWithPlaidId.name})`);
+            console.log(`[PLAID] Skipping creation of duplicate account to avoid constraint violation`);
+            continue;
+          }
+
           // Create new account
           await prisma.account.create({
             data: {
@@ -273,32 +382,9 @@ export async function POST(request: Request) {
         console.log(`[PLAID] Auto-merged duplicates for institutionId=${institutionId}:`, mergeMessage);
         console.log(`[PLAID] Disconnected ${mergeResult.disconnectedTokens.length} Plaid tokens during merge`);
         
-        // After merge, synchronize plaidId values for remaining accounts
+        // After merge, safely synchronize plaidId values for remaining accounts
         console.log(`[PLAID] Synchronizing plaidId values for remaining accounts after merge`);
-        const remainingAccounts = await prisma.account.findMany({
-          where: { 
-            itemId: existingInstitution.id,
-            archived: false
-          },
-        });
-        
-        for (const plaidAccount of plaidAccounts) {
-          // Find matching account by name, type, and subtype (not plaidId since it might be outdated)
-          const matchingAccount = remainingAccounts.find(
-            (acc) => acc.name === plaidAccount.name && 
-                     acc.type === plaidAccount.type && 
-                     acc.subtype === plaidAccount.subtype &&
-                     (acc.mask === plaidAccount.mask || (!acc.mask && !plaidAccount.mask))
-          );
-          
-          if (matchingAccount && matchingAccount.plaidId !== plaidAccount.account_id) {
-            console.log(`[PLAID] Updating plaidId for account ${matchingAccount.id} from ${matchingAccount.plaidId} to ${plaidAccount.account_id}`);
-            await prisma.account.update({
-              where: { id: matchingAccount.id },
-              data: { plaidId: plaidAccount.account_id },
-            });
-          }
-        }
+        await synchronizePlaidIdsSafely(existingInstitution.id, plaidAccounts);
       }
 
       const message = isReauthentication 
@@ -352,6 +438,17 @@ export async function POST(request: Request) {
 
       // Create accounts
       for (const plaidAccount of plaidAccounts) {
+        // Check if this plaidId already exists in the database (from another institution)
+        const existingAccountWithPlaidId = await prisma.account.findUnique({
+          where: { plaidId: plaidAccount.account_id }
+        });
+
+        if (existingAccountWithPlaidId) {
+          console.log(`[PLAID] WARNING: plaidId ${plaidAccount.account_id} already exists for account ${existingAccountWithPlaidId.id} (${existingAccountWithPlaidId.name})`);
+          console.log(`[PLAID] Skipping creation of duplicate account to avoid constraint violation`);
+          continue;
+        }
+
         await prisma.account.create({
           data: {
             plaidId: plaidAccount.account_id,
@@ -375,32 +472,9 @@ export async function POST(request: Request) {
         console.log(`[PLAID] Auto-merged duplicates for institutionId=${institutionId}:`, mergeMessage);
         console.log(`[PLAID] Disconnected ${mergeResult.disconnectedTokens.length} Plaid tokens during merge`);
         
-        // After merge, synchronize plaidId values for remaining accounts
+        // After merge, safely synchronize plaidId values for remaining accounts
         console.log(`[PLAID] Synchronizing plaidId values for remaining accounts after merge`);
-        const remainingAccounts = await prisma.account.findMany({
-          where: { 
-            itemId: newInstitution.id,
-            archived: false
-          },
-        });
-        
-        for (const plaidAccount of plaidAccounts) {
-          // Find matching account by name, type, and subtype (not plaidId since it might be outdated)
-          const matchingAccount = remainingAccounts.find(
-            (acc) => acc.name === plaidAccount.name && 
-                     acc.type === plaidAccount.type && 
-                     acc.subtype === plaidAccount.subtype &&
-                     (acc.mask === plaidAccount.mask || (!acc.mask && !plaidAccount.mask))
-          );
-          
-          if (matchingAccount && matchingAccount.plaidId !== plaidAccount.account_id) {
-            console.log(`[PLAID] Updating plaidId for account ${matchingAccount.id} from ${matchingAccount.plaidId} to ${plaidAccount.account_id}`);
-            await prisma.account.update({
-              where: { id: matchingAccount.id },
-              data: { plaidId: plaidAccount.account_id },
-            });
-          }
-        }
+        await synchronizePlaidIdsSafely(newInstitution.id, plaidAccounts);
       }
 
       return NextResponse.json({
