@@ -166,7 +166,7 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
             accountId: accountToKeep.id,
           },
         });
-        console.log(`[MERGE] Transferred balances from ${accountToRemove.id} to ${accountToKeep.id}`);
+        console.log(`[Merge] Transferred balances from ${accountToRemove.name} to ${accountToKeep.name}`);
       }
 
       // Transfer transactions if the kept account doesn't have any
@@ -187,7 +187,7 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
             accountId: accountToKeep.id,
           },
         });
-        console.log(`[MERGE] Transferred transactions from ${accountToRemove.id} to ${accountToKeep.id}`);
+        console.log(`[Merge] Transferred transactions from ${accountToRemove.name} to ${accountToKeep.name}`);
       }
 
       // Transfer emergency fund account references
@@ -197,14 +197,18 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
           where: { accountId: accountToRemove.id },
           data: { accountId: accountToKeep.id },
         });
-        console.log(`[MERGE] Transferred emergency fund references from ${accountToRemove.id} to ${accountToKeep.id}`);
+        console.log(`[Merge] Transferred emergency fund references from ${accountToRemove.name} to ${accountToKeep.name}`);
       }
 
-      // Delete the duplicate account
-      await prisma.account.delete({
+      // Archive the duplicate account instead of deleting it
+      await prisma.account.update({
         where: { id: accountToRemove.id },
+        data: { 
+          archived: true,
+          updatedAt: new Date()
+        },
       });
-      console.log(`[MERGE] Deleted duplicate account ${accountToRemove.id}`);
+      console.log(`[Merge] Archived duplicate account ${accountToRemove.name}`);
     }
   }
 
@@ -232,7 +236,7 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
   // If we have disconnected items with accounts, we should clean them up
   const disconnectedItemsWithAccounts = disconnectedPlaidItems.filter(item => item.accounts.length > 0);
   if (disconnectedItemsWithAccounts.length > 0) {
-    console.log(`[MERGE] Found ${disconnectedItemsWithAccounts.length} disconnected PlaidItems with accounts - cleaning up`);
+    console.log(`[Merge] Found ${disconnectedItemsWithAccounts.length} disconnected items with accounts - cleaning up`);
     
     // Disconnect these items (they're already marked as disconnected, but we need to ensure they're properly cleaned up)
     const disconnectResult = await disconnectPlaidTokens(
@@ -244,7 +248,7 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
       }))
     );
     
-    console.log(`[MERGE] Cleaned up ${disconnectResult.success.length} disconnected PlaidItems`);
+    console.log(`[Merge] Cleaned up ${disconnectResult.success.length} disconnected items`);
   }
   
   if (plaidItemsWithAccounts.length > 1) {
@@ -253,7 +257,7 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
     const itemToKeep = sortedItems[0];
     const itemsToDisconnect = sortedItems.slice(1);
     
-    console.log(`[MERGE] Keeping PlaidItem ${itemToKeep.id} with ${itemToKeep.accounts.length} accounts, disconnecting ${itemsToDisconnect.length} duplicate items`);
+    console.log(`[Merge] Keeping item ${itemToKeep.id} with ${itemToKeep.accounts.length} accounts, disconnecting ${itemsToDisconnect.length} duplicates`);
     
     // Disconnect the duplicate PlaidItems
     const disconnectResult = await disconnectPlaidTokens(
@@ -274,7 +278,7 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
 
   // Disconnect empty PlaidItems
   if (emptyActivePlaidItems.length > 0) {
-    console.log(`[MERGE] Disconnecting ${emptyActivePlaidItems.length} empty active PlaidItems`);
+    console.log(`[Merge] Disconnecting ${emptyActivePlaidItems.length} empty active items`);
     
     const disconnectResult = await disconnectPlaidTokens(
       emptyActivePlaidItems.map((item: any) => ({
@@ -345,7 +349,7 @@ export function getMergeMessage(duplicateGroup: DuplicateGroup, mergeResult: {
 
   const accountTypes = [...new Set(accounts.map(a => `${a.type}/${a.subtype}`))];
   
-  let message = `Merged ${removed.length} duplicate accounts for ${institutionName || 'Unknown Institution'}. Kept the most recent data for: ${accountTypes.join(', ')}`;
+  let message = `Archived ${removed.length} duplicate accounts for ${institutionName || 'Unknown Institution'}. Kept the most recent data for: ${accountTypes.join(', ')}`;
   
   if (disconnectedTokens.length > 0) {
     message += `\n\nDisconnected ${disconnectedTokens.length} duplicate Plaid connection(s) to optimize API usage and maintain security.`;

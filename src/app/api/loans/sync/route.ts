@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
 
     // Check if data is stale and needs refresh
     if (!forceRefresh && !isDataStale(loan.lastPlaidSync)) {
-      console.log(`Loan ${loanId} data is fresh, skipping Plaid update`);
+      // Removed verbose debug logging
       return NextResponse.json({
         message: 'Loan data is fresh, no update needed',
         lastSync: loan.lastPlaidSync,
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     // Check cache first
     const cachedData = getCachedLoanData(loanId);
     if (!forceRefresh && cachedData) {
-      console.log(`Using cached data for loan ${loanId}`);
+      // Removed verbose debug logging
       return NextResponse.json({
         message: 'Using cached loan data',
         data: cachedData,
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch fresh data from Plaid
-    console.log(`Fetching liability data for loan ${loanId} from Plaid...`);
+    // Removed verbose debug logging
     const plaidApiCallStart = Date.now();
     let plaidApiCallError = null;
 

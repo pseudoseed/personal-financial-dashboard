@@ -6,19 +6,12 @@ export async function GET(request: NextRequest) {
   try {
     const userId = await getCurrentUserId();
 
-    console.log('Calculating financial health for user:', userId);
+    // Removed verbose debug logging
 
     // Calculate financial health
     const healthData = await calculateFinancialHealth(userId);
     
-    console.log('Financial health calculated:', {
-      overallScore: healthData.overallScore,
-      emergencyFundRatio: healthData.emergencyFundRatio,
-      debtToIncomeRatio: healthData.debtToIncomeRatio,
-      savingsRate: healthData.savingsRate,
-      creditUtilization: healthData.creditUtilization,
-      recommendationsCount: healthData.recommendations.length,
-    });
+    console.log(`[Financial Health] Calculated for user ${userId}`);
 
     return NextResponse.json(healthData);
   } catch (error) {

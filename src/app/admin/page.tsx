@@ -12,6 +12,11 @@ const adminPages = [
     description: "Manage and disconnect multiple accounts in bulk."
   },
   {
+    href: "/admin/disconnect-all",
+    label: "Disconnect All",
+    description: "Disconnect all current institutions and accounts at once."
+  },
+  {
     href: "/admin/orphaned-data",
     label: "Orphaned Data",
     description: "Find and clean up orphaned accounts, transactions, and balances."

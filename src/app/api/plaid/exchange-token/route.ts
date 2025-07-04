@@ -8,6 +8,7 @@ import { getCurrentUserId } from "@/lib/userManagement";
 import { ensureDefaultUser } from '@/lib/startupValidation';
 import { disconnectPlaidTokens } from "@/lib/plaid";
 import { trackPlaidApiCall, getCurrentUserId as getTrackingUserId, getAppInstanceId } from "@/lib/plaidTracking";
+import { backupPlaidItem } from "@/lib/accessTokenBackup";
 
 function formatLogoUrl(
   logo: string | null | undefined,
@@ -141,19 +142,19 @@ export async function POST(request: Request) {
     // If no exact itemId match, but institution exists, this is a re-authentication
     if (!existingInstitution && existingInstitutions.length > 0) {
       isReauthentication = true;
-      console.log(`[PLAID] Re-authentication detected for institutionId=${institutionId}. Found ${existingInstitutions.length} existing PlaidItems`);
+      console.log(`[PLAID] Re-authentication detected for ${institutionId} (${existingInstitutions.length} existing items)`);
       
       // Check if any of the existing items are disconnected (indicating external token revocation)
       const disconnectedItems = existingInstitutions.filter(item => item.status === 'disconnected');
       const activeItems = existingInstitutions.filter(item => item.status === 'active' && item.accounts.length > 0);
       
       if (disconnectedItems.length > 0) {
-        console.log(`[PLAID] Found ${disconnectedItems.length} disconnected PlaidItems - this appears to be a reconnection after external token revocation`);
+        console.log(`[PLAID] Found ${disconnectedItems.length} disconnected items - reconnection after token revocation`);
         
         // If we have disconnected items, prefer the one with the most accounts
         const bestDisconnectedItem = disconnectedItems.sort((a, b) => b.accounts.length - a.accounts.length)[0];
         existingInstitution = bestDisconnectedItem;
-        console.log(`[PLAID] Selected disconnected PlaidItem ${existingInstitution.id} with ${existingInstitution.accounts.length} accounts for reconnection`);
+        console.log(`[PLAID] Selected disconnected item ${existingInstitution.id} with ${existingInstitution.accounts.length} accounts for reconnection`);
       } else if (activeItems.length > 0) {
         // Sort by number of accounts and keep the one with most accounts
         activeItems.sort((a, b) => b.accounts.length - a.accounts.length);
@@ -189,7 +190,7 @@ export async function POST(request: Request) {
       }
 
       // Update existing institution with new access token
-      await prisma.plaidItem.update({
+      const updatedInstitution = await prisma.plaidItem.update({
         where: { id: existingInstitution.id },
         data: {
           itemId: plaidItemId, // Update to new itemId
@@ -199,6 +200,14 @@ export async function POST(request: Request) {
           status: 'active', // Ensure it's marked as active
         },
       });
+
+      // Backup the updated access token
+      const backupResult = await backupPlaidItem(updatedInstitution);
+      if (backupResult.success) {
+        console.log(`[PLAID] Access token backed up: ${backupResult.message}`);
+      } else {
+        console.warn(`[PLAID] Failed to backup access token: ${backupResult.message}`);
+      }
 
       // Get existing accounts for this institution
       const existingAccounts = await prisma.account.findMany({
@@ -263,6 +272,33 @@ export async function POST(request: Request) {
         mergeMessage = getMergeMessage(duplicateGroup, mergeResult);
         console.log(`[PLAID] Auto-merged duplicates for institutionId=${institutionId}:`, mergeMessage);
         console.log(`[PLAID] Disconnected ${mergeResult.disconnectedTokens.length} Plaid tokens during merge`);
+        
+        // After merge, synchronize plaidId values for remaining accounts
+        console.log(`[PLAID] Synchronizing plaidId values for remaining accounts after merge`);
+        const remainingAccounts = await prisma.account.findMany({
+          where: { 
+            itemId: existingInstitution.id,
+            archived: false
+          },
+        });
+        
+        for (const plaidAccount of plaidAccounts) {
+          // Find matching account by name, type, and subtype (not plaidId since it might be outdated)
+          const matchingAccount = remainingAccounts.find(
+            (acc) => acc.name === plaidAccount.name && 
+                     acc.type === plaidAccount.type && 
+                     acc.subtype === plaidAccount.subtype &&
+                     (acc.mask === plaidAccount.mask || (!acc.mask && !plaidAccount.mask))
+          );
+          
+          if (matchingAccount && matchingAccount.plaidId !== plaidAccount.account_id) {
+            console.log(`[PLAID] Updating plaidId for account ${matchingAccount.id} from ${matchingAccount.plaidId} to ${plaidAccount.account_id}`);
+            await prisma.account.update({
+              where: { id: matchingAccount.id },
+              data: { plaidId: plaidAccount.account_id },
+            });
+          }
+        }
       }
 
       const message = isReauthentication 
@@ -287,6 +323,14 @@ export async function POST(request: Request) {
           status: 'active',
         },
       });
+
+      // Backup the new access token
+      const backupResult = await backupPlaidItem(newInstitution);
+      if (backupResult.success) {
+        console.log(`[PLAID] New access token backed up: ${backupResult.message}`);
+      } else {
+        console.warn(`[PLAID] Failed to backup new access token: ${backupResult.message}`);
+      }
 
       console.log(`[PLAID] Created new PlaidItem: id=${newInstitution.id}, institutionId=${institutionId}, plaidItemId=${plaidItemId}`);
 
@@ -330,6 +374,33 @@ export async function POST(request: Request) {
         mergeMessage = getMergeMessage(duplicateGroup, mergeResult);
         console.log(`[PLAID] Auto-merged duplicates for institutionId=${institutionId}:`, mergeMessage);
         console.log(`[PLAID] Disconnected ${mergeResult.disconnectedTokens.length} Plaid tokens during merge`);
+        
+        // After merge, synchronize plaidId values for remaining accounts
+        console.log(`[PLAID] Synchronizing plaidId values for remaining accounts after merge`);
+        const remainingAccounts = await prisma.account.findMany({
+          where: { 
+            itemId: newInstitution.id,
+            archived: false
+          },
+        });
+        
+        for (const plaidAccount of plaidAccounts) {
+          // Find matching account by name, type, and subtype (not plaidId since it might be outdated)
+          const matchingAccount = remainingAccounts.find(
+            (acc) => acc.name === plaidAccount.name && 
+                     acc.type === plaidAccount.type && 
+                     acc.subtype === plaidAccount.subtype &&
+                     (acc.mask === plaidAccount.mask || (!acc.mask && !plaidAccount.mask))
+          );
+          
+          if (matchingAccount && matchingAccount.plaidId !== plaidAccount.account_id) {
+            console.log(`[PLAID] Updating plaidId for account ${matchingAccount.id} from ${matchingAccount.plaidId} to ${plaidAccount.account_id}`);
+            await prisma.account.update({
+              where: { id: matchingAccount.id },
+              data: { plaidId: plaidAccount.account_id },
+            });
+          }
+        }
       }
 
       return NextResponse.json({

@@ -43,7 +43,7 @@ export function TransactionList({
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   useEffect(() => {
-    console.log('TransactionList received transactions:', initialTransactions);
+    // Removed verbose debug logging
     setTransactions(initialTransactions || []);
   }, [initialTransactions]);
 

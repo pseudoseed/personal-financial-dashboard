@@ -75,7 +75,7 @@ export default function DashboardPage() {
   // Auto-refresh logic with proper state management
   useEffect(() => {
     // TEMPORARILY DISABLED - Debugging refresh issue
-    console.log("Auto-refresh logic disabled for debugging");
+    // Removed verbose debug logging
     return;
     
     if (accounts && !hasAutoRefreshed && !isRefreshing) {

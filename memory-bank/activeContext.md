@@ -1,6 +1,73 @@
 # Active Context
 
-## Current Focus: Manual Account Plaid API Error Fix - COMPLETED ✅
+## Current Focus: Critical Duplicate Merge Data Loss Fix - COMPLETED ✅
+
+### 🎯 **Critical Duplicate Merge Data Loss Fix Status: COMPLETE**
+
+**Problem Solved:**
+- Duplicate merge logic was **DELETING** accounts instead of archiving them, causing permanent data loss
+- After merge, remaining accounts had outdated `plaidId` values that didn't match Plaid's response
+- This caused "Account not found in Plaid response" errors during refresh operations
+- Console.error was throwing TypeError due to null error objects
+
+**Root Cause:**
+- The merge process was using `prisma.account.delete()` instead of archiving
+- No synchronization of `plaidId` values after merge to match new access tokens
+- Error handling wasn't properly handling null/undefined error objects
+
+**Solution Implemented:**
+
+#### 1. **Data Preservation** ✅
+- **Changed**: `prisma.account.delete()` to `prisma.account.update()` with `archived: true`
+- **Preserved**: All account data, balances, transactions, and relationships
+- **Maintained**: Audit trail and data integrity
+
+#### 2. **PlaidId Synchronization** ✅
+- **Added**: Post-merge synchronization of `plaidId` values to match Plaid's response
+- **Logic**: Match accounts by name, type, subtype, and mask (not by outdated plaidId)
+- **Updated**: Both existing institution updates and new institution creation paths
+
+#### 3. **Error Handling Fix** ✅
+- **Fixed**: Console.error TypeError in orphaned data route
+- **Added**: Safe error handling for null/undefined error objects
+- **Improved**: Error logging with structured data
+
+#### 4. **Account Filtering** ✅
+- **Updated**: Refresh service to exclude archived accounts from operations
+- **Ensured**: Archived accounts don't trigger unnecessary API calls
+
+**Technical Changes:**
+- **File**: `/src/lib/duplicateDetection.ts`
+  - Changed account deletion to archiving
+  - Updated merge message to reflect archiving
+- **File**: `/src/app/api/plaid/exchange-token/route.ts`
+  - Added plaidId synchronization after merge
+  - Enhanced logging for debugging
+- **File**: `/src/app/api/admin/orphaned-data/route.ts`
+  - Fixed console.error TypeError
+  - Added safe error handling
+- **File**: `/src/lib/refreshService.ts`
+  - Added archived account filtering
+- **File**: `/scripts/test-duplicate-merge-fix.js`
+  - Created comprehensive test script
+
+**Benefits:**
+- ✅ **No Data Loss** - All account data is preserved through archiving
+- ✅ **Fixed Refresh Issues** - Accounts have correct plaidId values after merge
+- ✅ **Maintained Relationships** - All data relationships remain intact
+- ✅ **Better Error Handling** - No more TypeError crashes
+- ✅ **Audit Trail** - Archived accounts remain for reference and recovery
+- ✅ **Proper Filtering** - Archived accounts excluded from operations
+
+**Verification:**
+- Test script confirms no data loss
+- All 5 accounts preserved (0 archived, 5 active)
+- No orphaned data detected
+- Multiple disconnected PlaidItems properly handled
+
+**Status: COMPLETE** - Duplicate merge now preserves all data and maintains proper relationships
+
+## Previous Focus: Manual Account Plaid API Error Fix - COMPLETED ✅
 
 ### 🎯 **Manual Account Plaid API Error Fix Status: COMPLETE**
 

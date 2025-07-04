@@ -99,22 +99,8 @@ export async function calculateFinancialHealth(_userId: string): Promise<Financi
   const totalLiabilities = accounts.filter(a => getFinancialGroup(a.type) === 'Liabilities').reduce((sum, a) => sum + Math.abs(a.balances[0]?.current || 0), 0);
   const netWorth = totalAssets - totalLiabilities;
 
-  // Log all metrics and raw values
-  console.log('--- Dashboard Metrics Debug ---');
-  console.log('Total Assets:', totalAssets);
-  console.log('Total Liabilities:', totalLiabilities);
-  console.log('Net Worth:', netWorth);
-  console.log('Credit Utilization:', creditUtilization);
-  console.log('Financial Health Score:', overallScore);
-  console.log('Emergency Fund Ratio (months):', emergencyFundRatio);
-  console.log('Debt-to-Income Ratio:', debtToIncomeRatio);
-  console.log('Savings Rate:', savingsRate);
-  console.log('Recommendations:', recommendations);
-  console.log('Raw Accounts:', accounts.map(a => ({id: a.id, name: a.name, type: a.type, subtype: a.subtype, balance: a.balances[0]?.current})));
-  console.log('Raw Recurring Payments:', recurringPayments);
-  console.log('Raw Recurring Expenses:', recurringExpenses);
-  console.log('Raw Transactions (last 30d):', transactions);
-  console.log('------------------------------');
+  // Log key metrics only (removed verbose debug logging)
+  console.log(`[Financial Health] Score: ${overallScore}, Net Worth: $${netWorth.toLocaleString()}, Emergency Fund: ${emergencyFundRatio.toFixed(1)} months`);
 
   // Store the metrics
   await prisma.financialHealthMetrics.create({
@@ -166,7 +152,7 @@ function calculateEmergencyFundRatio(
     }
     return total + monthlyAmount;
   }, 0);
-  console.log('[Emergency Fund] Liquid Assets:', liquidAssets, 'Monthly Expenses:', monthlyExpenses);
+  // Removed verbose debug logging
   return monthlyExpenses > 0 ? liquidAssets / monthlyExpenses : 0;
 }
 
@@ -240,7 +226,7 @@ function calculateDebtToIncomeRatio(
     return total + monthlyAmount;
   }, 0);
 
-  console.log('[Debt-to-Income] Total Monthly Debt Payments:', totalMonthlyDebtPayments, 'Monthly Income:', monthlyIncome);
+  // Removed verbose debug logging
   return monthlyIncome > 0 ? totalMonthlyDebtPayments / monthlyIncome : 0;
 }
 
@@ -269,7 +255,7 @@ function calculateSavingsRate(
   const monthlyExpenses = transactions
     .filter(t => t.amount < 0)
     .reduce((total, transaction) => total + Math.abs(transaction.amount), 0);
-  console.log('[Savings Rate] Monthly Income:', monthlyIncome, 'Monthly Expenses:', monthlyExpenses);
+  // Removed verbose debug logging
   return monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0;
 }
 
@@ -286,7 +272,7 @@ function calculateCreditUtilization(accounts: (Account & { balances: any[] })[])
     totalBalance += Math.abs(balance.current || 0);
     totalLimit += balance.limit || 0;
   }
-  console.log('[Credit Utilization] Total Balance:', totalBalance, 'Total Limit:', totalLimit);
+  // Removed verbose debug logging
   return totalLimit > 0 ? (totalBalance / totalLimit) * 100 : 0;
 }
 

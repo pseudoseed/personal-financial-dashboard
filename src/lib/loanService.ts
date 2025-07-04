@@ -307,7 +307,7 @@ export class LoanService {
 
     // Check if data is stale and needs refresh
     if (!forceRefresh && this.isDataFresh(loan)) {
-      console.log(`Loan ${loanId} data is fresh, skipping Plaid update`);
+      // Removed verbose debug logging
       return loan;
     }
 
@@ -420,7 +420,7 @@ export class LoanService {
     loanId: string,
     plaidData: PlaidLiabilityData
   ): Promise<LoanDetails> {
-    console.log(`Force refreshing loan ${loanId} from Plaid data`);
+    // Removed verbose debug logging
     return this.updateFromPlaidData(loanId, plaidData, true);
   }
 

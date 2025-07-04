@@ -23,21 +23,11 @@ export async function GET(request: NextRequest) {
     const recurringPayments = await prisma.recurringPayment.findMany({ where: { userId } });
     const recurringExpenses = await prisma.recurringExpense.findMany({ where: { userId } });
 
-    console.log('DEBUG: Raw accounts:', JSON.stringify(accounts, null, 2));
-    console.log('DEBUG: Raw recurringPayments:', JSON.stringify(recurringPayments, null, 2));
-    console.log('DEBUG: Raw recurringExpenses:', JSON.stringify(recurringExpenses, null, 2));
+    // Removed large JSON dumps for cleaner logging
 
     const billsData = await getEnhancedBillsData(userId);
     
-    console.log('Enhanced bills data calculated:', {
-      upcomingBillsCount: billsData.upcomingBills.length,
-      paymentHistoryCount: billsData.paymentHistory.length,
-      insightsCount: billsData.paymentInsights.length,
-      cashFlow: {
-        next30Days: billsData.cashFlowForecast.next30Days.netFlow,
-        next90Days: billsData.cashFlowForecast.next90Days.netFlow,
-      },
-    });
+    console.log(`[Enhanced Bills] Calculated: ${billsData.upcomingBills.length} upcoming bills, ${billsData.paymentHistory.length} payment history entries`);
 
     return NextResponse.json(billsData);
   } catch (error) {

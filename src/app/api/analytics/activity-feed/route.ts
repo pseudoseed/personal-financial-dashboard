@@ -8,18 +8,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '20');
 
-    console.log('DEBUG: User ID from getCurrentUserId:', userId);
-    console.log('Getting activity feed data for user:', userId, 'with limit:', limit);
+    // Removed verbose debug logging
 
     // Get activity feed data
     const activityData = await getActivityFeedData(userId, limit);
     
-    console.log('Activity feed data calculated:', {
-      totalActivities: activityData.summary.totalActivities,
-      recentTransactions: activityData.summary.recentTransactions,
-      pendingPayments: activityData.summary.pendingPayments,
-      anomalies: activityData.summary.anomalies,
-    });
+    console.log(`[Activity Feed] Calculated ${activityData.summary.totalActivities} activities for user ${userId}`);
 
     return NextResponse.json(activityData);
   } catch (error) {

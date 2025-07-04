@@ -118,14 +118,7 @@ export function NetWorthChart({ accounts, isMasked = false }: NetWorthChartProps
       return showSensitiveData ? data.assets - data.liabilities : 0;
     });
 
-    // Log detailed information about the latest month
-    if (sortedMonths.length > 0 && showSensitiveData) {
-      const latestMonth = sortedMonths[sortedMonths.length - 1];
-      const latestData = monthlyData.get(latestMonth)!;
-      console.log(
-        `Latest month (${latestMonth}): Assets: $${latestData.assets.toLocaleString()}, Liabilities: $${latestData.liabilities.toLocaleString()}, Net Worth: $${(latestData.assets - latestData.liabilities).toLocaleString()}`
-      );
-    }
+    // Removed verbose debug logging
 
     return {
       labels,

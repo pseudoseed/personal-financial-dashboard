@@ -57,7 +57,16 @@ export async function GET() {
       orphanedLoanDetails: orphanedLoanDetails || [],
     });
   } catch (error) {
-    console.error("Error fetching orphaned data:", error || "Unknown error");
+    // Safely handle null/undefined error values
+    const errorMessage = error instanceof Error ? error.message : String(error || 'Unknown error');
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error("Error fetching orphaned data:", {
+      message: errorMessage,
+      stack: errorStack,
+      timestamp: new Date().toISOString()
+    });
+    
     return NextResponse.json(
       { error: "Failed to fetch orphaned data" },
       { status: 500 }
@@ -117,7 +126,16 @@ export async function DELETE(request: Request) {
       deletedCount,
     });
   } catch (error) {
-    console.error("Error cleaning up orphaned data:", error || "Unknown error");
+    // Safely handle null/undefined error values
+    const errorMessage = error instanceof Error ? error.message : String(error || 'Unknown error');
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error("Error cleaning up orphaned data:", {
+      message: errorMessage,
+      stack: errorStack,
+      timestamp: new Date().toISOString()
+    });
+    
     return NextResponse.json(
       { error: "Failed to clean up orphaned data" },
       { status: 500 }

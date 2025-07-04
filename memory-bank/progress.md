@@ -142,6 +142,7 @@ Based on the project files and TODO list, the following features are currently w
 ## Current Status
 
 ### Recent Achievements
+- **Critical Duplicate Merge Data Loss Fix - COMPLETED ✅**: Fixed critical issue where duplicate merge was deleting accounts instead of archiving them, causing permanent data loss and refresh failures
 - **Manual Account Display Fix**: Fixed issue where manual accounts weren't displaying on accounts page due to status filtering - now manual accounts are treated as always "active"
 - **Enhanced Account Deletion System**: Added database schema for archived accounts with transaction/balance history preservation
 - **Auth Status Endpoint Optimization**: Fixed issue where auth-status endpoint was making unnecessary API calls to disconnected PlaidItems, reducing API usage and eliminating error logs

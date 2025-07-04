@@ -196,7 +196,7 @@ export async function getLocationBasedPatterns(
  */
 export async function buildMerchantSimilarityCache(): Promise<void> {
   try {
-    console.log('Building merchant similarity cache...');
+    // Removed verbose debug logging
     
     // Get all categorized merchants
     const categorizedMerchants = await prisma.$queryRawUnsafe(`
@@ -214,7 +214,7 @@ export async function buildMerchantSimilarityCache(): Promise<void> {
         OR "categoryAiGeneral" IS NOT NULL
     `) as any[];
     
-    console.log(`Found ${categorizedMerchants.length} categorized merchants for cache`);
+    // Removed verbose debug logging
     
     // This could be extended to store in a separate cache table
     // For now, we'll use the existing data structure
