@@ -149,8 +149,10 @@ export async function smartRefreshAccounts(
     whereClause.id = targetAccountId;
   } else if (targetInstitutionId) {
     // Filter to all accounts for the institution (by institutionId, not plaidItem.id)
+    // Only include accounts from active PlaidItems
     whereClause.plaidItem = {
-      institutionId: targetInstitutionId
+      institutionId: targetInstitutionId,
+      status: 'active' // Only include active PlaidItems
     };
   }
   
@@ -802,10 +804,13 @@ async function logPlaidApiCall({
 export async function refreshAllAccounts(prisma: any) {
   console.log("Starting refresh of all accounts...");
 
-  // Get all accounts with their PlaidItems
+  // Get all accounts with their PlaidItems (only from active PlaidItems)
   const allAccounts = await prisma.account.findMany({
     where: {
       archived: false, // Don't refresh archived accounts
+      plaidItem: {
+        status: 'active' // Only include accounts from active PlaidItems
+      }
     },
     include: {
       plaidItem: true,

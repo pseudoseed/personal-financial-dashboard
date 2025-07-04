@@ -47,8 +47,13 @@ export async function POST(request: Request) {
       results = await refreshSpecificAccount(accountId, isManualRefresh);
     } else if (institutionId) {
       console.log(`Refreshing institution: ${institutionId}`);
-      const foundItems = await prisma.plaidItem.findMany({ where: { institutionId } });
-      console.log(`[REFRESH] Found Plaid items:`, foundItems.map(i => ({ id: i.id, institutionId: i.institutionId, itemId: i.itemId })));
+      const foundItems = await prisma.plaidItem.findMany({ 
+        where: { 
+          institutionId,
+          status: 'active' // Only show active PlaidItems in logs
+        } 
+      });
+      console.log(`[REFRESH] Found active Plaid items:`, foundItems.map(i => ({ id: i.id, institutionId: i.institutionId, itemId: i.itemId })));
       results = await refreshInstitution(institutionId, isManualRefresh);
     } else {
       console.log("Refreshing all accounts");
