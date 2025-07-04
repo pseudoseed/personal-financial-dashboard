@@ -295,6 +295,26 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
     });
     return;
   }
+
+  // Enhanced validation: Check if PlaidItem is disconnected or orphaned
+  if (firstAccount.plaidItem.status === "disconnected") {
+    const errorMsg = "PlaidItem is disconnected - cannot refresh accounts";
+    console.log(`[REFRESH] Skipping refresh for disconnected PlaidItem ${firstAccount.plaidItem.id}`);
+    accounts.forEach((account: any) => {
+      results.errors.push({ accountId: account.id, error: errorMsg });
+    });
+    return;
+  }
+
+  // Check if this is an orphaned item (itemId starts with bulk-disconnect)
+  if (firstAccount.plaidItem.itemId && firstAccount.plaidItem.itemId.startsWith('bulk-disconnect')) {
+    const errorMsg = "PlaidItem is orphaned from bulk disconnect - cannot refresh accounts";
+    console.log(`[REFRESH] Skipping refresh for orphaned PlaidItem ${firstAccount.plaidItem.id} (${firstAccount.plaidItem.itemId})`);
+    accounts.forEach((account: any) => {
+      results.errors.push({ accountId: account.id, error: errorMsg });
+    });
+    return;
+  }
   
   if (firstAccount.plaidItem.provider === "coinbase") {
     // Handle Coinbase accounts
@@ -322,7 +342,7 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
       return;
     }
     
-    // Check Plaid item status first (this is a free API call)
+    // Enhanced Plaid item status check with comprehensive error handling
     try {
       const itemResponse = await plaidClient.itemGet({
         access_token: firstAccount.plaidItem.accessToken,
@@ -332,6 +352,7 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
         const errorMsg = `Plaid item error: ${item.error.error_code} - ${item.error.error_message}`;
         console.error(errorMsg);
         let specificError = errorMsg;
+        
         // Check if this is a token revocation error that should mark the item as disconnected
         const shouldMarkDisconnected = [
           "ITEM_NOT_FOUND",
@@ -396,9 +417,39 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
         });
         return;
       }
-    } catch (itemError) {
+    } catch (itemError: any) {
       console.error("Error checking Plaid item status:", itemError);
-      // Continue with balance fetch even if item check fails
+      
+      // Enhanced error handling for item status check failures
+      const errorCode = itemError?.response?.data?.error_code;
+      const errorStatus = itemError?.response?.status;
+      
+      if (errorStatus === 400 && errorCode) {
+        const isTokenRevoked = [
+          'ITEM_NOT_FOUND',
+          'INVALID_ACCESS_TOKEN',
+          'ITEM_EXPIRED'
+        ].includes(errorCode);
+
+        if (isTokenRevoked) {
+          console.log(`[REFRESH] Token revoked during status check for PlaidItem ${firstAccount.plaidItem.id} (${errorCode}) - marking as disconnected`);
+          
+          // Mark the PlaidItem as disconnected
+          await prisma.plaidItem.update({
+            where: { id: firstAccount.plaidItem.id },
+            data: { status: 'disconnected' } as any
+          });
+          
+                     const errorMsg = `Access token revoked (${errorCode}) - please reconnect this institution`;
+           accounts.forEach((account) => {
+             results.errors.push({ accountId: account.id, error: errorMsg });
+           });
+          return;
+        }
+      }
+      
+      // For other errors, continue with balance fetch but log the issue
+      console.warn(`[REFRESH] Continuing with balance fetch despite item status check failure:`, itemError?.message || 'Unknown error');
     }
     
     let response;
@@ -417,20 +468,50 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
         durationMs: Date.now() - plaidApiCallStart,
         userId: firstAccount.userId,
       });
-    } catch (error) {
+    } catch (error: any) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = error?.response?.data?.error_code;
+      const errorStatus = error?.response?.status;
+      
       plaidApiCallError = errorMessage;
       await logPlaidApiCall({
         prisma,
         endpoint: '/accounts/balance/get',
-        responseStatus: (error as any)?.response?.status || 500,
+        responseStatus: errorStatus || 500,
         institutionId: firstAccount.plaidItem.institutionId,
         accountId: firstAccount.id,
         durationMs: Date.now() - plaidApiCallStart,
         errorMessage,
         userId: firstAccount.userId,
       });
+      
       console.error('Plaid accountsBalanceGet error:', errorMessage);
+      
+      // Enhanced error handling for balance fetch failures
+      if (errorStatus === 400 && errorCode) {
+        const isTokenRevoked = [
+          'ITEM_NOT_FOUND',
+          'INVALID_ACCESS_TOKEN',
+          'ITEM_EXPIRED'
+        ].includes(errorCode);
+
+        if (isTokenRevoked) {
+          console.log(`[REFRESH] Token revoked during balance fetch for PlaidItem ${firstAccount.plaidItem.id} (${errorCode}) - marking as disconnected`);
+          
+          // Mark the PlaidItem as disconnected
+          await prisma.plaidItem.update({
+            where: { id: firstAccount.plaidItem.id },
+            data: { status: 'disconnected' } as any
+          });
+          
+          const errorMsg = `Access token revoked (${errorCode}) - please reconnect this institution`;
+          accounts.forEach((account: any) => {
+            results.errors.push({ accountId: account.id, error: errorMsg });
+          });
+          return;
+        }
+      }
+      
       accounts.forEach((account: any) => {
         results.errors.push({ accountId: account.id, error: errorMessage });
       });
@@ -775,7 +856,7 @@ export async function refreshAllAccounts(prisma: any) {
       console.error(`Error refreshing institution ${institutionId}:`, errorMessage);
       
       // Mark all accounts in this institution as failed
-      accounts.forEach(account => {
+      accounts.forEach((account: any) => {
         results.errors.push({ accountId: account.id, error: errorMessage });
       });
     }

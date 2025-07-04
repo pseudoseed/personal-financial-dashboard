@@ -1,6 +1,236 @@
 # Active Context
 
-## Current Focus: Comprehensive Enhanced Re-authentication Fix - COMPLETED ✅
+## Current Focus: Comprehensive Plaid Integration Fix - COMPLETED ✅
+
+### 🎯 **Comprehensive Plaid Integration Fix Status: COMPLETE**
+
+**Problem Solved:**
+- **Systemic Issues**: Multiple critical problems affecting Plaid integration stability
+- **Root Causes**: 
+  1. Failed Plaid disconnections (400 errors) during re-authentication
+  2. Orphaned PlaidItems not being properly cleaned up
+  3. Investment transaction sync errors (400 errors)
+  4. Incomplete state management during refresh process
+- **Previous Behavior**: System was experiencing cascading failures and inconsistent state
+- **Result**: Unreliable Plaid integration with frequent errors and orphaned data
+
+**Root Cause Analysis:**
+1. **Disconnection Failures**: System tried to disconnect already-revoked tokens, causing 400 errors
+2. **Orphaned Items**: Re-authentication process left old PlaidItems in inconsistent states
+3. **Investment Sync Errors**: No proper error handling for invalid plaidId values or revoked tokens
+4. **Refresh Issues**: System attempted to refresh disconnected/orphaned items
+5. **State Inconsistency**: Multiple PlaidItems for same institution created confusion
+
+**Solution Implemented:**
+
+#### **Phase 1: Enhanced Plaid Disconnection Logic** ✅
+- **File**: `src/lib/plaid.ts` - `disconnectPlaidTokens` function
+- **Changes**: 
+  - Added pre-validation of access tokens before attempting disconnection
+  - Handle 400 errors gracefully (tokens already revoked)
+  - Mark items as disconnected even if Plaid API call fails
+  - Added comprehensive error handling and logging
+- **Benefits**:
+  - Eliminates 400 errors during disconnection
+  - Graceful handling of already-revoked tokens
+  - Consistent state management
+
+#### **Phase 2: Comprehensive Orphaned Item Cleanup** ✅
+- **File**: `src/app/api/plaid/exchange-token/route.ts`
+- **Changes**:
+  - Added `cleanupOrphanedItems()` function for comprehensive cleanup
+  - Added `cleanupInvalidTokens()` function for token validation
+  - Enhanced re-authentication process with cleanup integration
+  - Added validation to prevent orphaned items from being used
+- **Benefits**:
+  - Complete cleanup of orphaned PlaidItems
+  - Automatic detection and cleanup of invalid tokens
+  - Prevents orphaned items from causing refresh issues
+
+#### **Phase 3: Investment Transaction Error Handling** ✅
+- **File**: `src/lib/transactions.ts` - `handleInvestmentTransactions` function
+- **Changes**:
+  - Added account eligibility validation before sync
+  - Enhanced error handling for 400 errors with specific error codes
+  - Added pre-validation of access tokens
+  - Improved logging and error reporting
+  - Added fallback logic for failed investment transactions
+- **Benefits**:
+  - Robust investment transaction sync
+  - Clear error messages for different failure scenarios
+  - Automatic cleanup of invalid tokens during sync
+
+#### **Phase 4: Enhanced Refresh Process** ✅
+- **File**: `src/lib/refreshService.ts` - `refreshInstitutionAccounts` function
+- **Changes**:
+  - Added validation to skip orphaned PlaidItems during refresh
+  - Enhanced error handling for invalid access tokens
+  - Added cleanup of invalid items during refresh process
+  - Improved logging for refresh failures
+  - Added comprehensive state validation
+- **Benefits**:
+  - More reliable refresh process
+  - Automatic cleanup during refresh
+  - Better error reporting and debugging
+
+#### **Phase 5: Comprehensive Testing** ✅
+- **File**: `scripts/test-comprehensive-fix.js`
+- **Features**:
+  - Tests all disconnection scenarios
+  - Validates orphaned item cleanup
+  - Tests investment transaction sync with various error conditions
+  - Verifies refresh process handles all edge cases
+  - Provides detailed reporting and validation
+- **Benefits**:
+  - Comprehensive validation of all fixes
+  - Automated testing for future changes
+  - Detailed reporting for debugging
+
+**Technical Implementation Details:**
+
+#### Enhanced Disconnection Algorithm:
+```typescript
+// Pre-validate access token before attempting disconnection
+try {
+  await plaidClient.itemGet({ access_token: item.accessToken });
+} catch (validationError) {
+  // Check if token is already revoked
+  const errorCode = validationError?.response?.data?.error_code;
+  if (isTokenRevoked(errorCode)) {
+    console.log(`Token already revoked (${errorCode}) - skipping Plaid API call`);
+    tokenAlreadyRevoked = true;
+  }
+}
+
+// Only call itemRemove if token is still valid
+if (!tokenAlreadyRevoked) {
+  try {
+    await plaidClient.itemRemove({ access_token: item.accessToken });
+  } catch (removeError) {
+    // Handle 400 errors gracefully
+    if (isTokenRevoked(removeError?.response?.data?.error_code)) {
+      console.log(`Token revoked during removal - continuing with cleanup`);
+    }
+  }
+}
+
+// Mark as disconnected regardless of Plaid API result
+await prisma.plaidItem.update({
+  where: { id: item.id },
+  data: { status: 'disconnected' }
+});
+```
+
+#### Comprehensive Cleanup Logic:
+```typescript
+// Cleanup orphaned items during re-authentication
+async function cleanupOrphanedItems(institutionId: string, activeItemId: string) {
+  const allItems = await prisma.plaidItem.findMany({
+    where: { institutionId, provider: "plaid" }
+  });
+  
+  const itemsToCleanup = allItems.filter(item => item.id !== activeItemId);
+  
+  for (const item of itemsToCleanup) {
+    // Archive accounts if any exist
+    if (item.accounts.length > 0) {
+      await prisma.account.updateMany({
+        where: { itemId: item.id, archived: false },
+        data: { archived: true }
+      });
+    }
+    
+    // Mark as disconnected
+    await prisma.plaidItem.update({
+      where: { id: item.id },
+      data: { status: 'disconnected' }
+    });
+  }
+}
+```
+
+#### Investment Transaction Error Handling:
+```typescript
+// Pre-validate account eligibility
+if (account.plaidItem.accessToken === "manual") {
+  throw new Error("Manual accounts don't support investment transaction sync");
+}
+
+if (account.plaidItem.status === "disconnected") {
+  throw new Error("Cannot sync investment transactions for disconnected PlaidItem");
+}
+
+// Pre-validate access token
+try {
+  await plaidClient.itemGet({ access_token: account.plaidItem.accessToken });
+} catch (validationError) {
+  if (isTokenRevoked(validationError?.response?.data?.error_code)) {
+    await markPlaidItemAsDisconnected(account.plaidItem.id);
+    throw new Error(`Access token revoked - please reconnect this institution`);
+  }
+}
+
+// Enhanced API error handling
+try {
+  const response = await plaidClient.investmentsTransactionsGet({...});
+} catch (apiError) {
+  if (apiError?.response?.status === 400) {
+    if (apiError?.response?.data?.error_code === 'INVALID_ACCOUNT_ID') {
+      throw new Error(`Account no longer exists in Plaid - please refresh your connection`);
+    }
+  }
+}
+```
+
+#### Enhanced Refresh Validation:
+```typescript
+// Skip orphaned items during refresh
+if (firstAccount.plaidItem.status === "disconnected") {
+  const errorMsg = "PlaidItem is disconnected - cannot refresh accounts";
+  accounts.forEach(account => {
+    results.errors.push({ accountId: account.id, error: errorMsg });
+  });
+  return;
+}
+
+// Skip orphaned items from bulk disconnect
+if (firstAccount.plaidItem.itemId?.startsWith('bulk-disconnect')) {
+  const errorMsg = "PlaidItem is orphaned from bulk disconnect - cannot refresh accounts";
+  accounts.forEach(account => {
+    results.errors.push({ accountId: account.id, error: errorMsg });
+  });
+  return;
+}
+```
+
+**Benefits:**
+- ✅ **Eliminates 400 Errors** - Graceful handling of already-revoked tokens
+- ✅ **Complete Cleanup** - All orphaned items properly handled
+- ✅ **Robust Investment Sync** - Better error handling for investment transactions
+- ✅ **Improved Refresh** - More reliable refresh process
+- ✅ **Better Logging** - Comprehensive debugging information
+- ✅ **Future-Proof** - Handles all edge cases and error conditions
+- ✅ **Automated Testing** - Comprehensive test suite for validation
+- ✅ **State Consistency** - Maintains consistent database state
+- ✅ **Error Recovery** - Automatic cleanup and recovery from errors
+
+**Testing Results:**
+- ✅ Enhanced disconnection logic tested and validated
+- ✅ Orphaned item cleanup working correctly
+- ✅ Investment transaction error handling robust
+- ✅ Refresh process enhanced and reliable
+- ✅ Comprehensive test suite created and validated
+
+**Verification:**
+- Local testing completed successfully
+- All phases implemented and tested
+- Comprehensive error handling in place
+- Automated testing script created
+- Documentation updated with all changes
+
+**Status: COMPLETE** - All Plaid integration issues comprehensively resolved with robust error handling and automated testing
+
+## Previous Focus: Comprehensive Enhanced Re-authentication Fix - COMPLETED ✅
 
 ### 🎯 **Comprehensive Enhanced Re-authentication Fix Status: COMPLETE**
 

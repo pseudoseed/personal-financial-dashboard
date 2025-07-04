@@ -25,6 +25,7 @@ export const plaidClient = new PlaidApi(configuration);
 /**
  * Disconnect Plaid access tokens for given PlaidItems
  * This function revokes access tokens via Plaid API and marks items as disconnected in the database
+ * Enhanced to handle already-revoked tokens gracefully
  */
 export async function disconnectPlaidTokens(plaidItems: Array<{ id: string; accessToken: string; institutionId: string; institutionName: string | null }>): Promise<{
   success: string[];
@@ -40,19 +41,70 @@ export async function disconnectPlaidTokens(plaidItems: Array<{ id: string; acce
       const userId = await getCurrentUserId();
       const appInstanceId = getAppInstanceId();
       
-      // Call Plaid /item/remove to revoke the access token
-      await trackPlaidApiCall(
-        () => plaidClient.itemRemove({ access_token: item.accessToken }),
-        {
-          endpoint: '/item/remove',
-          institutionId: item.institutionId,
-          userId,
-          appInstanceId,
-          requestData: { accessToken: '***' } // Don't log the actual token
+      // Pre-validate access token before attempting disconnection
+      let tokenAlreadyRevoked = false;
+      try {
+        await trackPlaidApiCall(
+          () => plaidClient.itemGet({ access_token: item.accessToken }),
+          {
+            endpoint: '/item/get',
+            institutionId: item.institutionId,
+            userId,
+            appInstanceId,
+            requestData: { accessToken: '***' }
+          }
+        );
+      } catch (validationError: any) {
+        // Check if token is already revoked/invalid
+        const errorCode = validationError?.response?.data?.error_code;
+        const isAlreadyRevoked = [
+          'ITEM_NOT_FOUND',
+          'INVALID_ACCESS_TOKEN',
+          'ITEM_EXPIRED'
+        ].includes(errorCode);
+        
+        if (isAlreadyRevoked) {
+          console.log(`[PLAID DISCONNECT] Token for item ${item.id} already revoked (${errorCode}) - skipping Plaid API call`);
+          tokenAlreadyRevoked = true;
+        } else {
+          // Re-throw if it's a different type of error
+          throw validationError;
         }
-      );
+      }
       
-      // Mark as disconnected in the database
+      // Only call itemRemove if token is still valid
+      if (!tokenAlreadyRevoked) {
+        try {
+          await trackPlaidApiCall(
+            () => plaidClient.itemRemove({ access_token: item.accessToken }),
+            {
+              endpoint: '/item/remove',
+              institutionId: item.institutionId,
+              userId,
+              appInstanceId,
+              requestData: { accessToken: '***' } // Don't log the actual token
+            }
+          );
+          console.log(`[Plaid] Successfully revoked access token for item ${item.id}`);
+        } catch (removeError: any) {
+          // Handle 400 errors gracefully (token already revoked)
+          const errorCode = removeError?.response?.data?.error_code;
+          const isAlreadyRevoked = [
+            'ITEM_NOT_FOUND',
+            'INVALID_ACCESS_TOKEN',
+            'ITEM_EXPIRED'
+          ].includes(errorCode);
+          
+          if (isAlreadyRevoked) {
+            console.log(`[PLAID DISCONNECT] Token for item ${item.id} already revoked during removal (${errorCode}) - continuing with cleanup`);
+          } else {
+            // Re-throw if it's a different type of error
+            throw removeError;
+          }
+        }
+      }
+      
+      // Mark as disconnected in the database (regardless of Plaid API result)
       const updatedItem = await prisma.plaidItem.update({
         where: { id: item.id },
         data: { status: 'disconnected' } as any
@@ -67,7 +119,7 @@ export async function disconnectPlaidTokens(plaidItems: Array<{ id: string; acce
       }
       
       success.push(item.id);
-      console.log(`[Plaid] Successfully disconnected item ${item.id}`);
+      console.log(`[Plaid] Successfully disconnected item ${item.id} (${tokenAlreadyRevoked ? 'token was already revoked' : 'token revoked'})`);
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error || 'Unknown error');
