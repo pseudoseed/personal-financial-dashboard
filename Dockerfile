@@ -91,6 +91,10 @@ RUN chmod +x scripts/init-db.sh && \
     chmod +x scripts/start-with-backup-cron.sh && \
     chown nextjs:nodejs scripts/init-db.sh scripts/start-with-backup-cron.sh
 
+# Copy src/lib directory for backup functionality
+COPY --from=builder /app/src/lib ./src/lib
+RUN chown -R nextjs:nodejs src/lib
+
 # Create enhanced startup script with validation and error handling
 RUN echo '#!/bin/bash' > /app/start.sh && \
     echo 'set -e' >> /app/start.sh && \
