@@ -1,6 +1,104 @@
 # Active Context
 
-## Current Focus: Comprehensive Backup System Permission Fix - COMPLETED ✅
+## Current Focus: Comprehensive plaidId Unique Constraint Fix - COMPLETED ✅
+
+### 🎯 **Comprehensive plaidId Unique Constraint Fix Status: COMPLETE**
+
+**Problem Solved:**
+- Critical database constraint error during Plaid re-authentication: "Unique constraint failed on the fields: (`plaidId`)"
+- Error occurred when trying to update account `plaidId` values after merging duplicate accounts
+- Multiple PlaidItems for same institution (Chase) caused conflicting `plaidId` assignments
+- System was attempting to update accounts to `plaidId` values that already existed in other accounts
+
+**Root Cause Analysis:**
+1. **Re-authentication Scenario**: Multiple PlaidItems existed for same institution (Chase had 3 disconnected items)
+2. **Duplicate Merge Process**: After merging duplicates, system tried to synchronize `plaidId` values
+3. **Missing Conflict Detection**: Code didn't check if target `plaidId` already existed before updating
+4. **Race Condition**: Multiple accounts could be updated to same `plaidId` simultaneously
+5. **No Transaction Safety**: Updates weren't wrapped in transactions for consistency
+
+**Solution Implemented:**
+
+#### 1. **Added Safe plaidId Synchronization Function** ✅
+- **File**: `src/app/api/plaid/exchange-token/route.ts`
+- **Function**: `synchronizePlaidIdsSafely(itemId: string, plaidAccounts: any[])`
+- **Features**:
+  - Two-pass approach: first identify safe updates, then execute in transaction
+  - Conflict detection before any updates
+  - Double-checking during transaction execution
+  - Comprehensive logging for debugging
+  - Graceful error handling (non-blocking)
+
+#### 2. **Enhanced Account Creation Safety** ✅
+- **File**: `src/app/api/plaid/exchange-token/route.ts`
+- **Changes**: Added `plaidId` existence check before creating new accounts
+- **Logic**: Check if `plaidId` already exists in database before creation
+- **Benefits**: Prevents constraint violations during initial account creation
+
+#### 3. **Improved Duplicate Detection Integration** ✅
+- **File**: `src/app/api/plaid/exchange-token/route.ts`
+- **Changes**: Replaced unsafe `plaidId` synchronization with safe function calls
+- **Logic**: Both existing and new institution paths now use `synchronizePlaidIdsSafely()`
+- **Benefits**: Consistent safety across all token exchange scenarios
+
+#### 4. **Added Comprehensive Testing** ✅
+- **File**: `scripts/test-plaidid-constraint-fix.js`
+- **Features**:
+  - Detects duplicate `plaidId` values in database
+  - Tests synchronization logic with simulated conflicts
+  - Validates fix effectiveness
+  - Provides detailed reporting
+
+**Technical Implementation Details:**
+
+#### Safe Synchronization Algorithm:
+```typescript
+async function synchronizePlaidIdsSafely(itemId: string, plaidAccounts: any[]) {
+  // 1. Get all remaining accounts for this PlaidItem
+  // 2. First pass: identify safe updates and detect conflicts
+  // 3. Second pass: execute updates within transaction
+  // 4. Double-check conflicts during transaction
+  // 5. Graceful error handling
+}
+```
+
+#### Conflict Detection Logic:
+- Check if target `plaidId` already assigned to another account
+- Check if target `plaidId` already queued for another update
+- Skip conflicting updates to prevent constraint violations
+- Log all conflicts for debugging
+
+#### Transaction Safety:
+- All updates wrapped in `prisma.$transaction()`
+- Double-checking during transaction execution
+- Rollback on any constraint violation
+- Non-blocking error handling
+
+**Benefits:**
+- ✅ **Eliminates Constraint Violations** - No more unique constraint errors
+- ✅ **Maintains Data Integrity** - No data loss or corruption
+- ✅ **Prevents Race Conditions** - Transaction-based updates
+- ✅ **Comprehensive Logging** - Full visibility into synchronization process
+- ✅ **Graceful Error Handling** - Non-blocking for main token exchange
+- ✅ **Future-Proof** - Handles all edge cases and conflict scenarios
+- ✅ **Backward Compatible** - Works with existing data and processes
+
+**Testing Results:**
+- ✅ No duplicate `plaidId` values found in current database
+- ✅ All institutions properly handled (Chase, Discover, SoFi, etc.)
+- ✅ Synchronization logic correctly detects and avoids conflicts
+- ✅ Test script validates fix effectiveness
+
+**Verification:**
+- Local testing completed successfully
+- No constraint violations during simulated re-authentication
+- All conflict scenarios properly handled
+- Comprehensive logging provides debugging visibility
+- Database integrity maintained throughout process
+
+**Status: COMPLETE** - plaidId unique constraint error fully resolved with comprehensive safety measures
+
+## Previous Focus: Comprehensive Backup System Permission Fix - COMPLETED ✅
 
 ### 🎯 **Comprehensive Backup System Permission Fix Status: COMPLETE**
 
