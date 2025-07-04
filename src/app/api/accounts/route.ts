@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const includeArchived = searchParams.get("includeArchived") === "true";
+    const includeDisconnected = searchParams.get("includeDisconnected") === "true";
 
     const accounts = await prisma.account.findMany({
       where: {
@@ -37,7 +38,19 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const formattedAccounts = accounts.map((account) => ({
+    // Filter out disconnected accounts in JavaScript if not explicitly requested
+    const filteredAccounts = includeDisconnected 
+      ? accounts 
+      : accounts.filter(account => {
+          // Include manual accounts
+          if (account.plaidItem?.accessToken === "manual") return true;
+          // Include accounts with active or null status
+          if (!account.plaidItem?.status || account.plaidItem.status !== "disconnected") return true;
+          // Exclude disconnected accounts
+          return false;
+        });
+
+    const formattedAccounts = filteredAccounts.map((account) => ({
       id: account.id,
       name: account.name,
       nickname: account.nickname,
