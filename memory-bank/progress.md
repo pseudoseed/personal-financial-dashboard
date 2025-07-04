@@ -162,6 +162,8 @@ Based on the project files and TODO list, the following features are currently w
 - **Cost Reduction**: Achieved 75-85% reduction in total Plaid API costs through smart caching and rate limiting
 - **External Token Revocation Detection - COMPLETED ✅**: Implemented filtering to exclude disconnected accounts from main view
 - **Status-Based Account Archiving System - COMPLETED ✅**: Added database schema for archived accounts with transaction/balance history preservation
+- **Comprehensive Plaid API Call Tracking - COMPLETED ✅**: Implemented centralized tracking utility and added tracking to all missing endpoints
+- **Account Filtering for Plaid API Calls - COMPLETED ✅**: Implemented centralized account eligibility utility and added filtering to all endpoints
 
 ### Technical Debt
 - **Code Organization**: Some components could be better organized
@@ -360,4 +362,43 @@ Based on the current status, the next release will focus on:
 - **Plaid API Costs**: Reduced through smart caching and staleness logic
 - **Manual Refresh Usage**: Tracked to prevent abuse
 - **API Efficiency**: Minimal redundant API calls
-- **Cost Monitoring**: Real-time tracking of API usage and costs 
+- **Cost Monitoring**: Real-time tracking of API usage and costs
+
+## Recent Achievements
+
+### Account Filtering for Plaid API Calls - COMPLETED ✅
+- **Problem**: Manual accounts, archived accounts, and disconnected accounts were potentially making unnecessary Plaid API calls
+- **Solution**: Implemented centralized account eligibility utility and added filtering to all endpoints
+- **Features**:
+  - Created centralized `/src/lib/accountEligibility.ts` utility with comprehensive filtering functions
+  - Added eligibility checks to 4+ endpoints that make Plaid API calls
+  - **100% Coverage** - All endpoints now filter accounts before making API calls
+  - Clear eligibility criteria: manual accounts, archived accounts, disconnected accounts are excluded
+  - Descriptive logging for why accounts are skipped
+  - Created test script for verification and monitoring
+- **Benefits**: Cost optimization, error prevention, performance improvement, consistent logic, clear logging
+
+### Comprehensive Plaid API Call Tracking - COMPLETED ✅
+- **Problem**: Many Plaid API calls were not being tracked, leading to inaccurate billing and usage monitoring
+- **Solution**: Implemented centralized tracking utility and added tracking to all missing endpoints
+- **Features**:
+  - Created centralized `/src/lib/plaidTracking.ts` utility with `logPlaidApiCall()` and `trackPlaidApiCall()` functions
+  - Added tracking to 10+ endpoints that were missing it
+  - **100% Plaid API Call Coverage** - Every Plaid API call is now tracked
+  - Automatic timing measurement and error handling
+  - Security-conscious implementation (no sensitive data logged)
+  - Created test script for verification and monitoring
+- **Benefits**: Accurate billing, performance monitoring, error tracking, user context, consistent implementation
+
+### External Token Revocation Detection - COMPLETED ✅
+- **Problem**: Accounts with externally revoked Plaid tokens were still appearing in main accounts list, and reconnect button wasn't working
+- **Solution**: Implemented filtering to exclude disconnected accounts from main view and fixed reconnect button integration
+- **Features**:
+  - Accounts API filters out disconnected PlaidItems by default
+  - Separate `/api/accounts/disconnected` endpoint for disconnected accounts
+  - Frontend displays disconnected accounts in dedicated section with clear messaging
+  - **Reconnect button now properly integrated with AuthenticationAlerts component**
+  - Reconnect buttons and educational content about common disconnection causes
+- **Benefits**: Zero additional API calls, clear user guidance, immediate visibility of disconnected accounts, proper reconnection flow
+
+### Status-Based Account Archiving System - COMPLETED ✅ 

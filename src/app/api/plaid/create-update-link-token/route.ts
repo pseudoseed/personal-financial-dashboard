@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { plaidClient } from "@/lib/plaid";
 import { prisma } from "@/lib/db";
 import { Products, CountryCode } from "plaid";
+import { trackPlaidApiCall, getCurrentUserId, getAppInstanceId } from "@/lib/plaidTracking";
 
 export async function POST(request: Request) {
   try {
@@ -29,15 +30,31 @@ export async function POST(request: Request) {
       );
     }
 
+    const userId = await getCurrentUserId();
+    const appInstanceId = getAppInstanceId();
+
     // Create a link token for updating the existing item
-    const response = await plaidClient.linkTokenCreate({
-      user: { client_user_id: "default" },
-      client_name: "Personal Financial Dashboard",
-      products: [Products.Auth, Products.Transactions, Products.Liabilities],
-      country_codes: [CountryCode.Us],
-      language: "en",
-      access_token: plaidItem.accessToken, // This enables update mode
-    });
+    const response = await trackPlaidApiCall(
+      () => plaidClient.linkTokenCreate({
+        user: { client_user_id: "default" },
+        client_name: "Personal Financial Dashboard",
+        products: [Products.Auth, Products.Transactions, Products.Liabilities],
+        country_codes: [CountryCode.Us],
+        language: "en",
+        access_token: plaidItem.accessToken, // This enables update mode
+      }),
+      {
+        endpoint: '/link_token/create',
+        institutionId,
+        userId,
+        appInstanceId,
+        requestData: {
+          isUpdateMode: true,
+          products: [Products.Auth, Products.Transactions, Products.Liabilities].map(p => p.toString()),
+          accessToken: '***' // Don't log the actual token
+        }
+      }
+    );
 
     return NextResponse.json({
       link_token: response.data.link_token,

@@ -10,6 +10,8 @@ import {
 import { prisma } from "@/lib/db";
 import { Account, PlaidItem } from "@prisma/client";
 import { downloadTransactions } from "@/lib/transactions";
+import { trackPlaidApiCall, getCurrentUserId, getAppInstanceId } from "@/lib/plaidTracking";
+import { isAccountEligibleForPlaidCalls, getAccountIneligibilityReason } from "@/lib/accountEligibility";
 
 const plaidClient = new PlaidApi(
   new Configuration({
@@ -28,24 +30,47 @@ async function handleRegularTransactions(
     plaidItem: PlaidItem;
   }
 ) {
+  // Check if account is eligible for Plaid API calls
+  if (!isAccountEligibleForPlaidCalls(account)) {
+    const reason = getAccountIneligibilityReason(account);
+    console.log(`[TRANSACTIONS] Skipping Plaid API calls for account ${account.id}: ${reason}`);
+    throw new Error(`Account is not eligible for Plaid API calls: ${reason}`);
+  }
+
   let allTransactions: PlaidTransaction[] = [];
   let hasMore = true;
   let cursor: string | undefined = undefined;
 
   console.log("Starting transaction sync for account:", account.id);
 
-  // Keep fetching transactions until we get them all
+  const userId = await getCurrentUserId();
+  const appInstanceId = getAppInstanceId();
+
   while (hasMore) {
-    console.log("Fetching transactions with cursor:", cursor);
-    const response = await plaidClient.transactionsSync({
-      access_token: account.plaidItem.accessToken,
-      cursor,
-      count: 500,
-      options: {
-        include_original_description: true,
-        account_id: account.plaidId,
-      },
-    });
+    const response: any = await trackPlaidApiCall(
+      () => plaidClient.transactionsSync({
+        access_token: account.plaidItem.accessToken,
+        cursor,
+        count: 500,
+        options: {
+          include_original_description: true,
+          account_id: account.plaidId,
+        },
+      }),
+      {
+        endpoint: '/transactions/sync',
+        institutionId: account.plaidItem.institutionId,
+        accountId: account.id,
+        userId,
+        appInstanceId,
+        requestData: {
+          accessToken: '***', // Don't log the actual token
+          cursor: cursor || 'initial',
+          count: 500,
+          accountId: account.plaidId
+        }
+      }
+    );
 
     console.log("Plaid API Response:", {
       added: response.data.added.length,

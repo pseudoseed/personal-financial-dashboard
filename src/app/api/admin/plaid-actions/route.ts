@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Configuration, PlaidApi, PlaidEnvironments } from 'plaid';
+import { trackPlaidApiCall, getCurrentUserId, getAppInstanceId } from "@/lib/plaidTracking";
 
 const configuration = new Configuration({
   basePath: PlaidEnvironments[process.env.PLAID_ENV as keyof typeof PlaidEnvironments || 'sandbox'],
@@ -67,27 +68,48 @@ export async function POST(request: Request) {
   try {
     const { action, itemId } = await request.json();
 
-    // Get the Plaid item
+    if (!action || !itemId) {
+      return NextResponse.json(
+        { error: "Action and itemId are required" },
+        { status: 400 }
+      );
+    }
+
+    // Get the PlaidItem
     const plaidItem = await prisma.plaidItem.findUnique({
       where: { id: itemId },
-      include: { accounts: true },
+      include: {
+        accounts: true,
+      },
     });
 
     if (!plaidItem) {
       return NextResponse.json(
-        { success: false, message: "Plaid item not found" },
+        { error: "PlaidItem not found" },
         { status: 404 }
       );
     }
+
+    const userId = await getCurrentUserId();
+    const appInstanceId = getAppInstanceId();
 
     let result: any = {};
 
     switch (action) {
       case 'test-status':
         try {
-          const itemGetResponse = await plaidClient.itemGet({
-            access_token: plaidItem.accessToken,
-          });
+          const itemGetResponse = await trackPlaidApiCall(
+            () => plaidClient.itemGet({
+              access_token: plaidItem.accessToken,
+            }),
+            {
+              endpoint: '/item/get',
+              institutionId: plaidItem.institutionId,
+              userId,
+              appInstanceId,
+              requestData: { accessToken: '***' } // Don't log the actual token
+            }
+          );
           result = {
             success: true,
             message: "Item status checked successfully",
@@ -148,9 +170,18 @@ export async function POST(request: Request) {
 
       case 'sync-accounts':
         try {
-          const accountsResponse = await plaidClient.accountsGet({
-            access_token: plaidItem.accessToken,
-          });
+          const accountsResponse = await trackPlaidApiCall(
+            () => plaidClient.accountsGet({
+              access_token: plaidItem.accessToken,
+            }),
+            {
+              endpoint: '/accounts/get',
+              institutionId: plaidItem.institutionId,
+              userId,
+              appInstanceId,
+              requestData: { accessToken: '***' } // Don't log the actual token
+            }
+          );
 
           // Update accounts in database (simplified)
           for (const account of accountsResponse.data.accounts) {
@@ -193,9 +224,18 @@ export async function POST(request: Request) {
 
       case 'sync-balances':
         try {
-          const balanceResponse = await plaidClient.accountsBalanceGet({
-            access_token: plaidItem.accessToken,
-          });
+          const balanceResponse = await trackPlaidApiCall(
+            () => plaidClient.accountsBalanceGet({
+              access_token: plaidItem.accessToken,
+            }),
+            {
+              endpoint: '/accounts/balance/get',
+              institutionId: plaidItem.institutionId,
+              userId,
+              appInstanceId,
+              requestData: { accessToken: '***' } // Don't log the actual token
+            }
+          );
 
           // Update balances in database
           for (const account of balanceResponse.data.accounts) {
@@ -242,14 +282,29 @@ export async function POST(request: Request) {
             });
 
             if (dbAccount) {
-              const transactionsResponse = await plaidClient.transactionsGet({
-                access_token: plaidItem.accessToken,
-                start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Last 30 days
-                end_date: new Date().toISOString().split('T')[0],
-                options: {
-                  account_ids: [dbAccount.plaidId],
-                },
-              });
+              const transactionsResponse = await trackPlaidApiCall(
+                () => plaidClient.transactionsGet({
+                  access_token: plaidItem.accessToken,
+                  start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Last 30 days
+                  end_date: new Date().toISOString().split('T')[0],
+                  options: {
+                    account_ids: [dbAccount.plaidId],
+                  },
+                }),
+                {
+                  endpoint: '/transactions/get',
+                  institutionId: plaidItem.institutionId,
+                  accountId: dbAccount.id,
+                  userId,
+                  appInstanceId,
+                  requestData: {
+                    accessToken: '***', // Don't log the actual token
+                    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    endDate: new Date().toISOString().split('T')[0],
+                    accountIds: [dbAccount.plaidId]
+                  }
+                }
+              );
 
               // Process transactions (simplified)
               for (const transaction of transactionsResponse.data.transactions) {
@@ -280,9 +335,8 @@ export async function POST(request: Request) {
                     pending: transaction.pending,
                   },
                 });
+                totalTransactions++;
               }
-
-              totalTransactions += transactionsResponse.data.transactions.length;
             }
           }
 
@@ -304,17 +358,21 @@ export async function POST(request: Request) {
 
       case 'disconnect':
         try {
-          // Remove the item from Plaid
-          await plaidClient.itemRemove({
-            access_token: plaidItem.accessToken,
-          });
+          await trackPlaidApiCall(
+            () => plaidClient.itemRemove({ access_token: plaidItem.accessToken }),
+            {
+              endpoint: '/item/remove',
+              institutionId: plaidItem.institutionId,
+              userId,
+              appInstanceId,
+              requestData: { accessToken: '***' } // Don't log the actual token
+            }
+          );
 
-          // Update database (placeholder - status field not available)
+          // Mark as disconnected in database
           await prisma.plaidItem.update({
             where: { id: itemId },
-            data: {
-              updatedAt: new Date(),
-            },
+            data: { status: 'disconnected' } as any,
           });
 
           result = {
@@ -332,16 +390,16 @@ export async function POST(request: Request) {
 
       default:
         return NextResponse.json(
-          { success: false, message: "Invalid action" },
+          { error: "Unknown action" },
           { status: 400 }
         );
     }
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Error performing Plaid action:", error || "Unknown error");
+    console.error("Error executing Plaid action:", error || "Unknown error");
     return NextResponse.json(
-      { success: false, message: "Failed to perform action", error: error instanceof Error ? error.message : "Unknown error" },
+      { error: "Failed to execute Plaid action" },
       { status: 500 }
     );
   }

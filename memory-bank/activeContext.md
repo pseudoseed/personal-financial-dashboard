@@ -1,6 +1,230 @@
 # Active Context
 
-## Current Focus: External Token Revocation Detection - COMPLETED ✅
+## Current Focus: Orphaned Data Page Fix - COMPLETED ✅
+
+### 🎯 **Orphaned Data Page Fix Status: COMPLETE**
+
+**Problem Solved:**
+- Orphaned data page was returning a 500 error with Prisma error: "no such column: a.institution"
+- SQL query was trying to select a non-existent `institution` column from the Account table
+- Table names in raw SQL queries were not properly quoted for SQLite
+
+**Root Cause:**
+- The Account table doesn't have an `institution` column - institution information is stored in the PlaidItem table
+- SQLite requires quoted table names in raw SQL queries
+- The frontend expected an `institution` field in the response
+
+**Solution Implemented:**
+
+#### 1. **Fixed SQL Query** ✅
+- **Removed**: Non-existent `a.institution` column from SELECT statement
+- **Added**: Proper table name quoting for SQLite compatibility
+- **Updated**: All raw SQL queries to use quoted table names (`"Account"`, `"Transaction"`, etc.)
+
+#### 2. **Handled Institution Display** ✅
+- **Added**: Default "Unknown Institution" value for orphaned accounts
+- **Logic**: Since orphaned accounts don't have PlaidItems, they can't have institution information
+- **Frontend**: Updated response mapping to include institution field with default value
+
+#### 3. **Fixed DELETE Queries** ✅
+- **Updated**: All DELETE operations to use quoted table names
+- **Ensured**: Consistency across all raw SQL queries in the endpoint
+
+**Technical Changes:**
+- **File**: `/src/app/api/admin/orphaned-data/route.ts`
+- **Queries Updated**: 
+  - Orphaned accounts query (removed `a.institution`, added quotes)
+  - Orphaned transactions query (added quotes)
+  - Orphaned balances query (added quotes)
+  - Orphaned loan details query (added quotes)
+  - All DELETE queries (added quotes)
+- **Response Mapping**: Added institution field with "Unknown Institution" default
+
+**Benefits:**
+- ✅ **Page Now Works** - Orphaned data page loads without errors
+- ✅ **Proper Data Display** - Shows correct information about orphaned records
+- ✅ **SQLite Compatibility** - All queries work with SQLite's quoted table name requirement
+- ✅ **Frontend Compatibility** - Response format matches frontend expectations
+- ✅ **Clean Data** - Proper handling of orphaned accounts without institution info
+
+**Status: COMPLETE** - Orphaned data page is now fully functional
+
+## Previous Focus: Account Filtering for Plaid API Calls - COMPLETED ✅
+
+### 🎯 **Account Filtering for Plaid API Calls Status: COMPLETE**
+
+**Problem Solved:**
+- Manual accounts were potentially making unnecessary Plaid API calls
+- Archived accounts could trigger Plaid API calls during refresh operations
+- Disconnected accounts might attempt API calls that would fail
+- No centralized filtering logic to prevent these unnecessary calls
+
+**Root Cause:**
+- Individual endpoints were not consistently checking account eligibility
+- No centralized utility to determine if an account should make Plaid API calls
+- Manual accounts with `accessToken: "manual"` could trigger API calls
+- Archived accounts were not being filtered out in all refresh operations
+
+**Solution Implemented:**
+
+#### 1. **Centralized Account Eligibility Utility** ✅
+- Created `/src/lib/accountEligibility.ts` with comprehensive filtering functions
+- `isAccountEligibleForPlaidCalls()` - Check if account should make Plaid API calls
+- `isPlaidItemEligibleForApiCalls()` - Check if PlaidItem should make API calls
+- `filterEligibleAccounts()` - Filter array of accounts to only eligible ones
+- `getAccountIneligibilityReason()` - Get descriptive reason why account is ineligible
+- Consistent logic across all endpoints
+
+#### 2. **Endpoints Updated with Filtering** ✅
+- ✅ `/app/api/accounts/auth-status/route.ts` - Filters out manual and disconnected PlaidItems
+- ✅ `/app/api/accounts/[accountId]/refresh/route.ts` - Checks eligibility before making API calls
+- ✅ `/app/api/accounts/[accountId]/transactions/route.ts` - Validates account before transaction sync
+- ✅ `/lib/refreshService.ts` - Filters accounts before bulk refresh operations
+
+#### 3. **Eligibility Criteria** ✅
+- **Manual Accounts**: `accessToken === "manual"` → ❌ No API calls
+- **Archived Accounts**: `archived === true` → ❌ No API calls  
+- **Disconnected Accounts**: `plaidItem.status === "disconnected"` → ❌ No API calls
+- **No Access Token**: `!accessToken || accessToken === "manual"` → ❌ No API calls
+- **Active Plaid Accounts**: All other accounts → ✅ Make API calls
+
+#### 4. **Testing and Verification** ✅
+- Created `/scripts/test-account-filtering.js` to verify filtering implementation
+- Test shows proper categorization of accounts
+- Confirms no unnecessary API calls are made
+- Ready for production use
+
+**Benefits:**
+- ✅ **Cost Optimization** - No unnecessary Plaid API calls for ineligible accounts
+- ✅ **Error Prevention** - Avoids failed API calls for disconnected accounts
+- ✅ **Performance** - Faster operations by skipping ineligible accounts
+- ✅ **Consistent Logic** - Centralized filtering ensures uniform behavior
+- ✅ **Clear Logging** - Descriptive reasons for why accounts are skipped
+- ✅ **Maintainable** - Single source of truth for eligibility logic
+
+**Technical Implementation:**
+- Used TypeScript interfaces for type safety
+- Comprehensive filtering functions with descriptive error messages
+- Integration with existing tracking system
+- Logging for debugging and monitoring
+- Backward compatible with existing code
+
+**Status: COMPLETE** - All endpoints now properly filter accounts before making Plaid API calls
+
+### 🎯 **Comprehensive Plaid API Call Tracking Status: COMPLETE**
+
+**Problem Solved:**
+- Many Plaid API calls were not being tracked, leading to inaccurate billing and usage monitoring
+- The system had tracking in some places but not consistently across all endpoints
+- External token revocations and other API calls were not being logged for cost analysis
+
+**Root Cause:**
+- Tracking was implemented in some core services (`/lib/transactions.ts`, `/lib/refreshService.ts`) but missing from many API endpoints
+- No centralized tracking utility existed for consistent implementation
+- Manual tracking implementation was error-prone and inconsistent
+
+**Solution Implemented:**
+
+#### 1. **Centralized Tracking Utility** ✅
+- Created `/src/lib/plaidTracking.ts` with comprehensive tracking functions
+- `logPlaidApiCall()` - Direct logging function
+- `trackPlaidApiCall()` - Wrapper function with automatic timing and error handling
+- `getCurrentUserId()` and `getAppInstanceId()` - Context utilities
+- Consistent error handling and security (no sensitive data logging)
+
+#### 2. **Endpoints with Tracking Added** ✅
+- ✅ `/app/api/plaid/exchange-token/route.ts` - `itemPublicTokenExchange`, `itemGet`, `institutionsGetById`, `accountsGet`
+- ✅ `/app/api/plaid/create-link-token/route.ts` - `linkTokenCreate`
+- ✅ `/app/api/plaid/create-update-link-token/route.ts` - `linkTokenCreate`
+- ✅ `/app/api/accounts/auth-status/route.ts` - `itemGet`
+- ✅ `/app/api/admin/plaid-actions/route.ts` - `itemGet`, `accountsGet`, `accountsBalanceGet`, `transactionsGet`, `itemRemove`
+- ✅ `/app/api/plaid/item-get/route.ts` - `itemGet`
+- ✅ `/app/api/accounts/disconnect/route.ts` - `itemRemove`
+- ✅ `/app/api/accounts/[accountId]/refresh/route.ts` - `liabilitiesGet`, `accountsBalanceGet`
+- ✅ `/app/api/plaid/refresh-institutions/route.ts` - `institutionsGetById`
+- ✅ `/lib/plaid.ts` - `itemRemove` (in `disconnectPlaidTokens`)
+
+#### 3. **Endpoints Already Had Tracking** ✅
+- ✅ `/lib/transactions.ts` - `transactionsSync`, `investmentsTransactionsGet`
+- ✅ `/lib/refreshService.ts` - `accountsBalanceGet`, `liabilitiesGet`, `itemGet`
+- ✅ `/app/api/loans/sync/route.ts` - `liabilitiesGet`
+
+#### 4. **Testing and Verification** ✅
+- Created `/scripts/test-plaid-tracking.js` to verify tracking implementation
+- Test script shows endpoint coverage and usage statistics
+- Ready for production monitoring
+
+**Benefits:**
+- ✅ **100% Plaid API Call Coverage** - Every Plaid API call is now tracked
+- ✅ **Accurate Billing** - Complete visibility into API usage and costs
+- ✅ **Performance Monitoring** - Response times and error rates tracked
+- ✅ **Security** - No sensitive data (tokens) logged
+- ✅ **Consistent Implementation** - Centralized utility ensures uniformity
+- ✅ **Error Tracking** - Failed API calls are logged with error details
+- ✅ **User Context** - Calls are associated with users and institutions
+
+**Technical Implementation:**
+- Used Prisma `PlaidApiCallLog` table for storage
+- Automatic timing measurement for performance analysis
+- Error handling that doesn't break main functionality
+- Request/response data logging (excluding sensitive information)
+- Institution and account context for detailed analysis
+
+**Status: COMPLETE** - All Plaid API calls are now tracked with comprehensive monitoring
+
+### 🎯 **External Token Revocation Detection Status: COMPLETE**
+
+**Problem Solved:**
+- Accounts with externally revoked Plaid tokens were still appearing in the main accounts list
+- The system had logic to detect token revocation but only when making API calls to Plaid
+- External token revocations (via Plaid dashboard) were not being detected because the system never made API calls to disconnected items
+- Users had no clear way to see which accounts needed reconnection
+- **Reconnect button was not working** - it just refreshed the page instead of initiating reconnection flow
+
+**Root Cause:**
+- Auth-status endpoint correctly filtered out disconnected PlaidItems (returned empty array)
+- Accounts API was returning all accounts regardless of PlaidItem status
+- Frontend displayed accounts with disconnected PlaidItems as if they're active
+- Reconnect button was using URL navigation instead of calling the proper reconnection function
+
+**Solution Implemented:**
+1. **Accounts API Filtering** ✅
+   - Updated `/api/accounts` to filter out accounts with disconnected PlaidItems by default
+   - Added `?includeDisconnected=true` parameter for when you need to see all accounts
+   - Zero additional API calls required
+
+2. **Disconnected Accounts Endpoint** ✅
+   - Created `/api/accounts/disconnected` to fetch accounts that need reconnection
+   - Returns properly formatted account data with balance information
+
+3. **Frontend Disconnected Accounts Section** ✅
+   - Added separate section on accounts page for disconnected accounts
+   - Clear messaging about why accounts get disconnected
+   - Educational content about common disconnection causes
+   - **Reconnect button now properly integrated** ✅
+
+4. **Reconnect Button Integration** ✅
+   - Modified `AuthenticationAlerts` component to expose `handleReauth` function via ref
+   - Updated accounts page to use ref and call `handleReauth` directly
+   - Reconnect button now properly initiates the Plaid reconnection flow
+   - No more page refreshes - proper modal/flow integration
+
+**Benefits:**
+- ✅ Zero additional API calls to Plaid (cost-effective)
+- ✅ Clear visibility of disconnected accounts
+- ✅ Proper reconnection flow integration
+- ✅ Educational content for users
+- ✅ Immediate detection of external token revocations
+- ✅ Seamless user experience for reconnection
+
+**Technical Implementation:**
+- Used Prisma filtering to exclude disconnected PlaidItems
+- Created dedicated endpoint for disconnected accounts
+- Integrated with existing `AuthenticationAlerts` component
+- Used React refs to expose reconnection functionality
+- Maintained existing UI patterns and styling
+
+**Status: COMPLETE** - All functionality working as expected
 
 ### 🎯 **External Token Revocation Detection Status: COMPLETE**
 
@@ -490,7 +714,7 @@ plaidItem: {
 - **Before**: Generic error handling for `ITEM_NOT_FOUND` and `INVALID_ACCESS_TOKEN`
 - **After**: Automatic detection and status updates for token revocation errors
 - **Features**:
-  - Automatically marks PlaidItems as `disconnected` when `ITEM_NOT_FOUND`, `INVALID_ACCESS_TOKEN`, or `ITEM_EXPIRED` errors occur
+  - Automatically marks PlaidItems as disconnected when `ITEM_NOT_FOUND`, `INVALID_ACCESS_TOKEN`, or `ITEM_EXPIRED` errors occur
   - Updates account associations to reflect disconnected status
   - Provides clear error messages explaining what happened
 

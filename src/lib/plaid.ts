@@ -1,5 +1,6 @@
 import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
 import { prisma } from "./db";
+import { trackPlaidApiCall, getCurrentUserId, getAppInstanceId } from "./plaidTracking";
 
 if (!process.env.PLAID_CLIENT_ID || !process.env.PLAID_SECRET) {
   throw new Error("Missing Plaid credentials in environment variables");
@@ -35,8 +36,20 @@ export async function disconnectPlaidTokens(plaidItems: Array<{ id: string; acce
     try {
       console.log(`[PLAID DISCONNECT] Attempting to disconnect PlaidItem ${item.id} for institution ${item.institutionName || item.institutionId}`);
       
+      const userId = await getCurrentUserId();
+      const appInstanceId = getAppInstanceId();
+      
       // Call Plaid /item/remove to revoke the access token
-      await plaidClient.itemRemove({ access_token: item.accessToken });
+      await trackPlaidApiCall(
+        () => plaidClient.itemRemove({ access_token: item.accessToken }),
+        {
+          endpoint: '/item/remove',
+          institutionId: item.institutionId,
+          userId,
+          appInstanceId,
+          requestData: { accessToken: '***' } // Don't log the actual token
+        }
+      );
       
       // Mark as disconnected in the database
       await prisma.plaidItem.update({

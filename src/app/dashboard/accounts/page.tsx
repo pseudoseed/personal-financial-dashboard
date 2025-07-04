@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AccountCard } from "@/components/AccountCard";
@@ -22,7 +22,7 @@ import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { Account } from "@/types/account";
 import { useTheme } from "../../providers";
 import { AccountConnectionButtons } from "@/components/AccountConnectionButtons";
-import { AuthenticationAlerts } from "@/components/AuthenticationAlerts";
+import { AuthenticationAlerts, AuthenticationAlertsRef } from "@/components/AuthenticationAlerts";
 import { CostOptimizationCard } from "@/components/CostOptimizationCard";
 import { useNotifications } from "@/components/ui/Notification";
 
@@ -40,6 +40,7 @@ export default function AccountsPage() {
   const { darkMode, setDarkMode } = useTheme();
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
+  const authAlertsRef = useRef<AuthenticationAlertsRef>(null);
 
   const { data: accountsData, refetch, isLoading: accountsLoading, error: accountsError } = useQuery<Account[]>({
     queryKey: ["accounts"],
@@ -416,7 +417,7 @@ export default function AccountsPage() {
       </div>
 
       {/* Authentication Alerts */}
-      <AuthenticationAlerts />
+      <AuthenticationAlerts ref={authAlertsRef} />
 
       {/* Cost Optimization Card - Only show if there are Plaid accounts */}
       {activeAccounts.length > 0 && (
@@ -722,17 +723,15 @@ export default function AccountsPage() {
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => {
-                        // Trigger reconnection flow for this institution
                         const institutionId = account.plaidItem?.institutionId;
-                        if (institutionId) {
-                          // This will be handled by the AuthenticationAlerts component
-                          // when it detects the institution needs reconnection
-                          window.location.href = `/dashboard/accounts?reconnect=${institutionId}`;
+                        if (institutionId && authAlertsRef.current) {
+                          authAlertsRef.current.handleReauth(institutionId);
                         }
                       }}
                       className="inline-flex items-center px-3 py-1 border border-blue-300 dark:border-blue-600 rounded-md shadow-sm text-xs font-medium text-blue-700 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       title="Reconnect account"
                     >
+                      <ArrowPathIcon className="h-3 w-3 mr-1" />
                       Reconnect
                     </button>
                     <button

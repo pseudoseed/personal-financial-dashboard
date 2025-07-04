@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { plaidClient } from "@/lib/plaid";
+import { trackPlaidApiCall, getCurrentUserId, getAppInstanceId } from "@/lib/plaidTracking";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { institutionId } = await request.json();
 
@@ -46,12 +47,25 @@ export async function POST(request: Request) {
     let removedCount = 0;
     for (const item of plaidItems) {
       try {
-        // Call Plaid /item/remove
-        await plaidClient.itemRemove({ access_token: item.accessToken });
-        // Mark as disconnected
+        const userId = await getCurrentUserId();
+        const appInstanceId = getAppInstanceId();
+
+        // Remove the item from Plaid
+        await trackPlaidApiCall(
+          () => plaidClient.itemRemove({ access_token: item.accessToken }),
+          {
+            endpoint: '/item/remove',
+            institutionId: item.institutionId,
+            userId,
+            appInstanceId,
+            requestData: { accessToken: '***' } // Don't log the actual token
+          }
+        );
+
+        // Mark as disconnected in the database
         await prisma.plaidItem.update({
           where: { id: item.id },
-          data: { status: 'disconnected' },
+          data: { status: "disconnected" } as any,
         });
         removedCount++;
       } catch (err) {

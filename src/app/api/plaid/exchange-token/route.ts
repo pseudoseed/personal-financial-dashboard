@@ -7,6 +7,7 @@ import { detectDuplicates, mergeDuplicateAccounts, getMergeMessage } from "@/lib
 import { getCurrentUserId } from "@/lib/userManagement";
 import { ensureDefaultUser } from '@/lib/startupValidation';
 import { disconnectPlaidTokens } from "@/lib/plaid";
+import { trackPlaidApiCall, getCurrentUserId as getTrackingUserId, getAppInstanceId } from "@/lib/plaidTracking";
 
 function formatLogoUrl(
   logo: string | null | undefined,
@@ -64,19 +65,37 @@ export async function POST(request: Request) {
 
     // Get the current user ID
     const userId = await getCurrentUserId();
+    const trackingUserId = await getTrackingUserId();
+    const appInstanceId = getAppInstanceId();
 
     // Exchange public token for access token
-    const response = await plaidClient.itemPublicTokenExchange({
-      public_token: publicToken,
-    });
+    const response = await trackPlaidApiCall(
+      () => plaidClient.itemPublicTokenExchange({
+        public_token: publicToken,
+      }),
+      {
+        endpoint: '/item/public_token/exchange',
+        userId: trackingUserId,
+        appInstanceId,
+        requestData: { publicToken: '***' } // Don't log the actual token
+      }
+    );
 
     const accessToken = response.data.access_token;
     const plaidItemId = response.data.item_id;
 
     // Get item information
-    const itemResponse = await plaidClient.itemGet({
-      access_token: accessToken,
-    });
+    const itemResponse = await trackPlaidApiCall(
+      () => plaidClient.itemGet({
+        access_token: accessToken,
+      }),
+      {
+        endpoint: '/item/get',
+        userId: trackingUserId,
+        appInstanceId,
+        requestData: { accessToken: '***' } // Don't log the actual token
+      }
+    );
 
     const institutionId = itemResponse.data.item.institution_id;
 
@@ -88,10 +107,19 @@ export async function POST(request: Request) {
     }
 
     // Get institution information
-    const institutionResponse = await plaidClient.institutionsGetById({
-      institution_id: institutionId,
-      country_codes: [CountryCode.Us],
-    });
+    const institutionResponse = await trackPlaidApiCall(
+      () => plaidClient.institutionsGetById({
+        institution_id: institutionId,
+        country_codes: [CountryCode.Us],
+      }),
+      {
+        endpoint: '/institutions/get_by_id',
+        institutionId,
+        userId: trackingUserId,
+        appInstanceId,
+        requestData: { institutionId, countryCodes: [CountryCode.Us] }
+      }
+    );
 
     const institution = institutionResponse.data.institution;
 
@@ -178,9 +206,18 @@ export async function POST(request: Request) {
       });
 
       // Get accounts from Plaid using new access token
-      const accountsResponse = await plaidClient.accountsGet({
-        access_token: accessToken,
-      });
+      const accountsResponse = await trackPlaidApiCall(
+        () => plaidClient.accountsGet({
+          access_token: accessToken,
+        }),
+        {
+          endpoint: '/accounts/get',
+          institutionId,
+          userId: trackingUserId,
+          appInstanceId,
+          requestData: { accessToken: '***' } // Don't log the actual token
+        }
+      );
 
       const plaidAccounts = accountsResponse.data.accounts;
 
@@ -254,9 +291,18 @@ export async function POST(request: Request) {
       console.log(`[PLAID] Created new PlaidItem: id=${newInstitution.id}, institutionId=${institutionId}, plaidItemId=${plaidItemId}`);
 
       // Get accounts from Plaid
-      const accountsResponse = await plaidClient.accountsGet({
-        access_token: accessToken,
-      });
+      const accountsResponse = await trackPlaidApiCall(
+        () => plaidClient.accountsGet({
+          access_token: accessToken,
+        }),
+        {
+          endpoint: '/accounts/get',
+          institutionId,
+          userId: trackingUserId,
+          appInstanceId,
+          requestData: { accessToken: '***' } // Don't log the actual token
+        }
+      );
 
       const plaidAccounts = accountsResponse.data.accounts;
 

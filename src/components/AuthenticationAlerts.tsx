@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useImperativeHandle, forwardRef } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { 
   ExclamationTriangleIcon, 
@@ -26,7 +26,11 @@ interface AuthSummary {
   errors: number;
 }
 
-export function AuthenticationAlerts() {
+export interface AuthenticationAlertsRef {
+  handleReauth: (institutionId: string) => Promise<void>;
+}
+
+export const AuthenticationAlerts = forwardRef<AuthenticationAlertsRef>((props, ref) => {
   const [authStatus, setAuthStatus] = useState<AuthStatus[]>([]);
   const [summary, setSummary] = useState<AuthSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -82,6 +86,11 @@ export function AuthenticationAlerts() {
       setSelectedInstitution(null);
     }
   };
+
+  // Expose handleReauth function to parent component
+  useImperativeHandle(ref, () => ({
+    handleReauth
+  }));
 
   // Plaid Link configuration
   const { open, ready } = usePlaidLink({
@@ -326,4 +335,4 @@ export function AuthenticationAlerts() {
       )}
     </div>
   );
-} 
+}); 
