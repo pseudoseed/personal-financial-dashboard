@@ -108,13 +108,6 @@ export default function AccountsPage() {
     (account) => !account.archived
   ) || [];
 
-  // Trigger fetch after component mounts
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      refetch();
-    }
-  }, [refetch]);
-
   const archiveAccount = async (accountId: string) => {
     try {
       const response = await fetch(`/api/accounts/${accountId}/archive`, {
@@ -502,7 +495,17 @@ export default function AccountsPage() {
           </div>
         )}
 
-
+        {/* Debug Info */}
+        <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Debug Info</h3>
+          <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+            <div>Loading: {accountsLoading ? 'Yes' : 'No'}</div>
+            <div>Error: {accountsError ? accountsError.message : 'None'}</div>
+            <div>Accounts Data Length: {accountsData?.length || 0}</div>
+            <div>Accounts By Institution Keys: {Object.keys(accountsByInstitution).join(', ')}</div>
+            <div>Active Accounts Length: {activeAccounts.length}</div>
+          </div>
+        </div>
 
         {accountsLoading ? (
           <div className="space-y-6">
@@ -522,146 +525,3 @@ export default function AccountsPage() {
             );
             const showHiddenForInstitution = institutionShowHidden[institution];
 
-            return (
-              <div key={institution} className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-medium text-gray-900 dark:text-white">{institution}</h3>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => refreshInstitution(institution)}
-                      className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      disabled={refreshingInstitutions[institution]}
-                    >
-                      <ArrowPathIcon
-                        className={`h-4 w-4 ${
-                          refreshingInstitutions[institution] ? "animate-spin" : ""
-                        }`}
-                      />
-                    </button>
-                    <button
-                      onClick={() => disconnectInstitution(institution)}
-                      className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      disabled={disconnectingInstitutions[institution]}
-                      title="Disconnect institution and remove all associated accounts"
-                    >
-                      <XCircleIcon className="h-4 w-4" />
-                    </button>
-                    {hiddenAccountsForInstitution.length > 0 && (
-                      <button
-                        onClick={() => toggleInstitutionHidden(institution)}
-                        className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        {showHiddenForInstitution ? (
-                          <LockOpenIcon className="h-4 w-4" />
-                        ) : (
-                          <LockClosedIcon className="h-4 w-4" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {activeAccountsForInstitution.map((account) => (
-                    <AccountCard
-                      key={account.id}
-                      account={account}
-                      onRefresh={refetch}
-                      onArchive={() => archiveAccount(account.id)}
-                    />
-                  ))}
-                  {showHiddenForInstitution &&
-                    hiddenAccountsForInstitution.map((account) => (
-                      <AccountCard
-                        key={account.id}
-                        account={account}
-                        onRefresh={refetch}
-                        onArchive={() => archiveAccount(account.id)}
-                      />
-                    ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        )}
-      </div>
-
-      {/* Archived Accounts Section */}
-      {archivedAccounts.length > 0 && (
-        <div className="mt-8 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center">
-              <ArchiveBoxIcon className="h-6 w-6 mr-2 text-gray-500" />
-              Archived Accounts
-            </h2>
-            <button
-              onClick={() => setShowArchived(!showArchived)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              {showArchived ? "Hide" : "Show"} Archived ({archivedAccounts.length})
-            </button>
-          </div>
-          
-          {showArchived && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {archivedAccounts.map((account) => (
-                <div
-                  key={account.id}
-                  className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="font-medium text-gray-900 dark:text-white">
-                        {account.name}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {account.plaidItem?.institutionName || "Manual Account"}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {account.type} • {account.subtype}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      {account.plaidItem?.accessToken === "manual" && (
-                        <button
-                          onClick={() => restoreAccount(account.id)}
-                          className="inline-flex items-center px-2 py-1 border border-green-300 dark:border-green-600 rounded-md shadow-sm text-xs font-medium text-green-700 dark:text-green-200 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                          title="Restore account"
-                        >
-                          <ArrowUturnLeftIcon className="h-3 w-3" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => deleteAccount(account.id)}
-                        className="inline-flex items-center px-2 py-1 border border-red-300 dark:border-red-600 rounded-md shadow-sm text-xs font-medium text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        title="Permanently delete account"
-                      >
-                        <TrashIcon className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-300">
-                    <p>Current Balance: ${account.currentBalance?.toFixed(2) || "0.00"}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Archived account - not included in normal views
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Recurring Payments Section */}
-      <div className="mt-8">
-        <RecurringPaymentsCard />
-      </div>
-
-      {/* Manual Balance Update Section */}
-      <div className="mt-8">
-        <ManualBalanceUpdateCard />
-      </div>
-    </div>
-  );
-} 

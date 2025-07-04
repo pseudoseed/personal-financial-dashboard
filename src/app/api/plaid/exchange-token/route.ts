@@ -6,6 +6,7 @@ import { institutionLogos } from "@/lib/institutionLogos";
 import { detectDuplicates, mergeDuplicateAccounts, getMergeMessage } from "@/lib/duplicateDetection";
 import { getCurrentUserId } from "@/lib/userManagement";
 import { ensureDefaultUser } from '@/lib/startupValidation';
+import { disconnectPlaidTokens } from "@/lib/plaid";
 
 function formatLogoUrl(
   logo: string | null | undefined,
@@ -42,9 +43,9 @@ function findMatchingAccount(account: any, existingAccounts: any[]) {
 
 export async function POST(request: Request) {
   try {
-    // Ensure default user exists before processing request
-    const userExists = await ensureDefaultUser();
-    if (!userExists) {
+    // Ensure default user exists
+    const defaultUser = await ensureDefaultUser();
+    if (!defaultUser) {
       console.error('[PLAID] Default user not found and could not be created');
       return NextResponse.json({ error: 'System not properly initialized' }, { status: 503 });
     }
@@ -94,30 +95,89 @@ export async function POST(request: Request) {
 
     const institution = institutionResponse.data.institution;
 
-    // Check if institution already exists
-    const existingInstitution = await prisma.plaidItem.findFirst({
-      where: { itemId: plaidItemId },
+    // Check if institution already exists by institutionId (not just itemId)
+    // This handles the case where a user is re-authenticating an existing institution
+    const existingInstitutions = await prisma.plaidItem.findMany({
+      where: { 
+        institutionId,
+        provider: "plaid"
+      },
+      include: {
+        accounts: true
+      }
     });
 
+    let existingInstitution = existingInstitutions.find(item => item.itemId === plaidItemId);
+    let isReauthentication = false;
+
+    // If no exact itemId match, but institution exists, this is a re-authentication
+    if (!existingInstitution && existingInstitutions.length > 0) {
+      isReauthentication = true;
+      console.log(`[PLAID] Re-authentication detected for institutionId=${institutionId}. Found ${existingInstitutions.length} existing PlaidItems`);
+      
+      // Check if any of the existing items are disconnected (indicating external token revocation)
+      const disconnectedItems = existingInstitutions.filter(item => item.status === 'disconnected');
+      const activeItems = existingInstitutions.filter(item => item.status === 'active' && item.accounts.length > 0);
+      
+      if (disconnectedItems.length > 0) {
+        console.log(`[PLAID] Found ${disconnectedItems.length} disconnected PlaidItems - this appears to be a reconnection after external token revocation`);
+        
+        // If we have disconnected items, prefer the one with the most accounts
+        const bestDisconnectedItem = disconnectedItems.sort((a, b) => b.accounts.length - a.accounts.length)[0];
+        existingInstitution = bestDisconnectedItem;
+        console.log(`[PLAID] Selected disconnected PlaidItem ${existingInstitution.id} with ${existingInstitution.accounts.length} accounts for reconnection`);
+      } else if (activeItems.length > 0) {
+        // Sort by number of accounts and keep the one with most accounts
+        activeItems.sort((a, b) => b.accounts.length - a.accounts.length);
+        existingInstitution = activeItems[0];
+        console.log(`[PLAID] Selected existing PlaidItem ${existingInstitution.id} with ${existingInstitution.accounts.length} accounts for update`);
+      } else {
+        // If no active items, use the first one
+        existingInstitution = existingInstitutions[0];
+        console.log(`[PLAID] No active PlaidItems found, using ${existingInstitution.id} for update`);
+      }
+    }
+
     if (existingInstitution) {
-      // Update existing institution
+      console.log(`[PLAID] Updating existing PlaidItem: id=${existingInstitution.id}, institutionId=${institutionId}, plaidItemId=${plaidItemId}, isReauthentication=${isReauthentication}`);
+
+      // If this is a re-authentication, disconnect old PlaidItems first
+      if (isReauthentication) {
+        const itemsToDisconnect = existingInstitutions.filter(item => item.id !== existingInstitution!.id);
+        if (itemsToDisconnect.length > 0) {
+          console.log(`[PLAID] Disconnecting ${itemsToDisconnect.length} old PlaidItems during re-authentication`);
+          
+          const disconnectResult = await disconnectPlaidTokens(
+            itemsToDisconnect.map(item => ({
+              id: item.id,
+              accessToken: item.accessToken,
+              institutionId: item.institutionId,
+              institutionName: item.institutionName
+            }))
+          );
+          
+          console.log(`[PLAID] Disconnected ${disconnectResult.success.length} old tokens, ${disconnectResult.failed.length} failed`);
+        }
+      }
+
+      // Update existing institution with new access token
       await prisma.plaidItem.update({
         where: { id: existingInstitution.id },
         data: {
+          itemId: plaidItemId, // Update to new itemId
           accessToken,
           institutionName: institution.name ?? null,
           institutionLogo: institution.logo ?? null,
+          status: 'active', // Ensure it's marked as active
         },
       });
-
-      console.log(`[PLAID] Updated PlaidItem: id=${existingInstitution.id}, institutionId=${institutionId}, plaidItemId=${plaidItemId}`);
 
       // Get existing accounts for this institution
       const existingAccounts = await prisma.account.findMany({
         where: { itemId: existingInstitution.id },
       });
 
-      // Get accounts from Plaid
+      // Get accounts from Plaid using new access token
       const accountsResponse = await plaidClient.accountsGet({
         access_token: accessToken,
       });
@@ -157,7 +217,7 @@ export async function POST(request: Request) {
         }
       }
 
-      // Check for and merge duplicates
+      // Check for and merge duplicates (this should now be minimal since we cleaned up old connections)
       const duplicateGroup = institutionId ? await detectDuplicates(institutionId) : null;
       let mergeMessage = null;
       
@@ -168,10 +228,15 @@ export async function POST(request: Request) {
         console.log(`[PLAID] Disconnected ${mergeResult.disconnectedTokens.length} Plaid tokens during merge`);
       }
 
+      const message = isReauthentication 
+        ? "Institution re-authenticated successfully" 
+        : "Institution updated successfully";
+
       return NextResponse.json({
-        message: "Institution updated successfully",
+        message,
         institutionId: existingInstitution.id,
         mergeMessage,
+        isReauthentication,
       });
     } else {
       // Create new institution
@@ -182,10 +247,11 @@ export async function POST(request: Request) {
           institutionId,
           institutionName: institution.name ?? null,
           institutionLogo: institution.logo ?? null,
+          status: 'active',
         },
       });
 
-      console.log(`[PLAID] Created PlaidItem: id=${newInstitution.id}, institutionId=${institutionId}, plaidItemId=${plaidItemId}`);
+      console.log(`[PLAID] Created new PlaidItem: id=${newInstitution.id}, institutionId=${institutionId}, plaidItemId=${plaidItemId}`);
 
       // Get accounts from Plaid
       const accountsResponse = await plaidClient.accountsGet({

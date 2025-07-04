@@ -13,6 +13,7 @@ export interface Account {
   subtype: string | null;
   mask?: string | null;
   hidden?: boolean;
+  archived?: boolean;
   institution?: string;
   institutionLogo?: string | null;
   balance: {
@@ -23,6 +24,8 @@ export interface Account {
   balances?: AccountBalance[];
   plaidItem?: {
     institutionId: string;
+    institutionName?: string | null;
+    institutionLogo?: string | null;
     accessToken?: string;
     provider?: string;
     status?: string;
@@ -31,6 +34,11 @@ export interface Account {
   lastUpdated?: string | null;
   plaidSyncCursor?: string | null;
   lastSyncTime?: Date | null;
+  
+  // Balance fields from API
+  currentBalance?: number;
+  availableBalance?: number;
+  limit?: number;
   
   // Liability specific fields
   lastStatementBalance?: number | null;

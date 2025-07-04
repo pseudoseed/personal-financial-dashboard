@@ -4,13 +4,16 @@ import { plaidClient } from "@/lib/plaid";
 
 export async function GET() {
   try {
-    // Get all Plaid items
+    // Get all Plaid items (excluding disconnected ones to avoid unnecessary API calls)
     const items = await prisma.plaidItem.findMany({
       where: {
         accessToken: {
           not: "manual",
         },
         provider: "plaid",
+        status: {
+          not: "disconnected",
+        },
       },
       include: {
         accounts: true,
@@ -34,6 +37,23 @@ export async function GET() {
           let errorMessage = "Unknown error";
           let errorCode = "UNKNOWN";
 
+          // Check if this is a token revocation error that should mark the item as disconnected
+          const shouldMarkDisconnected = [
+            "ITEM_NOT_FOUND",
+            "INVALID_ACCESS_TOKEN",
+            "ITEM_EXPIRED"
+          ].includes(plaidItem.error.error_code);
+
+          if (shouldMarkDisconnected && item.status !== 'disconnected') {
+            console.log(`[AUTH STATUS] Marking PlaidItem ${item.id} as disconnected due to error: ${plaidItem.error.error_code}`);
+            
+            // Mark the PlaidItem as disconnected
+            await prisma.plaidItem.update({
+              where: { id: item.id },
+              data: { status: 'disconnected' } as any
+            });
+          }
+
           switch (plaidItem.error.error_code) {
             case "ITEM_LOGIN_REQUIRED":
               status = "needs_reauth";
@@ -42,7 +62,7 @@ export async function GET() {
               break;
             case "INVALID_ACCESS_TOKEN":
               status = "needs_reauth";
-              errorMessage = "Access token is invalid. Please reconnect your account.";
+              errorMessage = "Access token has been revoked. Please reconnect your account.";
               errorCode = "INVALID_ACCESS_TOKEN";
               break;
             case "ITEM_LOCKED":
@@ -51,9 +71,14 @@ export async function GET() {
               errorCode = "ITEM_LOCKED";
               break;
             case "ITEM_NOT_FOUND":
-              status = "error";
-              errorMessage = "Account not found. Please reconnect your account.";
+              status = "needs_reauth";
+              errorMessage = "Account access has been revoked. Please reconnect your account.";
               errorCode = "ITEM_NOT_FOUND";
+              break;
+            case "ITEM_EXPIRED":
+              status = "needs_reauth";
+              errorMessage = "Access has expired. Please reconnect your account.";
+              errorCode = "ITEM_EXPIRED";
               break;
             case "INSTITUTION_DOWN":
               status = "institution_down";
@@ -99,6 +124,23 @@ export async function GET() {
         if (error?.response?.data?.error_code) {
           errorCode = error.response.data.error_code;
           
+          // Check if this is a token revocation error that should mark the item as disconnected
+          const shouldMarkDisconnected = [
+            "ITEM_NOT_FOUND",
+            "INVALID_ACCESS_TOKEN",
+            "ITEM_EXPIRED"
+          ].includes(errorCode);
+
+          if (shouldMarkDisconnected && item.status !== 'disconnected') {
+            console.log(`[AUTH STATUS] Marking PlaidItem ${item.id} as disconnected due to error: ${errorCode}`);
+            
+            // Mark the PlaidItem as disconnected
+            await prisma.plaidItem.update({
+              where: { id: item.id },
+              data: { status: 'disconnected' } as any
+            });
+          }
+          
           switch (errorCode) {
             case "ITEM_LOGIN_REQUIRED":
               status = "needs_reauth";
@@ -106,15 +148,19 @@ export async function GET() {
               break;
             case "INVALID_ACCESS_TOKEN":
               status = "needs_reauth";
-              errorMessage = "Access token is invalid. Please reconnect your account.";
+              errorMessage = "Access token has been revoked. Please reconnect your account.";
               break;
             case "ITEM_LOCKED":
               status = "needs_reauth";
               errorMessage = "Account is locked. Please reconnect your account.";
               break;
             case "ITEM_NOT_FOUND":
-              status = "error";
-              errorMessage = "Account not found. Please reconnect your account.";
+              status = "needs_reauth";
+              errorMessage = "Account access has been revoked. Please reconnect your account.";
+              break;
+            case "ITEM_EXPIRED":
+              status = "needs_reauth";
+              errorMessage = "Access has expired. Please reconnect your account.";
               break;
             case "INSTITUTION_DOWN":
               status = "institution_down";

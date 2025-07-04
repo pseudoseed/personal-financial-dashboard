@@ -95,6 +95,9 @@ export function AuthenticationAlerts() {
           body: JSON.stringify({ publicToken: public_token }),
         });
         if (!response.ok) throw new Error("Failed to exchange token");
+        
+        const result = await response.json();
+        
         // Remove from sessionStorage dismissed alerts
         if (selectedInstitution) {
           const stored = sessionStorage.getItem("dismissedAuthAlerts");
@@ -108,6 +111,7 @@ export function AuthenticationAlerts() {
             }
           }
         }
+        
         // Refresh the auth status
         await checkAuthStatus();
         setSelectedInstitution(null);
@@ -269,6 +273,12 @@ export function AuthenticationAlerts() {
                 <p className="text-xs mt-1">
                   {institution.accounts} account{institution.accounts !== 1 ? 's' : ''} affected
                 </p>
+                {/* Show additional context for specific error types */}
+                {(institution.errorCode === 'ITEM_NOT_FOUND' || institution.errorCode === 'INVALID_ACCESS_TOKEN') && (
+                  <p className="text-xs mt-1 text-orange-600 dark:text-orange-400 font-medium">
+                    💡 This usually happens when the connection was revoked externally. Reconnecting will restore access.
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-2">
