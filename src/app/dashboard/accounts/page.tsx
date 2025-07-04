@@ -18,6 +18,7 @@ import {
   TrashIcon,
   ArrowUturnLeftIcon,
 } from "@heroicons/react/24/solid";
+import { ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { Account } from "@/types/account";
 import { useTheme } from "../../providers";
@@ -32,6 +33,7 @@ export default function AccountsPage() {
   const [isRefreshingInstitutions, setIsRefreshingInstitutions] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showDisconnected, setShowDisconnected] = useState(false);
   const [refreshingInstitutions, setRefreshingInstitutions] = useState<Record<string, boolean>>({});
   const [disconnectingInstitutions, setDisconnectingInstitutions] = useState<Record<string, boolean>>({});
   const [institutionShowHidden, setInstitutionShowHidden] = useState<Record<string, boolean>>({});
@@ -662,98 +664,7 @@ export default function AccountsPage() {
         </div>
       )}
 
-      {/* Disconnected Accounts Section */}
-      {disconnectedAccounts.length > 0 && (
-        <div className="mt-8 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center">
-              <XCircleIcon className="h-6 w-6 mr-2 text-red-500" />
-              Disconnected Accounts
-            </h2>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              {disconnectedAccounts.length} account{disconnectedAccounts.length !== 1 ? 's' : ''} need reconnection
-            </div>
-          </div>
-          
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                  Account Access Revoked
-                </h3>
-                <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-                  <p>
-                    These accounts have been disconnected from their financial institutions. 
-                    This commonly happens when:
-                  </p>
-                  <ul className="mt-2 list-disc list-inside space-y-1">
-                    <li>You changed your bank password</li>
-                    <li>The institution updated their security requirements</li>
-                    <li>Access was revoked from the institution's side</li>
-                  </ul>
-                  <p className="mt-2">
-                    To restore access, click the "Reconnect" button below each account.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {disconnectedAccounts.map((account) => (
-              <div
-                key={account.id}
-                className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white">
-                      {account.name}
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {account.plaidItem?.institutionName || "Unknown Institution"}
-                    </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {account.type} • {account.subtype}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <button
-                      onClick={() => {
-                        const institutionId = account.plaidItem?.institutionId;
-                        if (institutionId && authAlertsRef.current) {
-                          authAlertsRef.current.handleReauth(institutionId);
-                        }
-                      }}
-                      className="inline-flex items-center px-3 py-1 border border-blue-300 dark:border-blue-600 rounded-md shadow-sm text-xs font-medium text-blue-700 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      title="Reconnect account"
-                    >
-                      <ArrowPathIcon className="h-3 w-3 mr-1" />
-                      Reconnect
-                    </button>
-                    <button
-                      onClick={() => archiveAccount(account.id)}
-                      className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                      title="Archive account"
-                    >
-                      <ArchiveBoxIcon className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-300">
-                  <p>Last Known Balance: ${account.currentBalance?.toFixed(2) || "0.00"}</p>
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    Disconnected - needs reconnection to update
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Recurring Payments Section */}
       <div className="mt-8">
@@ -764,6 +675,113 @@ export default function AccountsPage() {
       <div className="mt-8">
         <ManualBalanceUpdateCard />
       </div>
+
+      {/* Disconnected Accounts Section - Collapsible */}
+      {disconnectedAccounts.length > 0 && (
+        <div className="mt-8 space-y-4">
+          <div
+            className="flex justify-between items-center px-6 py-4 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            onClick={() => setShowDisconnected(!showDisconnected)}
+          >
+            <div className="flex items-center">
+              <XCircleIcon className="h-6 w-6 mr-2 text-red-500" />
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                Disconnected Accounts
+              </h2>
+              <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                ({disconnectedAccounts.length})
+              </span>
+            </div>
+            {showDisconnected ? (
+              <ChevronUpIcon className="w-6 h-6 text-gray-400" />
+            ) : (
+              <ChevronDownIcon className="w-6 h-6 text-gray-400" />
+            )}
+          </div>
+          
+          {showDisconnected && (
+            <div className="space-y-4">
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                      Account Access Revoked
+                    </h3>
+                    <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                      <p>
+                        These accounts have been disconnected from their financial institutions. 
+                        This commonly happens when:
+                      </p>
+                      <ul className="mt-2 list-disc list-inside space-y-1">
+                        <li>You changed your bank password</li>
+                        <li>The institution updated their security requirements</li>
+                        <li>Access was revoked from the institution's side</li>
+                      </ul>
+                      <p className="mt-2">
+                        To restore access, click the "Reconnect" button below each account.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {disconnectedAccounts.map((account) => (
+                  <div
+                    key={account.id}
+                    className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white">
+                          {account.name}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {account.plaidItem?.institutionName || "Unknown Institution"}
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          {account.type} • {account.subtype}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => {
+                            const institutionId = account.plaidItem?.institutionId;
+                            if (institutionId && authAlertsRef.current) {
+                              authAlertsRef.current.handleReauth(institutionId);
+                            }
+                          }}
+                          className="inline-flex items-center px-3 py-1 border border-blue-300 dark:border-blue-600 rounded-md shadow-sm text-xs font-medium text-blue-700 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          title="Reconnect account"
+                        >
+                          <ArrowPathIcon className="h-3 w-3 mr-1" />
+                          Reconnect
+                        </button>
+                        <button
+                          onClick={() => archiveAccount(account.id)}
+                          className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                          title="Archive account"
+                        >
+                          <ArchiveBoxIcon className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-300">
+                      <p>Last Known Balance: ${account.currentBalance?.toFixed(2) || "0.00"}</p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                        Disconnected - needs reconnection to update
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 } 

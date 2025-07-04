@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ detected });
     } else {
       // Manual creation flow
-      console.log('Attempting to create recurring expense with body:', body);
+      // Removed verbose debug logging
       const recurringExpense = await prisma.recurringExpense.create({
         data: {
           ...body,

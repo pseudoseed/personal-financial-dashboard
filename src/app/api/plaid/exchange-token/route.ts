@@ -142,19 +142,19 @@ export async function POST(request: Request) {
     // If no exact itemId match, but institution exists, this is a re-authentication
     if (!existingInstitution && existingInstitutions.length > 0) {
       isReauthentication = true;
-      console.log(`[PLAID] Re-authentication detected for institutionId=${institutionId}. Found ${existingInstitutions.length} existing PlaidItems`);
+      console.log(`[PLAID] Re-authentication detected for ${institutionId} (${existingInstitutions.length} existing items)`);
       
       // Check if any of the existing items are disconnected (indicating external token revocation)
       const disconnectedItems = existingInstitutions.filter(item => item.status === 'disconnected');
       const activeItems = existingInstitutions.filter(item => item.status === 'active' && item.accounts.length > 0);
       
       if (disconnectedItems.length > 0) {
-        console.log(`[PLAID] Found ${disconnectedItems.length} disconnected PlaidItems - this appears to be a reconnection after external token revocation`);
+        console.log(`[PLAID] Found ${disconnectedItems.length} disconnected items - reconnection after token revocation`);
         
         // If we have disconnected items, prefer the one with the most accounts
         const bestDisconnectedItem = disconnectedItems.sort((a, b) => b.accounts.length - a.accounts.length)[0];
         existingInstitution = bestDisconnectedItem;
-        console.log(`[PLAID] Selected disconnected PlaidItem ${existingInstitution.id} with ${existingInstitution.accounts.length} accounts for reconnection`);
+        console.log(`[PLAID] Selected disconnected item ${existingInstitution.id} with ${existingInstitution.accounts.length} accounts for reconnection`);
       } else if (activeItems.length > 0) {
         // Sort by number of accounts and keep the one with most accounts
         activeItems.sort((a, b) => b.accounts.length - a.accounts.length);

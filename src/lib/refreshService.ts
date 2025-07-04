@@ -533,9 +533,7 @@ async function fetchBatchedLiabilities(accessToken: string, accounts: any[]) {
     },
   });
   
-  console.log('=== Plaid Liabilities Raw Response ===');
-  console.dir(response.data, { depth: 10 });
-  console.log('=== End Plaid Liabilities Raw Response ===');
+  // Removed large data dump for cleaner logging
   
   // Cache the response
   liabilityCache.set(cacheKey, { 
@@ -553,7 +551,7 @@ async function updateAccountLiabilities(account: any, liabilityData: any) {
   // Handle credit card liabilities
   const credit = liabilityData.credit?.find((c: any) => c.account_id === account.plaidId);
   if (credit) {
-    console.log(`[Liabilities Mapping] Updating credit card account ${account.id} (${account.name}) with:`, credit);
+    console.log(`[Liabilities] Updated credit card ${account.name} with liability data`);
     await prisma.account.update({
       where: { id: account.id },
       data: {
@@ -569,7 +567,7 @@ async function updateAccountLiabilities(account: any, liabilityData: any) {
   // Handle mortgage liabilities
   const mortgage = liabilityData.mortgage?.find((m: any) => m.account_id === account.plaidId);
   if (mortgage) {
-    console.log(`[Liabilities Mapping] Updating mortgage account ${account.id} (${account.name}) with:`, mortgage);
+    console.log(`[Liabilities] Updated mortgage ${account.name} with liability data`);
     await prisma.account.update({
       where: { id: account.id },
       data: {
@@ -583,7 +581,7 @@ async function updateAccountLiabilities(account: any, liabilityData: any) {
   // Handle student loan liabilities
   const student = liabilityData.student?.find((s: any) => s.account_id === account.plaidId);
   if (student) {
-    console.log(`[Liabilities Mapping] Updating student loan account ${account.id} (${account.name}) with:`, student);
+    console.log(`[Liabilities] Updated student loan ${account.name} with liability data`);
     await prisma.account.update({
       where: { id: account.id },
       data: {
@@ -661,35 +659,22 @@ export function validateAccountData(account: any): { isValid: boolean; errors: s
 
 // Utility function to log account validation issues
 export function logAccountValidationIssues(accounts: any[]): void {
-  console.log("=== Account Validation Report ===");
-  
   const validationResults = accounts.map(account => ({
     accountId: account.id,
-    plaidId: account.plaidId,
     name: account.name,
-    type: account.type,
-    institution: account.plaidItem?.institutionName || account.plaidItem?.institutionId,
     validation: validateAccountData(account)
   }));
   
   const invalidAccounts = validationResults.filter(result => !result.validation.isValid);
-  const validAccounts = validationResults.filter(result => result.validation.isValid);
-  
-  console.log(`Total accounts: ${accounts.length}`);
-  console.log(`Valid accounts: ${validAccounts.length}`);
-  console.log(`Invalid accounts: ${invalidAccounts.length}`);
   
   if (invalidAccounts.length > 0) {
-    console.log("\n=== Invalid Accounts ===");
+    console.log(`[Validation] Found ${invalidAccounts.length} invalid accounts out of ${accounts.length} total`);
     invalidAccounts.forEach(account => {
-      console.log(`Account ${account.accountId} (${account.name}):`);
-      account.validation.errors.forEach(error => {
-        console.log(`  - ${error}`);
-      });
+      console.log(`[Validation] ${account.name}: ${account.validation.errors.join(', ')}`);
     });
+  } else {
+    console.log(`[Validation] All ${accounts.length} accounts are valid`);
   }
-  
-  console.log("=== End Validation Report ===");
 }
 
 async function logPlaidApiCall({
@@ -753,16 +738,12 @@ export async function refreshAllAccounts(prisma: any) {
   // Filter out accounts that are not eligible for Plaid API calls
   const eligibleAccounts = filterEligibleAccounts(allAccounts);
   
-  console.log(`[REFRESH SERVICE] Found ${allAccounts.length} total accounts, ${eligibleAccounts.length} eligible for Plaid API calls`);
+  console.log(`[Refresh] ${eligibleAccounts.length}/${allAccounts.length} accounts eligible for Plaid API calls`);
 
   // Log ineligible accounts for debugging
   const ineligibleAccounts = allAccounts.filter(account => !eligibleAccounts.includes(account));
   if (ineligibleAccounts.length > 0) {
-    console.log(`[REFRESH SERVICE] Skipping ${ineligibleAccounts.length} ineligible accounts:`);
-    ineligibleAccounts.forEach(account => {
-      const reason = getAccountIneligibilityReason(account);
-      console.log(`  - ${account.name} (${account.id}): ${reason}`);
-    });
+    console.log(`[Refresh] Skipping ${ineligibleAccounts.length} ineligible accounts`);
   }
 
   if (eligibleAccounts.length === 0) {
@@ -785,7 +766,7 @@ export async function refreshAllAccounts(prisma: any) {
 
   // Process each institution's accounts
   for (const [institutionId, accounts] of accountsByInstitution) {
-    console.log(`Refreshing ${accounts.length} accounts for institution ${institutionId}`);
+    console.log(`[Refresh] Processing ${accounts.length} accounts for ${institutionId}`);
     
     try {
       await refreshInstitutionAccounts(accounts, results);
@@ -800,6 +781,6 @@ export async function refreshAllAccounts(prisma: any) {
     }
   }
 
-  console.log(`Refresh completed. ${results.refreshed.length} accounts refreshed, ${results.errors.length} errors`);
+  console.log(`[Refresh] Completed: ${results.refreshed.length} refreshed, ${results.errors.length} errors`);
   return results;
 } 

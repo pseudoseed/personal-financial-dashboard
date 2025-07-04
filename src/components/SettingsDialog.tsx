@@ -477,7 +477,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                     try {
                       const response = await fetch('/api/accounts/auth-status');
                       const data = await response.json();
-                      console.log('Auth Status:', data);
+                      // Removed verbose debug logging
                       alert(`Authentication Status:\n${data.summary.total} total institutions\n${data.summary.valid} valid\n${data.summary.needsReauth} need re-authentication\n${data.summary.errors} errors`);
                     } catch (error) {
                       console.error('Error checking auth status:', error);

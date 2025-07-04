@@ -16,12 +16,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Creating dismissal rule:', { pattern, patternType, reason, anomalyId });
+    // Removed verbose debug logging
 
     // Get the current user ID
     const userId = await getCurrentUserId();
 
-    console.log('Using user:', userId);
+    // Removed verbose debug logging
 
     // Create dismissal rule using the correct schema
     const ruleValue = JSON.stringify({
@@ -38,11 +38,11 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log('Created dismissal rule:', dismissalRule.id);
+    // Removed verbose debug logging
 
     // If an anomalyId was provided, also hide that specific anomaly
     if (anomalyId) {
-      console.log('Hiding anomaly:', anomalyId);
+      // Removed verbose debug logging
       
       // Check if the anomaly exists before trying to update it
       const existingAnomaly = await (prisma as any).anomalyDetectionResult.findUnique({
@@ -54,9 +54,9 @@ export async function POST(request: NextRequest) {
           where: { id: anomalyId },
           data: { isHidden: true }
         });
-        console.log('Successfully hid anomaly:', anomalyId);
+        // Removed verbose debug logging
       } else {
-        console.log('Anomaly not found, skipping hide operation:', anomalyId);
+        // Removed verbose debug logging
       }
     }
 

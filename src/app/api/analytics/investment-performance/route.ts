@@ -7,17 +7,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const snapshotType = (searchParams.get('snapshotType') as SnapshotType) || 'weekly';
 
-    console.log('Calculating investment performance for snapshot type:', snapshotType);
+    // Removed verbose debug logging
 
     // Calculate investment performance
     const performance = await calculateInvestmentPerformance(snapshotType);
     
-    console.log('Investment performance calculated:', {
-      portfolioValue: performance.portfolioValue,
-      changePercent: performance.changePercent,
-      assetAllocationCount: performance.assetAllocation.length,
-      historicalDataPoints: performance.historicalData.length,
-    });
+    console.log(`[Investment Performance] Calculated ${performance.historicalData.length} data points`);
 
     return NextResponse.json(performance);
   } catch (error) {

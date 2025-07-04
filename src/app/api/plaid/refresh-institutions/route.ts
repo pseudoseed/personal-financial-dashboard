@@ -9,10 +9,7 @@ function formatLogoUrl(
   logo: string | null | undefined,
   institutionId: string
 ): string | null {
-  console.log(`Formatting logo for institution ${institutionId}:`, {
-    plaidLogo: logo,
-    fallbackLogo: institutionLogos[institutionId],
-  });
+  // Removed verbose debug logging
 
   // First try the Plaid-provided logo
   if (logo) {
@@ -26,7 +23,7 @@ function formatLogoUrl(
 
   // If no Plaid logo, try the fallback logo
   const fallbackLogo = institutionLogos[institutionId];
-  console.log(`Using fallback logo for ${institutionId}:`, fallbackLogo);
+  // Removed verbose debug logging
   return fallbackLogo || null;
 }
 
