@@ -44,6 +44,138 @@ function findMatchingAccount(account: any, existingAccounts: any[]) {
 }
 
 /**
+ * Comprehensive cleanup of orphaned PlaidItems and accounts
+ * This function handles all edge cases during re-authentication
+ */
+async function cleanupOrphanedItems(institutionId: string, activeItemId: string) {
+  try {
+    console.log(`[PLAID CLEANUP] Starting comprehensive cleanup for institution ${institutionId}`);
+    
+    // Find all PlaidItems for this institution
+    const allItems = await prisma.plaidItem.findMany({
+      where: { 
+        institutionId,
+        provider: "plaid"
+      },
+      include: {
+        accounts: {
+          where: { archived: false }
+        }
+      }
+    });
+
+    const itemsToCleanup = allItems.filter(item => item.id !== activeItemId);
+    
+    if (itemsToCleanup.length === 0) {
+      console.log(`[PLAID CLEANUP] No orphaned items found for institution ${institutionId}`);
+      return;
+    }
+
+    console.log(`[PLAID CLEANUP] Found ${itemsToCleanup.length} items to cleanup for institution ${institutionId}`);
+
+    for (const item of itemsToCleanup) {
+      console.log(`[PLAID CLEANUP] Processing item ${item.id} with ${item.accounts.length} accounts`);
+      
+      // Check if this item has any active accounts
+      if (item.accounts.length > 0) {
+        console.log(`[PLAID CLEANUP] Item ${item.id} has ${item.accounts.length} active accounts - archiving them`);
+        
+        // Archive all accounts for this item
+        await prisma.account.updateMany({
+          where: { 
+            itemId: item.id,
+            archived: false
+          },
+          data: { 
+            archived: true,
+            updatedAt: new Date()
+          }
+        });
+        
+        console.log(`[PLAID CLEANUP] Archived ${item.accounts.length} accounts for item ${item.id}`);
+      }
+
+      // Mark the PlaidItem as disconnected if it's not already
+      if (item.status !== 'disconnected') {
+        await prisma.plaidItem.update({
+          where: { id: item.id },
+          data: { 
+            status: 'disconnected',
+            updatedAt: new Date()
+          }
+        });
+        console.log(`[PLAID CLEANUP] Marked item ${item.id} as disconnected`);
+      }
+    }
+
+    console.log(`[PLAID CLEANUP] Successfully cleaned up ${itemsToCleanup.length} orphaned items for institution ${institutionId}`);
+  } catch (error) {
+    console.error(`[PLAID CLEANUP] Error during cleanup for institution ${institutionId}:`, error);
+    // Don't throw - this is a cleanup operation that shouldn't block the main flow
+  }
+}
+
+/**
+ * Validate and cleanup invalid access tokens
+ * This function identifies and marks items with invalid tokens as disconnected
+ */
+async function cleanupInvalidTokens() {
+  try {
+    console.log(`[PLAID CLEANUP] Starting invalid token cleanup`);
+    
+    // Find all active PlaidItems (excluding manual accounts)
+    const activeItems = await prisma.plaidItem.findMany({
+      where: {
+        status: 'active',
+        accessToken: {
+          not: 'manual'
+        }
+      }
+    });
+
+    let cleanedCount = 0;
+    
+    for (const item of activeItems) {
+      try {
+        // Test the access token with a simple API call
+        await plaidClient.itemGet({ access_token: item.accessToken });
+      } catch (error: any) {
+        // Check if this is a token revocation error
+        const errorCode = error?.response?.data?.error_code;
+        const isTokenRevoked = [
+          'ITEM_NOT_FOUND',
+          'INVALID_ACCESS_TOKEN',
+          'ITEM_EXPIRED'
+        ].includes(errorCode);
+
+        if (isTokenRevoked) {
+          console.log(`[PLAID CLEANUP] Found invalid token for item ${item.id} (${errorCode}) - marking as disconnected`);
+          
+          await prisma.plaidItem.update({
+            where: { id: item.id },
+            data: { 
+              status: 'disconnected',
+              updatedAt: new Date()
+            }
+          });
+          
+          cleanedCount++;
+        }
+      }
+    }
+
+    if (cleanedCount > 0) {
+      console.log(`[PLAID CLEANUP] Cleaned up ${cleanedCount} items with invalid tokens`);
+    } else {
+      console.log(`[PLAID CLEANUP] No invalid tokens found`);
+    }
+  } catch (error) {
+    console.error(`[PLAID CLEANUP] Error during invalid token cleanup:`, error);
+    // Don't throw - this is a cleanup operation
+  }
+}
+
+/**
  * Safely synchronize plaidId values for accounts after merge operations
  * This function prevents unique constraint violations by checking for conflicts
  * and handles re-authentication scenarios where old accounts need to be replaced
@@ -395,8 +527,14 @@ export async function POST(request: Request) {
     if (existingInstitution) {
       console.log(`[PLAID] Updating existing PlaidItem: id=${existingInstitution.id}, institutionId=${institutionId}, plaidItemId=${plaidItemId}, isReauthentication=${isReauthentication}`);
 
-      // If this is a re-authentication, disconnect old PlaidItems first
+      // If this is a re-authentication, perform comprehensive cleanup
       if (isReauthentication) {
+        console.log(`[PLAID] Performing comprehensive cleanup during re-authentication`);
+        
+        // First, cleanup any invalid tokens
+        await cleanupInvalidTokens();
+        
+        // Then, disconnect old PlaidItems
         const itemsToDisconnect = existingInstitutions.filter(item => item.id !== existingInstitution!.id);
         if (itemsToDisconnect.length > 0) {
           console.log(`[PLAID] Disconnecting ${itemsToDisconnect.length} old PlaidItems during re-authentication`);
@@ -412,6 +550,9 @@ export async function POST(request: Request) {
           
           console.log(`[PLAID] Disconnected ${disconnectResult.success.length} old tokens, ${disconnectResult.failed.length} failed`);
         }
+        
+        // Finally, cleanup any remaining orphaned items
+        await cleanupOrphanedItems(institutionId, existingInstitution.id);
       }
 
       // Update existing institution with new access token

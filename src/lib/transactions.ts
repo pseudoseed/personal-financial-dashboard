@@ -305,6 +305,21 @@ async function handleInvestmentTransactions(
     plaidItem: PlaidItem;
   }
 ) {
+  console.log(`[INVESTMENT SYNC] Starting investment transaction sync for account: ${account.id} (${account.name})`);
+  
+  // Validate account eligibility before attempting sync
+  if (account.plaidItem.accessToken === "manual") {
+    throw new Error("Manual accounts don't support investment transaction sync");
+  }
+
+  if (account.plaidItem.status === "disconnected") {
+    throw new Error("Cannot sync investment transactions for disconnected PlaidItem");
+  }
+
+  if (!account.plaidId) {
+    throw new Error("Account missing plaidId - cannot sync investment transactions");
+  }
+
   const endDate = new Date().toISOString().split("T")[0];
   const startDate = new Date();
   startDate.setMonth(startDate.getMonth() - 24); // Get 24 months of history
@@ -317,33 +332,106 @@ async function handleInvestmentTransactions(
   const PAGE_SIZE = 500;
 
   try {
-    // Keep fetching transactions until we get them all
-    while (hasMore) {
-      const response = await plaidClient.investmentsTransactionsGet({
-        access_token: account.plaidItem.accessToken,
-        start_date: startDateStr,
-        end_date: endDate,
-        options: {
-          offset,
-          count: PAGE_SIZE,
-          account_ids: [account.plaidId],
-        },
-      });
+    // Pre-validate the access token before attempting investment sync
+    try {
+      await plaidClient.itemGet({ access_token: account.plaidItem.accessToken });
+    } catch (validationError: any) {
+      const errorCode = validationError?.response?.data?.error_code;
+      const isTokenRevoked = [
+        'ITEM_NOT_FOUND',
+        'INVALID_ACCESS_TOKEN',
+        'ITEM_EXPIRED'
+      ].includes(errorCode);
 
-      // Add transactions and securities to our collections
-      allInvestmentTransactions = [
-        ...allInvestmentTransactions,
-        ...response.data.investment_transactions,
-      ];
-      allSecurities = [...allSecurities, ...response.data.securities];
-
-      // Check if we need to fetch more
-      offset += response.data.investment_transactions.length;
-      hasMore = offset < response.data.total_investment_transactions;
+      if (isTokenRevoked) {
+        console.log(`[INVESTMENT SYNC] Token revoked for account ${account.id} (${errorCode}) - marking PlaidItem as disconnected`);
+        
+        // Mark the PlaidItem as disconnected
+        await prisma.plaidItem.update({
+          where: { id: account.plaidItem.id },
+          data: { status: 'disconnected' } as any
+        });
+        
+        throw new Error(`Access token revoked (${errorCode}) - please reconnect this institution`);
+      } else {
+        throw validationError;
+      }
     }
 
+    // Keep fetching transactions until we get them all
+    while (hasMore) {
+      try {
+        console.log(`[INVESTMENT SYNC] Fetching investment transactions with offset: ${offset}`);
+        
+        const response = await plaidClient.investmentsTransactionsGet({
+          access_token: account.plaidItem.accessToken,
+          start_date: startDateStr,
+          end_date: endDate,
+          options: {
+            offset,
+            count: PAGE_SIZE,
+            account_ids: [account.plaidId],
+          },
+        });
+
+        console.log(`[INVESTMENT SYNC] Received ${response.data.investment_transactions.length} transactions, ${response.data.securities.length} securities`);
+
+        // Add transactions and securities to our collections
+        allInvestmentTransactions = [
+          ...allInvestmentTransactions,
+          ...response.data.investment_transactions,
+        ];
+        allSecurities = [...allSecurities, ...response.data.securities];
+
+        // Check if we need to fetch more
+        offset += response.data.investment_transactions.length;
+        hasMore = offset < response.data.total_investment_transactions;
+        
+      } catch (apiError: any) {
+        const errorCode = apiError?.response?.data?.error_code;
+        const errorMessage = apiError?.response?.data?.error_message || apiError?.message || 'Unknown error';
+        
+        console.error(`[INVESTMENT SYNC] API error for account ${account.id}:`, {
+          errorCode,
+          errorMessage,
+          status: apiError?.response?.status,
+          offset,
+          plaidId: account.plaidId
+        });
+
+        // Handle specific error cases
+        if (apiError?.response?.status === 400) {
+          if (errorCode === 'INVALID_ACCOUNT_ID') {
+            console.log(`[INVESTMENT SYNC] Invalid account ID ${account.plaidId} - this account may no longer exist in Plaid`);
+            throw new Error(`Account ${account.name} no longer exists in Plaid - please refresh your connection`);
+          } else if (errorCode === 'INVALID_ACCESS_TOKEN') {
+            console.log(`[INVESTMENT SYNC] Invalid access token for account ${account.id} - marking as disconnected`);
+            
+            // Mark the PlaidItem as disconnected
+            await prisma.plaidItem.update({
+              where: { id: account.plaidItem.id },
+              data: { status: 'disconnected' } as any
+            });
+            
+            throw new Error(`Access token invalid - please reconnect this institution`);
+          } else {
+            console.log(`[INVESTMENT SYNC] 400 error with code ${errorCode} - treating as temporary failure`);
+            throw new Error(`Investment sync temporarily unavailable (${errorCode}) - please try again later`);
+          }
+        } else if (apiError?.response?.status === 429) {
+          console.log(`[INVESTMENT SYNC] Rate limit exceeded for account ${account.id}`);
+          throw new Error(`Rate limit exceeded - please try again later`);
+        } else {
+          // For other errors, re-throw with more context
+          throw new Error(`Investment sync failed: ${errorMessage} (${errorCode || 'UNKNOWN'})`);
+        }
+      }
+    }
+
+    console.log(`[INVESTMENT SYNC] Successfully fetched ${allInvestmentTransactions.length} investment transactions for account ${account.id}`);
+
     // Delete existing transactions for this time period
-    await prisma.transaction.deleteMany({
+    const deletedCount = await prisma.transaction.deleteMany({
       where: {
         accountId: account.id,
         date: {
@@ -352,6 +440,8 @@ async function handleInvestmentTransactions(
         },
       },
     });
+
+    console.log(`[INVESTMENT SYNC] Deleted ${deletedCount.count} existing transactions for account ${account.id}`);
 
     // Create download log entry
     const downloadLog = await prisma.transactionDownloadLog.create({
@@ -366,6 +456,8 @@ async function handleInvestmentTransactions(
 
     // Insert new transactions
     if (allInvestmentTransactions.length > 0) {
+      console.log(`[INVESTMENT SYNC] Inserting ${allInvestmentTransactions.length} new transactions for account ${account.id}`);
+      
       await prisma.$transaction(
         allInvestmentTransactions.map((transaction) => {
           const security = transaction.security_id
@@ -413,6 +505,8 @@ async function handleInvestmentTransactions(
           });
         })
       );
+      
+      console.log(`[INVESTMENT SYNC] Successfully inserted ${allInvestmentTransactions.length} transactions for account ${account.id}`);
     }
 
     return {
@@ -421,7 +515,23 @@ async function handleInvestmentTransactions(
       numTransactions: allInvestmentTransactions.length,
     };
   } catch (error) {
-    console.error("Investment transactions sync error details:", error);
+    console.error(`[INVESTMENT SYNC] Error syncing investment transactions for account ${account.id}:`, error);
+    
+    // Create error log entry
+    try {
+      await prisma.transactionDownloadLog.create({
+        data: {
+          accountId: account.id,
+          startDate,
+          endDate: new Date(endDate),
+          numTransactions: 0,
+          status: "error",
+        },
+      });
+    } catch (logError) {
+      console.error(`[INVESTMENT SYNC] Failed to create error log entry:`, logError);
+    }
+    
     throw error;
   }
 }
