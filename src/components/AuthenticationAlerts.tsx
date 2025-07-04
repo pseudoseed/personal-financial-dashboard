@@ -76,7 +76,15 @@ export const AuthenticationAlerts = forwardRef<AuthenticationAlertsRef>((props, 
         body: JSON.stringify({ institutionId }),
       });
       
-      if (!response.ok) throw new Error("Failed to create update token");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (errorData.error && errorData.error.includes("Manual accounts")) {
+          // Handle manual account case gracefully
+          setPlaidError("This is a manual account and doesn't require Plaid re-authentication.");
+          return;
+        }
+        throw new Error("Failed to create update token");
+      }
       
       const { link_token } = await response.json();
       setLinkToken(link_token);

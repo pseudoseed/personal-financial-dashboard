@@ -22,10 +22,32 @@ export async function GET() {
       take: 1000, // Last 1000 calls for analysis
     });
 
-    // Get Plaid items (simplified for now)
-    const allItems = await prisma.plaidItem.findMany();
-    const activeItems = allItems.length; // Placeholder - would need proper status field
-    const disconnectedItems = 0; // Placeholder
+    // Get Plaid items with proper filtering
+    const allItems = await prisma.plaidItem.findMany({
+      include: {
+        accounts: {
+          where: {
+            archived: false, // Exclude archived accounts
+          },
+        },
+      },
+    });
+
+    // Debug: Log status values to understand what we're working with
+    console.log('[BILLING AUDIT] PlaidItem status breakdown:');
+    const statusCounts = allItems.reduce((acc, item) => {
+      const status = item.status || 'null/undefined';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log('[BILLING AUDIT] Status counts:', statusCounts);
+
+    // Filter items by status and count active vs disconnected
+    // Consider items with null/undefined status as potentially disconnected
+    const activeItems = allItems.filter(item => 
+      item.status === 'active' || item.status === null || item.status === undefined
+    ).length;
+    const disconnectedItems = allItems.filter(item => item.status === 'disconnected').length;
 
     // Calculate daily usage
     const dailyUsage = new Map<string, { calls: number; cost: number; endpoints: Set<string> }>();
@@ -82,31 +104,24 @@ export async function GET() {
       }))
       .sort((a, b) => b.calls - a.calls);
 
-    // Get institution usage (simplified - in reality you'd need more detailed tracking)
-    const items = await prisma.plaidItem.findMany({
-      include: {
-        accounts: {
-          include: {
-            balances: {
-              orderBy: { date: 'desc' },
-              take: 1,
-            },
-          },
-        },
-      },
-    });
-
-    const itemsWithUsage = items.map(item => {
-      // Estimate usage based on account count and last sync
-      const accountCount = item.accounts.length;
+    // Get institution usage - include both active and disconnected items for transparency
+    const itemsWithUsage = allItems.map(item => {
+      // Count only non-archived accounts
+      const activeAccountCount = item.accounts.length;
       const lastSync = item.updatedAt;
       const callsToday = Math.floor(Math.random() * 5) + 1; // Placeholder - would need actual tracking
       const costToday = callsToday * 0.25; // Placeholder
 
+      // Determine display status
+      let displayStatus = item.status || 'unknown';
+      if (displayStatus === 'unknown' || displayStatus === 'null/undefined') {
+        displayStatus = 'active'; // Default to active for items without explicit status
+      }
+
       return {
         id: item.id,
         institutionName: item.institutionName || item.institutionId,
-        status: 'active', // Placeholder - would need proper status field
+        status: displayStatus,
         lastSync: lastSync.toISOString(),
         callsToday,
         costToday,
