@@ -53,7 +53,7 @@ RUN apk add --no-cache \
     bash \
     tzdata \
     sqlite \
-    cron
+    dcron
 
 # Set timezone
 ENV TZ=UTC
