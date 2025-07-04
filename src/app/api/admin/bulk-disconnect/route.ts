@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { plaidClient } from "@/lib/plaid";
 import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
+import { trackPlaidApiCall, getCurrentUserId, getAppInstanceId } from "@/lib/plaidTracking";
 
 export async function POST(request: Request) {
   try {
@@ -90,15 +91,32 @@ export async function POST(request: Request) {
         let institutionName: string | null = null;
 
         try {
-          const itemResponse = await plaidClient.itemGet({ access_token: accessToken });
+          const itemResponse = await trackPlaidApiCall(
+            () => plaidClient.itemGet({ access_token: accessToken }),
+            {
+              endpoint: '/item/get',
+              userId: await getCurrentUserId(),
+              appInstanceId: getAppInstanceId(),
+              requestData: { accessToken: '***' } // Don't log the actual token
+            }
+          );
           institutionId = itemResponse.data.item.institution_id;
           
           // Get institution name
           if (institutionId) {
-            const institutionResponse = await plaidClient.institutionsGetById({
-              institution_id: institutionId,
-              country_codes: ['US' as any],
-            });
+            const institutionResponse = await trackPlaidApiCall(
+              () => plaidClient.institutionsGetById({
+                institution_id: institutionId,
+                country_codes: ['US'],
+              }),
+              {
+                endpoint: '/institutions/get_by_id',
+                institutionId,
+                userId: await getCurrentUserId(),
+                appInstanceId: getAppInstanceId(),
+                requestData: { institutionId, countryCodes: ['US'] }
+              }
+            );
             
             if (institutionResponse.data.institution) {
               institutionName = institutionResponse.data.institution.name;
@@ -109,7 +127,16 @@ export async function POST(request: Request) {
         }
 
         // Attempt to disconnect via Plaid API
-        await plaidClient.itemRemove({ access_token: accessToken });
+        await trackPlaidApiCall(
+          () => plaidClient.itemRemove({ access_token: accessToken }),
+          {
+            endpoint: '/item/remove',
+            institutionId,
+            userId: await getCurrentUserId(),
+            appInstanceId: getAppInstanceId(),
+            requestData: { accessToken: '***' } // Don't log the actual token
+          }
+        );
 
         // If successful, create a deactivated PlaidItem record
         await prisma.plaidItem.create({
@@ -258,5 +285,74 @@ export async function GET() {
       { error: "Failed to fetch job history" },
       { status: 500 }
     );
+  }
+}
+
+async function disconnectPlaidItem(accessToken: string, itemId: string) {
+  try {
+    const userId = await getCurrentUserId();
+    const appInstanceId = getAppInstanceId();
+
+    // Get item details first
+    const itemResponse = await trackPlaidApiCall(
+      () => plaidClient.itemGet({ access_token: accessToken }),
+      {
+        endpoint: '/item/get',
+        userId,
+        appInstanceId,
+        requestData: { accessToken: '***' } // Don't log the actual token
+      }
+    );
+
+    const institutionId = itemResponse.data.item.institution_id;
+
+    // Get institution details
+    const institutionResponse = await trackPlaidApiCall(
+      () => plaidClient.institutionsGetById({
+        institution_id: institutionId,
+        country_codes: ['US'],
+      }),
+      {
+        endpoint: '/institutions/get_by_id',
+        institutionId,
+        userId,
+        appInstanceId,
+        requestData: { institutionId, countryCodes: ['US'] }
+      }
+    );
+
+    const institutionName = institutionResponse.data.institution.name;
+
+    // Remove the item from Plaid
+    await trackPlaidApiCall(
+      () => plaidClient.itemRemove({ access_token: accessToken }),
+      {
+        endpoint: '/item/remove',
+        institutionId,
+        userId,
+        appInstanceId,
+        requestData: { accessToken: '***' } // Don't log the actual token
+      }
+    );
+
+    // Mark as disconnected in database
+    await prisma.plaidItem.update({
+      where: { id: itemId },
+      data: { status: 'disconnected' } as any,
+    });
+
+    return {
+      success: true,
+      institutionId,
+      institutionName,
+      message: `Successfully disconnected ${institutionName}`,
+    };
+  } catch (error: any) {
+    const errorMessage = error?.response?.data?.error_message || error?.message || 'Unknown error';
+    return {
+      success: false,
+      error: errorMessage,
+      message: `Failed to disconnect item: ${errorMessage}`,
+    };
   }
 } 

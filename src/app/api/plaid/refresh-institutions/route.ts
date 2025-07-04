@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { plaidClient } from "@/lib/plaid";
 import { prisma } from "@/lib/db";
 import { CountryCode } from "plaid";
 import { institutionLogos } from "@/lib/institutionLogos";
+import { trackPlaidApiCall, getCurrentUserId, getAppInstanceId } from "@/lib/plaidTracking";
 
 function formatLogoUrl(
   logo: string | null | undefined,
@@ -29,77 +30,59 @@ function formatLogoUrl(
   return fallbackLogo || null;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const items = await prisma.plaidItem.findMany({
-      where: {
-        accessToken: {
-          not: "manual",
-        },
-      },
-    });
-    const results = [];
+    const { institutionId } = await request.json();
 
-    for (const item of items) {
-      try {
-        console.log(`Processing institution: ${item.institutionId}`);
-
-        const institutionResponse = await plaidClient.institutionsGetById({
-          institution_id: item.institutionId,
-          country_codes: [CountryCode.Us],
-          options: {
-            include_optional_metadata: true,
-          },
-        });
-
-        const institution = institutionResponse.data.institution;
-        console.log(`Institution details:`, {
-          id: item.institutionId,
-          name: institution.name,
-          hasPlaidLogo: !!institution.logo,
-          hasFallbackLogo: !!institutionLogos[item.institutionId],
-        });
-
-        const logo = formatLogoUrl(institution.logo, item.institutionId);
-        console.log(`Final logo URL:`, logo);
-
-        await prisma.plaidItem.update({
-          where: { id: item.id },
-          data: {
-            institutionName: institution.name,
-            institutionLogo: logo,
-          },
-        });
-
-        results.push({
-          id: item.id,
-          institutionId: item.institutionId,
-          status: "success",
-          name: institution.name,
-          logo: logo ? "present" : "missing",
-        });
-      } catch (error) {
-        console.error(
-          `Error updating institution ${item.institutionId}:`,
-          error
-        );
-        results.push({
-          id: item.id,
-          institutionId: item.institutionId,
-          status: "error",
-          error: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
+    if (!institutionId) {
+      return NextResponse.json(
+        { error: "Institution ID is required" },
+        { status: 400 }
+      );
     }
 
+    const userId = await getCurrentUserId();
+    const appInstanceId = getAppInstanceId();
+
+    // Get updated institution information from Plaid
+    const institutionResponse = await trackPlaidApiCall(
+      () => plaidClient.institutionsGetById({
+        institution_id: institutionId,
+        country_codes: [CountryCode.Us],
+      }),
+      {
+        endpoint: '/institutions/get_by_id',
+        institutionId,
+        userId,
+        appInstanceId,
+        requestData: { institutionId, countryCodes: [CountryCode.Us] }
+      }
+    );
+
+    const institution = institutionResponse.data.institution;
+
+    // Update the PlaidItem with new institution information
+    await prisma.plaidItem.updateMany({
+      where: { institutionId },
+      data: {
+        institutionName: institution.name ?? null,
+        institutionLogo: institution.logo ?? null,
+        updatedAt: new Date(),
+      },
+    });
+
     return NextResponse.json({
-      success: true,
-      results,
+      message: "Institution information refreshed successfully",
+      institution: {
+        id: institution.institution_id,
+        name: institution.name,
+        logo: institution.logo,
+      },
     });
   } catch (error) {
-    console.error("Error refreshing institutions:", error);
+    console.error("Error refreshing institution:", error);
     return NextResponse.json(
-      { error: "Failed to refresh institutions" },
+      { error: "Failed to refresh institution" },
       { status: 500 }
     );
   }

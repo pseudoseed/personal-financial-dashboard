@@ -3,6 +3,8 @@ import { plaidClient } from "./plaid";
 import { smartSyncTransactions } from "./transactionSyncService";
 import { getCurrentUserId } from "./userManagement";
 import { v4 as uuidv4 } from 'uuid';
+import { trackPlaidApiCall, getAppInstanceId } from "./plaidTracking";
+import { filterEligibleAccounts, getAccountIneligibilityReason } from "./accountEligibility";
 
 // Cache for storing refresh timestamps and data
 const refreshCache = new Map<string, { timestamp: number; data: any }>();
@@ -729,4 +731,75 @@ async function logPlaidApiCall({
   } catch (err) {
     console.error('[PlaidApiCallLog] Failed to log Plaid API call:', err);
   }
+}
+
+export async function refreshAllAccounts(prisma: any) {
+  console.log("Starting refresh of all accounts...");
+
+  // Get all accounts with their PlaidItems
+  const allAccounts = await prisma.account.findMany({
+    where: {
+      archived: false, // Don't refresh archived accounts
+    },
+    include: {
+      plaidItem: true,
+      balances: {
+        orderBy: { date: "desc" },
+        take: 1,
+      },
+    },
+  });
+
+  // Filter out accounts that are not eligible for Plaid API calls
+  const eligibleAccounts = filterEligibleAccounts(allAccounts);
+  
+  console.log(`[REFRESH SERVICE] Found ${allAccounts.length} total accounts, ${eligibleAccounts.length} eligible for Plaid API calls`);
+
+  // Log ineligible accounts for debugging
+  const ineligibleAccounts = allAccounts.filter(account => !eligibleAccounts.includes(account));
+  if (ineligibleAccounts.length > 0) {
+    console.log(`[REFRESH SERVICE] Skipping ${ineligibleAccounts.length} ineligible accounts:`);
+    ineligibleAccounts.forEach(account => {
+      const reason = getAccountIneligibilityReason(account);
+      console.log(`  - ${account.name} (${account.id}): ${reason}`);
+    });
+  }
+
+  if (eligibleAccounts.length === 0) {
+    console.log("No eligible accounts found for refresh");
+    return { refreshed: [], errors: [] };
+  }
+
+  // Group accounts by institution for efficient API calls
+  const accountsByInstitution = new Map<string, typeof eligibleAccounts>();
+  
+  for (const account of eligibleAccounts) {
+    const institutionId = account.plaidItem.institutionId;
+    if (!accountsByInstitution.has(institutionId)) {
+      accountsByInstitution.set(institutionId, []);
+    }
+    accountsByInstitution.get(institutionId)!.push(account);
+  }
+
+  const results = { refreshed: [] as string[], errors: [] as Array<{ accountId: string; error: string }> };
+
+  // Process each institution's accounts
+  for (const [institutionId, accounts] of accountsByInstitution) {
+    console.log(`Refreshing ${accounts.length} accounts for institution ${institutionId}`);
+    
+    try {
+      await refreshInstitutionAccounts(accounts, results);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error(`Error refreshing institution ${institutionId}:`, errorMessage);
+      
+      // Mark all accounts in this institution as failed
+      accounts.forEach(account => {
+        results.errors.push({ accountId: account.id, error: errorMessage });
+      });
+    }
+  }
+
+  console.log(`Refresh completed. ${results.refreshed.length} accounts refreshed, ${results.errors.length} errors`);
+  return results;
 } 

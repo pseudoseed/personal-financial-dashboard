@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { plaidClient } from "@/lib/plaid";
 import { prisma } from "@/lib/db";
 import { Account, PlaidItem } from "@prisma/client";
+import { trackPlaidApiCall, getCurrentUserId, getAppInstanceId } from "@/lib/plaidTracking";
+import { isAccountEligibleForPlaidCalls, getAccountIneligibilityReason } from "@/lib/accountEligibility";
 
 interface CoinbaseAccount {
   id: string;
@@ -93,14 +95,28 @@ async function refreshCoinbaseAccount(accessToken: string, accountId: string) {
 
 async function refreshPlaidLiabilities(account: Account & { plaidItem: PlaidItem }) {
   try {
-    console.log(`Fetching liability data for account: ${account.name}`);
-    
-    const response = await plaidClient.liabilitiesGet({
-      access_token: account.plaidItem.accessToken,
-      options: {
-        account_ids: [account.plaidId],
-      },
-    });
+    const userId = await getCurrentUserId();
+    const appInstanceId = getAppInstanceId();
+
+    const response = await trackPlaidApiCall(
+      () => plaidClient.liabilitiesGet({
+        access_token: account.plaidItem.accessToken,
+        options: {
+          account_ids: [account.plaidId],
+        },
+      }),
+      {
+        endpoint: '/liabilities/get',
+        institutionId: account.plaidItem.institutionId,
+        accountId: account.id,
+        userId,
+        appInstanceId,
+        requestData: {
+          accessToken: '***', // Don't log the actual token
+          accountIds: [account.plaidId]
+        }
+      }
+    );
 
     console.log("Plaid liability response:", JSON.stringify(response.data, null, 2));
 
@@ -195,16 +211,15 @@ export async function POST(
   { params }: { params: { accountId: string } }
 ) {
   try {
-    const { accountId } = await Promise.resolve(params);
-    
+    const { accountId } = params;
+
+    // Get the account with its PlaidItem
     const account = await prisma.account.findUnique({
       where: { id: accountId },
       include: {
         plaidItem: true,
         balances: {
-          orderBy: {
-            date: "desc",
-          },
+          orderBy: { date: "desc" },
           take: 1,
         },
       },
@@ -215,6 +230,18 @@ export async function POST(
         { error: "Account not found" },
         { status: 404 }
       );
+    }
+
+    // Check if account is eligible for Plaid API calls
+    if (!isAccountEligibleForPlaidCalls(account)) {
+      const reason = getAccountIneligibilityReason(account);
+      console.log(`[ACCOUNT REFRESH] Skipping Plaid API calls for account ${accountId}: ${reason}`);
+      
+      return NextResponse.json({
+        success: false,
+        message: `Account is not eligible for Plaid API calls: ${reason}`,
+        reason,
+      });
     }
 
     const previousBalance = account.balances[0]?.current || 0;
@@ -257,9 +284,22 @@ export async function POST(
 
       // Get updated account balances from Plaid
       try {
-        const response = await plaidClient.accountsBalanceGet({
-          access_token: account.plaidItem.accessToken,
-        });
+        const userId = await getCurrentUserId();
+        const appInstanceId = getAppInstanceId();
+
+        const response = await trackPlaidApiCall(
+          () => plaidClient.accountsBalanceGet({
+            access_token: account.plaidItem.accessToken,
+          }),
+          {
+            endpoint: '/accounts/balance/get',
+            institutionId: account.plaidItem.institutionId,
+            accountId: account.id,
+            userId,
+            appInstanceId,
+            requestData: { accessToken: '***' } // Don't log the actual token
+          }
+        );
 
         const plaidAccount = response.data.accounts.find(
           (acc) => acc.account_id === account.plaidId
@@ -286,67 +326,23 @@ export async function POST(
           change,
         });
       } catch (error) {
-        // Check for Plaid specific error codes
-        if ((error as any).response?.data) {
-          const plaidError = (error as any).response.data;
-          console.error("Plaid API Error:", {
-            error_code: plaidError.error_code,
-            error_message: plaidError.error_message,
-            display_message: plaidError.display_message,
-          });
-
-          // Handle specific error cases
-          switch (plaidError.error_code) {
-            case "ITEM_LOGIN_REQUIRED":
-              return new Response(
-                JSON.stringify({
-                  error: "Please re-authenticate with Capital One",
-                  error_code: plaidError.error_code,
-                }),
-                { status: 400 }
-              );
-            case "INVALID_ACCESS_TOKEN":
-              return new Response(
-                JSON.stringify({
-                  error: "Access token is no longer valid",
-                  error_code: plaidError.error_code,
-                }),
-                { status: 400 }
-              );
-            case "INVALID_CREDENTIALS":
-              return new Response(
-                JSON.stringify({
-                  error: "Please update your Capital One credentials",
-                  error_code: plaidError.error_code,
-                }),
-                { status: 400 }
-              );
-            case "INSTITUTION_DOWN":
-              return new Response(
-                JSON.stringify({
-                  error: "Capital One is temporarily unavailable",
-                  error_code: plaidError.error_code,
-                }),
-                { status: 503 }
-              );
-            default:
-              throw error;
-          }
-        }
-        throw error;
+        console.error("Error refreshing account balance:", error);
+        return NextResponse.json(
+          { error: "Failed to refresh account balance" },
+          { status: 500 }
+        );
       }
     }
 
-    return NextResponse.json(
-      { error: "Unsupported account provider" },
-      { status: 400 }
-    );
+    // Handle manual accounts (should not reach here due to eligibility check, but keeping for safety)
+    return NextResponse.json({
+      success: false,
+      message: "Manual accounts cannot be refreshed via Plaid API",
+    });
   } catch (error) {
-    console.error("Error refreshing account balance:", error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
+    console.error("Error refreshing account:", error);
+    return NextResponse.json(
+      { error: "Failed to refresh account" },
       { status: 500 }
     );
   }

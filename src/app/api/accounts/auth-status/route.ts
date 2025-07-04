@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { plaidClient } from "@/lib/plaid";
+import { trackPlaidApiCall, getCurrentUserId, getAppInstanceId } from "@/lib/plaidTracking";
+import { filterEligiblePlaidItems, getPlaidItemIneligibilityReason } from "@/lib/accountEligibility";
 
 export async function GET() {
   try {
-    // Get all Plaid items (excluding disconnected ones to avoid unnecessary API calls)
-    const items = await prisma.plaidItem.findMany({
+    // Get all active PlaidItems (not disconnected) and filter out manual ones
+    const allItems = await prisma.plaidItem.findMany({
       where: {
-        accessToken: {
-          not: "manual",
-        },
         provider: "plaid",
         status: {
           not: "disconnected",
@@ -20,14 +19,42 @@ export async function GET() {
       },
     });
 
-    const authStatus = [];
+    // Filter out manual and ineligible PlaidItems
+    const eligibleItems = allItems.filter(item => {
+      const isEligible = item.accessToken !== "manual" && 
+                        item.status !== "disconnected" && 
+                        item.accessToken && 
+                        item.accessToken !== "manual";
+      
+      if (!isEligible) {
+        const reason = getPlaidItemIneligibilityReason(item);
+        console.log(`[AUTH STATUS] Skipping PlaidItem ${item.id} (${item.institutionName || item.institutionId}): ${reason}`);
+      }
+      
+      return isEligible;
+    });
+    
+    console.log(`[AUTH STATUS] Found ${allItems.length} total PlaidItems, ${eligibleItems.length} eligible for API calls`);
 
-    for (const item of items) {
+    const authStatus = [];
+    const userId = await getCurrentUserId();
+    const appInstanceId = getAppInstanceId();
+
+    for (const item of eligibleItems) {
       try {
         // Use itemGet to check basic token validity first
-        const itemResponse = await plaidClient.itemGet({
-          access_token: item.accessToken,
-        });
+        const itemResponse = await trackPlaidApiCall(
+          () => plaidClient.itemGet({
+            access_token: item.accessToken,
+          }),
+          {
+            endpoint: '/item/get',
+            institutionId: item.institutionId,
+            userId,
+            appInstanceId,
+            requestData: { accessToken: '***' } // Don't log the actual token
+          }
+        );
         
         // Check if the item has an error status
         const plaidItem = itemResponse.data.item;
