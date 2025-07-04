@@ -130,7 +130,7 @@ export default function DisconnectAllPage() {
       <AdminToolCard
         title="Current Active Institutions"
         description={`Found ${activeInstitutions.length} active institutions with ${totalAccounts} total accounts`}
-        status={activeInstitutions.length > 0 ? "warning" : "success"}
+        status={activeInstitutions.length > 0 ? "warning" : "active"}
       >
         {activeInstitutions.length === 0 ? (
           <div className="text-center py-8">
@@ -215,7 +215,7 @@ export default function DisconnectAllPage() {
         <AdminToolCard
           title="Disconnect All Job Status"
           description={`Job ID: ${currentJob.id}`}
-          status={currentJob.status === 'completed' ? 'success' : currentJob.status === 'completed_with_errors' ? 'warning' : 'info'}
+          status={currentJob.status === 'completed' ? 'active' : currentJob.status === 'completed_with_errors' ? 'warning' : 'info'}
         >
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
