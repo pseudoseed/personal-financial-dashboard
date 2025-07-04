@@ -1,8 +1,65 @@
 # Active Context
 
-## Current Focus: Docker Alpine Linux Cron Package Fix - COMPLETED ✅
+## Current Focus: Docker Container Permission and Startup Fix - COMPLETED ✅
 
-### 🎯 **Docker Alpine Linux Cron Package Fix Status: COMPLETE**
+### 🎯 **Docker Container Permission and Startup Fix Status: COMPLETE**
+
+**Problem Solved:**
+- Docker container was failing to start with permission errors: "mkdir: can't create directory '/logs': Permission denied"
+- Container was also failing to start the Next.js application due to incorrect startup command
+- Multiple issues with Alpine Linux package names and directory permissions
+
+**Root Cause:**
+1. **Permission Issues**: Script was trying to create `/logs` and `/backups` directories in root filesystem, but container runs as non-root user
+2. **Package Name Issues**: Alpine Linux uses `dcron` instead of `cron`, and the daemon is called `crond` not `cron`
+3. **Startup Command Issues**: Script was using `npm run start` instead of `node server.js` for standalone Next.js builds
+
+**Solution Implemented:**
+
+#### 1. **Fixed Directory Paths** ✅
+- **File**: `scripts/start-with-backup-cron.sh`
+- **Change**: Updated paths from `/logs` and `/backups` to `/app/logs` and `/app/backups`
+- **Reason**: These directories are owned by the nextjs user and match Docker volume mounts
+
+#### 2. **Fixed Cron Daemon Command** ✅
+- **File**: `scripts/start-with-backup-cron.sh`
+- **Change**: Updated `cron` to `crond` (Alpine Linux dcron daemon)
+- **Reason**: dcron package provides `crond` command, not `cron`
+
+#### 3. **Fixed Application Startup Command** ✅
+- **File**: `scripts/start-with-backup-cron.sh`
+- **Change**: Updated `npm run start` to `node server.js`
+- **Reason**: Next.js standalone builds create `server.js`, not npm scripts
+
+#### 4. **Updated Cron Job Path** ✅
+- **File**: `scripts/start-with-backup-cron.sh`
+- **Change**: Updated backup log path to `/app/logs/access-token-backup.log`
+- **Reason**: Ensures cron job writes to the correct volume-mounted directory
+
+**Technical Changes:**
+- **File**: `scripts/start-with-backup-cron.sh`
+  - Fixed directory creation paths (lines 4-5)
+  - Fixed cron daemon command (line 15)
+  - Fixed application startup command (line 18)
+  - Updated cron job log path (line 9)
+
+**Benefits:**
+- ✅ **Container Starts Successfully** - No more permission errors
+- ✅ **Next.js Application Runs** - Server starts and responds on port 3000
+- ✅ **Cron Jobs Work** - Backup jobs will run as scheduled
+- ✅ **Volume Mounts Work** - Logs and backups are properly stored
+- ✅ **Security Maintained** - Continues running as non-root user
+- ✅ **Alpine Compatibility** - Uses correct Alpine Linux packages and commands
+
+**Verification:**
+- Local Docker build and run completed successfully
+- Container starts without permission errors
+- Next.js application responds on port 3000
+- All directory paths match Docker volume configuration
+
+**Status: COMPLETE** - Docker container now starts successfully with all functionality working
+
+## Previous Focus: Docker Alpine Linux Cron Package Fix - COMPLETED ✅
 
 **Problem Solved:**
 - Docker build was failing on Linux server with error: "cron (no such package)"
