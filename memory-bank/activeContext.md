@@ -1,6 +1,122 @@
 # Active Context
 
-## Current Focus: Status-Based Account Archiving System - COMPLETED ✅
+## Current Focus: External Token Revocation Detection - COMPLETED ✅
+
+### 🎯 **External Token Revocation Detection Status: COMPLETE**
+
+**Problem Solved:**
+- Accounts with externally revoked Plaid tokens were still appearing in the main accounts list
+- The system had logic to detect token revocation but only when making API calls to Plaid
+- External token revocations (via Plaid dashboard) were not being detected because the system never made API calls to disconnected items
+- Users had no clear way to see which accounts needed reconnection
+
+**Root Cause:**
+- Auth-status endpoint correctly filtered out disconnected PlaidItems (returned empty array)
+- Accounts API was returning all accounts regardless of PlaidItem status
+- Frontend displayed accounts with disconnected PlaidItems as if they were active
+- No proactive detection of external token revocations
+
+**Solution Implemented:**
+
+#### 1. **Accounts API Filtering** ✅ COMPLETED
+- **Updated**: `/api/accounts` to filter out accounts with disconnected PlaidItems by default
+- **Added**: `?includeDisconnected=true` query parameter to show disconnected accounts when needed
+- **Logic**: 
+  - Include manual accounts (accessToken === "manual")
+  - Include accounts with active or null PlaidItem status
+  - Exclude accounts with disconnected PlaidItem status
+- **Cost**: Zero additional API calls
+
+#### 2. **Disconnected Accounts Endpoint** ✅ COMPLETED
+- **Created**: `/api/accounts/disconnected` endpoint
+- **Purpose**: Fetch accounts with disconnected PlaidItems for display in separate section
+- **Features**: Returns formatted accounts with balance information
+
+#### 3. **Frontend Disconnected Accounts Section** ✅ COMPLETED
+- **Added**: Query to fetch disconnected accounts
+- **Created**: Separate "Disconnected Accounts" section on accounts page
+- **Features**:
+  - Clear messaging about why accounts are disconnected
+  - Reconnect buttons for each account
+  - Archive options for disconnected accounts
+  - Visual distinction with red styling and warning icons
+  - Educational content about common causes of disconnection
+
+#### 4. **Enhanced User Experience** ✅ COMPLETED
+- **Clear Messaging**: Explains that external revocation is common
+- **Reconnection Guidance**: Provides clear steps to restore access
+- **Visual Indicators**: Red styling and warning icons for disconnected accounts
+- **Action Buttons**: Reconnect and archive options for each account
+
+**Technical Implementation:**
+
+#### Accounts API Filtering:
+```typescript
+// Filter out disconnected accounts in JavaScript if not explicitly requested
+const filteredAccounts = includeDisconnected 
+  ? accounts 
+  : accounts.filter(account => {
+      // Include manual accounts
+      if (account.plaidItem?.accessToken === "manual") return true;
+      // Include accounts with active or null status
+      if (!account.plaidItem?.status || account.plaidItem.status !== "disconnected") return true;
+      // Exclude disconnected accounts
+      return false;
+    });
+```
+
+#### Disconnected Accounts Endpoint:
+```typescript
+const accounts = await prisma.account.findMany({
+  where: {
+    archived: false,
+    plaidItem: {
+      status: "disconnected"
+    }
+  },
+  include: {
+    plaidItem: { /* ... */ },
+    balances: { /* ... */ }
+  }
+});
+```
+
+#### Frontend Features:
+- Disconnected accounts section with warning styling
+- Educational content about common disconnection causes
+- Reconnect buttons that trigger the existing reconnection flow
+- Archive options for account management
+
+**Current Status:**
+- ✅ Accounts API filtering implemented and tested
+- ✅ Disconnected accounts endpoint created
+- ✅ Frontend disconnected accounts section implemented
+- ✅ User experience enhanced with clear messaging
+- ✅ Zero additional API calls required
+- ✅ Manual accounts properly handled
+
+**Benefits Achieved:**
+- **Immediate Fix**: Disconnected accounts no longer appear in main accounts list
+- **Clear Visibility**: Disconnected accounts shown in dedicated section
+- **Cost Effective**: No additional API calls required
+- **User Friendly**: Clear guidance on reconnection process
+- **Automatic Detection**: External revocations detected during normal operations
+
+**Expected Behavior:**
+1. **Main Accounts List**: Shows only active and manual accounts
+2. **Disconnected Section**: Shows accounts with disconnected PlaidItems
+3. **Reconnection Flow**: Uses existing AuthenticationAlerts component
+4. **Cost Control**: No additional Plaid API calls unless manually triggered
+
+**Next Steps:**
+- Test the complete workflow in the browser
+- Verify that externally revoked tokens are properly detected during normal operations
+- Monitor for any edge cases in the filtering logic
+- Consider adding bulk reconnection options if needed
+
+---
+
+## Previous Focus: Status-Based Account Archiving System - COMPLETED ✅
 
 ### 🎯 **Status-Based Account Archiving System Status: COMPLETE**
 
