@@ -46,6 +46,8 @@ function findMatchingAccount(account: any, existingAccounts: any[]) {
 /**
  * Safely synchronize plaidId values for accounts after merge operations
  * This function prevents unique constraint violations by checking for conflicts
+ * and handles re-authentication scenarios where old accounts need to be replaced
+ * Also includes cleanup for orphaned accounts after re-authentication
  */
 async function synchronizePlaidIdsSafely(itemId: string, plaidAccounts: any[]) {
   try {
@@ -60,6 +62,7 @@ async function synchronizePlaidIdsSafely(itemId: string, plaidAccounts: any[]) {
     // Create a map of target plaidId to account for conflict detection
     const targetPlaidIdMap = new Map<string, any>();
     const updatesNeeded: Array<{ accountId: string, oldPlaidId: string, newPlaidId: string }> = [];
+    const replacementsNeeded: Array<{ oldAccountId: string, newAccountId: string, plaidId: string }> = [];
 
     // First pass: identify all needed updates and check for conflicts
     for (const plaidAccount of plaidAccounts) {
@@ -78,8 +81,15 @@ async function synchronizePlaidIdsSafely(itemId: string, plaidAccounts: any[]) {
         );
 
         if (existingAccountWithTargetPlaidId) {
-          console.log(`[PLAID] CONFLICT: Target plaidId ${plaidAccount.account_id} already assigned to account ${existingAccountWithTargetPlaidId.id} (${existingAccountWithTargetPlaidId.name})`);
-          console.log(`[PLAID] Skipping update for account ${matchingAccount.id} (${matchingAccount.name}) to avoid constraint violation`);
+          console.log(`[PLAID] RE-AUTH CONFLICT: Target plaidId ${plaidAccount.account_id} already assigned to account ${existingAccountWithTargetPlaidId.id} (${existingAccountWithTargetPlaidId.name})`);
+          console.log(`[PLAID] RE-AUTH RESOLUTION: Will replace old account ${matchingAccount.id} (${matchingAccount.name}) with new account ${existingAccountWithTargetPlaidId.id}`);
+          
+          // This is a re-authentication scenario - we need to replace the old account with the new one
+          replacementsNeeded.push({
+            oldAccountId: matchingAccount.id,
+            newAccountId: existingAccountWithTargetPlaidId.id,
+            plaidId: plaidAccount.account_id
+          });
           continue;
         }
 
@@ -100,15 +110,37 @@ async function synchronizePlaidIdsSafely(itemId: string, plaidAccounts: any[]) {
       }
     }
 
-    if (updatesNeeded.length === 0) {
-      console.log(`[PLAID] No plaidId updates needed for item ${itemId}`);
+    // Second pass: identify orphaned accounts (accounts that exist in DB but not in Plaid response)
+    const orphanedAccounts = remainingAccounts.filter(account => {
+      // Check if this account exists in the Plaid response by matching characteristics
+      const accountInPlaidResponse = plaidAccounts.find(
+        plaidAcc => plaidAcc.name === account.name && 
+                   plaidAcc.type === account.type && 
+                   plaidAcc.subtype === account.subtype &&
+                   (plaidAcc.mask === account.mask || (!plaidAcc.mask && !account.mask))
+      );
+      
+      // If no matching account found in Plaid response, it's orphaned
+      return !accountInPlaidResponse;
+    });
+
+    if (orphanedAccounts.length > 0) {
+      console.log(`[PLAID] CLEANUP: Found ${orphanedAccounts.length} orphaned accounts that no longer exist in Plaid response`);
+      orphanedAccounts.forEach(account => {
+        console.log(`[PLAID] CLEANUP: Orphaned account: ${account.name} (${account.id}) with plaidId ${account.plaidId}`);
+      });
+    }
+
+    if (updatesNeeded.length === 0 && replacementsNeeded.length === 0 && orphanedAccounts.length === 0) {
+      console.log(`[PLAID] No plaidId updates or cleanup needed for item ${itemId}`);
       return;
     }
 
-    console.log(`[PLAID] Found ${updatesNeeded.length} safe plaidId updates for item ${itemId}`);
+    console.log(`[PLAID] Found ${updatesNeeded.length} safe plaidId updates, ${replacementsNeeded.length} account replacements, and ${orphanedAccounts.length} orphaned accounts for item ${itemId}`);
 
-    // Second pass: execute updates within a transaction for consistency
+    // Third pass: execute updates, replacements, and cleanup within a transaction for consistency
     await prisma.$transaction(async (tx) => {
+      // First, handle simple updates
       for (const update of updatesNeeded) {
         console.log(`[PLAID] Updating plaidId for account ${update.accountId} from ${update.oldPlaidId} to ${update.newPlaidId}`);
         
@@ -131,9 +163,104 @@ async function synchronizePlaidIdsSafely(itemId: string, plaidAccounts: any[]) {
           data: { plaidId: update.newPlaidId },
         });
       }
+
+      // Then, handle account replacements for re-authentication scenarios
+      for (const replacement of replacementsNeeded) {
+        console.log(`[PLAID] RE-AUTH REPLACEMENT: Transferring data from old account ${replacement.oldAccountId} to new account ${replacement.newAccountId}`);
+        
+        // Transfer balances from old account to new account
+        const oldAccountBalances = await tx.accountBalance.findMany({
+          where: { accountId: replacement.oldAccountId }
+        });
+        
+        if (oldAccountBalances.length > 0) {
+          await tx.accountBalance.updateMany({
+            where: { accountId: replacement.oldAccountId },
+            data: { accountId: replacement.newAccountId }
+          });
+          console.log(`[PLAID] RE-AUTH: Transferred ${oldAccountBalances.length} balance records`);
+        }
+
+        // Transfer transactions from old account to new account
+        const oldAccountTransactions = await tx.transaction.findMany({
+          where: { accountId: replacement.oldAccountId }
+        });
+        
+        if (oldAccountTransactions.length > 0) {
+          await tx.transaction.updateMany({
+            where: { accountId: replacement.oldAccountId },
+            data: { accountId: replacement.newAccountId }
+          });
+          console.log(`[PLAID] RE-AUTH: Transferred ${oldAccountTransactions.length} transaction records`);
+        }
+
+        // Transfer emergency fund references
+        const emergencyFundRefs = await tx.emergencyFundAccount.findMany({
+          where: { accountId: replacement.oldAccountId }
+        });
+        
+        if (emergencyFundRefs.length > 0) {
+          await tx.emergencyFundAccount.updateMany({
+            where: { accountId: replacement.oldAccountId },
+            data: { accountId: replacement.newAccountId }
+          });
+          console.log(`[PLAID] RE-AUTH: Transferred ${emergencyFundRefs.length} emergency fund references`);
+        }
+
+        // Transfer loan details
+        const loanDetails = await tx.loanDetails.findUnique({
+          where: { accountId: replacement.oldAccountId }
+        });
+        
+        if (loanDetails) {
+          await tx.loanDetails.update({
+            where: { accountId: replacement.oldAccountId },
+            data: { accountId: replacement.newAccountId }
+          });
+          console.log(`[PLAID] RE-AUTH: Transferred loan details`);
+        }
+
+        // Transfer recurring payments
+        const recurringPayments = await tx.recurringPayment.findMany({
+          where: { targetAccountId: replacement.oldAccountId }
+        });
+        
+        if (recurringPayments.length > 0) {
+          await tx.recurringPayment.updateMany({
+            where: { targetAccountId: replacement.oldAccountId },
+            data: { targetAccountId: replacement.newAccountId }
+          });
+          console.log(`[PLAID] RE-AUTH: Transferred ${recurringPayments.length} recurring payment records`);
+        }
+
+        // Archive the old account
+        await tx.account.update({
+          where: { id: replacement.oldAccountId },
+          data: { 
+            archived: true,
+            updatedAt: new Date()
+          }
+        });
+        console.log(`[PLAID] RE-AUTH: Archived old account ${replacement.oldAccountId}`);
+      }
+
+      // Finally, handle orphaned accounts cleanup
+      for (const orphanedAccount of orphanedAccounts) {
+        console.log(`[PLAID] CLEANUP: Archiving orphaned account ${orphanedAccount.name} (${orphanedAccount.id})`);
+        
+        // Archive the orphaned account
+        await tx.account.update({
+          where: { id: orphanedAccount.id },
+          data: { 
+            archived: true,
+            updatedAt: new Date()
+          }
+        });
+        console.log(`[PLAID] CLEANUP: Successfully archived orphaned account ${orphanedAccount.name}`);
+      }
     });
 
-    console.log(`[PLAID] Successfully synchronized plaidId values for item ${itemId}`);
+    console.log(`[PLAID] Successfully synchronized plaidId values and cleaned up orphaned accounts for item ${itemId}`);
   } catch (error) {
     console.error(`[PLAID] Error synchronizing plaidId values for item ${itemId}:`, error);
     // Don't throw the error - this is a non-critical operation
@@ -328,23 +455,46 @@ export async function POST(request: Request) {
 
       const plaidAccounts = accountsResponse.data.accounts;
 
-      // Update existing accounts and create new ones
+      // Enhanced re-authentication logic: Update existing accounts and create new ones
       for (const plaidAccount of plaidAccounts) {
-        const existingAccount = existingAccounts.find(
+        // First, try to find by exact plaidId match (for non-re-authentication cases)
+        let existingAccount = existingAccounts.find(
           (acc) => acc.plaidId === plaidAccount.account_id
         );
 
+        // If no exact plaidId match and this is re-authentication, try matching by account characteristics
+        if (!existingAccount && isReauthentication) {
+          console.log(`[PLAID] RE-AUTH: No exact plaidId match for ${plaidAccount.name}, trying characteristic matching`);
+          
+          existingAccount = existingAccounts.find(
+            (acc) => acc.name === plaidAccount.name && 
+                     acc.type === plaidAccount.type && 
+                     acc.subtype === plaidAccount.subtype &&
+                     (acc.mask === plaidAccount.mask || (!acc.mask && !plaidAccount.mask))
+          );
+
+          if (existingAccount) {
+            console.log(`[PLAID] RE-AUTH: Found matching account by characteristics: ${existingAccount.name} (${existingAccount.id})`);
+            console.log(`[PLAID] RE-AUTH: Updating plaidId from ${existingAccount.plaidId} to ${plaidAccount.account_id}`);
+          }
+        }
+
         if (existingAccount) {
-          // Update existing account
+          // Update existing account (including plaidId if it changed during re-authentication)
           await prisma.account.update({
             where: { id: existingAccount.id },
             data: {
+              plaidId: plaidAccount.account_id, // Always update plaidId during re-authentication
               name: plaidAccount.name,
               type: plaidAccount.type,
               subtype: plaidAccount.subtype || null,
               mask: plaidAccount.mask || null,
             },
           });
+          
+          if (isReauthentication && existingAccount.plaidId !== plaidAccount.account_id) {
+            console.log(`[PLAID] RE-AUTH: Successfully updated plaidId for ${existingAccount.name}`);
+          }
         } else {
           // Check if this plaidId already exists in the database (from another institution)
           const existingAccountWithPlaidId = await prisma.account.findUnique({
@@ -369,6 +519,8 @@ export async function POST(request: Request) {
               userId: userId,
             },
           });
+          
+          console.log(`[PLAID] Created new account: ${plaidAccount.name} (${plaidAccount.account_id})`);
         }
       }
 
