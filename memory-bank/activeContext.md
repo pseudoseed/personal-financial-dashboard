@@ -51,6 +51,15 @@
 - **File**: `Dockerfile`
   - Removed complex user switching wrapper
   - Container runs as `nextjs` user throughout
+  - Added `COPY --from=builder /app/src/lib ./src/lib` to include backup functionality
+  - Added proper ownership for src/lib directory
+- **File**: `src/lib/startupValidation.ts`
+  - Added startup backup initialization to health check
+  - Ensures backup runs when app is first accessed
+  - Non-blocking error handling
+- **File**: `src/app/api/accounts/route.ts`
+  - Added startup backup initialization to accounts API
+  - Provides additional trigger point for backup execution
 
 **Benefits:**
 - ✅ **No Permission Errors** - No system-level file operations required

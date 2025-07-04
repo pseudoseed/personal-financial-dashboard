@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { downloadTransactions } from '@/lib/transactions';
 import { ensureDefaultUser } from '@/lib/startupValidation';
+import { initializeStartupBackup, isStartupBackupCompleted } from '@/lib/startupBackup';
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    // Initialize startup backup if not completed
+    if (!isStartupBackupCompleted()) {
+      try {
+        console.log('[ACCOUNTS API] Initializing startup backup...');
+        await initializeStartupBackup();
+        console.log('[ACCOUNTS API] Startup backup completed');
+      } catch (error) {
+        console.error('[ACCOUNTS API] Startup backup failed:', error);
+        // Don't fail the request if backup fails
+      }
+    }
+
     const { searchParams } = new URL(request.url);
     const includeArchived = searchParams.get("includeArchived") === "true";
     const includeDisconnected = searchParams.get("includeDisconnected") === "true";

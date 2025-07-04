@@ -1,4 +1,5 @@
 import { prisma } from './db';
+import { initializeStartupBackup, isStartupBackupCompleted } from './startupBackup';
 
 /**
  * Ensures the default user exists, creating it if necessary
@@ -53,6 +54,18 @@ export async function performHealthCheck(): Promise<{
     // Get basic stats
     const accountCount = await prisma.account.count();
     const transactionCount = await prisma.transaction.count();
+
+    // Initialize startup backup if not completed
+    if (!isStartupBackupCompleted()) {
+      try {
+        console.log('[HEALTH CHECK] Initializing startup backup...');
+        await initializeStartupBackup();
+        console.log('[HEALTH CHECK] Startup backup completed');
+      } catch (error) {
+        console.error('[HEALTH CHECK] Startup backup failed:', error);
+        // Don't fail health check if backup fails
+      }
+    }
 
     return {
       healthy: true,
