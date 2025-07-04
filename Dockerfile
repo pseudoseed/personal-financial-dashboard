@@ -132,7 +132,8 @@ ENV HOSTNAME=0.0.0.0
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
-USER root
+# Switch to nextjs user for security
+USER nextjs
 
 # Set entrypoint to the new cron+app startup script
 ENTRYPOINT ["/app/scripts/start-with-backup-cron.sh"]

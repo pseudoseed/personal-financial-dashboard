@@ -5,7 +5,8 @@ const { join } = require('path');
  * Get the backup directory path
  */
 function getBackupDirectory() {
-  const backupDir = join(process.cwd(), 'backups');
+  // Use absolute path for Docker container compatibility
+  const backupDir = '/app/backups';
   if (!existsSync(backupDir)) {
     mkdirSync(backupDir, { recursive: true });
   }
