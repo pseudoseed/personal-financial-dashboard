@@ -1,0 +1,15 @@
+{
+  "jobId": "cmco4f5r60000t45edh8obxcw",
+  "createdAt": "2025-07-04T01:13:32.129Z",
+  "totalTokens": 1,
+  "successCount": 0,
+  "failureCount": 1,
+  "results": [
+    {
+      "accessToken": "falk...",
+      "institutionName": "Unknown",
+      "success": false,
+      "error": "Request failed with status code 400"
+    }
+  ]
+}
