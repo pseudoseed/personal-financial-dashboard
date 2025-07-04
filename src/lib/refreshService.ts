@@ -142,7 +142,7 @@ export async function smartRefreshAccounts(
   const userId = 'default';
   
   // Build the where clause for account filtering
-  let whereClause: any = { userId, hidden: false };
+  let whereClause: any = { userId, hidden: false, archived: false };
   
   if (targetAccountId) {
     // Filter to specific account

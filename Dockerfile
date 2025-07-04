@@ -52,7 +52,8 @@ RUN apk add --no-cache \
     curl \
     bash \
     tzdata \
-    sqlite
+    sqlite \
+    cron
 
 # Set timezone
 ENV TZ=UTC
@@ -87,7 +88,8 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 # Copy scripts and compile TypeScript
 COPY --from=builder /app/scripts ./scripts
 RUN chmod +x scripts/init-db.sh && \
-    chown nextjs:nodejs scripts/init-db.sh
+    chmod +x scripts/start-with-backup-cron.sh && \
+    chown nextjs:nodejs scripts/init-db.sh scripts/start-with-backup-cron.sh
 
 # Create enhanced startup script with validation and error handling
 RUN echo '#!/bin/bash' > /app/start.sh && \
@@ -130,6 +132,10 @@ ENV HOSTNAME=0.0.0.0
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
-USER nextjs
+USER root
 
-CMD ["/app/start.sh"] 
+# Set entrypoint to the new cron+app startup script
+ENTRYPOINT ["/app/scripts/start-with-backup-cron.sh"]
+
+# Comment out the old start.sh CMD
+# CMD ["/app/start.sh"] 

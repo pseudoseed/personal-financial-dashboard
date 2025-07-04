@@ -200,11 +200,15 @@ export async function mergeDuplicateAccounts(duplicateGroup: DuplicateGroup): Pr
         console.log(`[MERGE] Transferred emergency fund references from ${accountToRemove.id} to ${accountToKeep.id}`);
       }
 
-      // Delete the duplicate account
-      await prisma.account.delete({
+      // Archive the duplicate account instead of deleting it
+      await prisma.account.update({
         where: { id: accountToRemove.id },
+        data: { 
+          archived: true,
+          updatedAt: new Date()
+        },
       });
-      console.log(`[MERGE] Deleted duplicate account ${accountToRemove.id}`);
+      console.log(`[MERGE] Archived duplicate account ${accountToRemove.id}`);
     }
   }
 
@@ -345,7 +349,7 @@ export function getMergeMessage(duplicateGroup: DuplicateGroup, mergeResult: {
 
   const accountTypes = [...new Set(accounts.map(a => `${a.type}/${a.subtype}`))];
   
-  let message = `Merged ${removed.length} duplicate accounts for ${institutionName || 'Unknown Institution'}. Kept the most recent data for: ${accountTypes.join(', ')}`;
+  let message = `Archived ${removed.length} duplicate accounts for ${institutionName || 'Unknown Institution'}. Kept the most recent data for: ${accountTypes.join(', ')}`;
   
   if (disconnectedTokens.length > 0) {
     message += `\n\nDisconnected ${disconnectedTokens.length} duplicate Plaid connection(s) to optimize API usage and maintain security.`;

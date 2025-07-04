@@ -1,6 +1,7 @@
 import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
 import { prisma } from "./db";
 import { trackPlaidApiCall, getCurrentUserId, getAppInstanceId } from "./plaidTracking";
+import { backupPlaidItem } from "./accessTokenBackup";
 
 if (!process.env.PLAID_CLIENT_ID || !process.env.PLAID_SECRET) {
   throw new Error("Missing Plaid credentials in environment variables");
@@ -52,10 +53,18 @@ export async function disconnectPlaidTokens(plaidItems: Array<{ id: string; acce
       );
       
       // Mark as disconnected in the database
-      await prisma.plaidItem.update({
+      const updatedItem = await prisma.plaidItem.update({
         where: { id: item.id },
         data: { status: 'disconnected' } as any
       });
+      
+      // Backup the disconnected access token (preserve it even when disconnected)
+      const backupResult = await backupPlaidItem(updatedItem);
+      if (backupResult.success) {
+        console.log(`[PLAID DISCONNECT] Disconnected access token backed up: ${backupResult.message}`);
+      } else {
+        console.warn(`[PLAID DISCONNECT] Failed to backup disconnected access token: ${backupResult.message}`);
+      }
       
       success.push(item.id);
       console.log(`[PLAID DISCONNECT] Successfully disconnected PlaidItem ${item.id}`);
