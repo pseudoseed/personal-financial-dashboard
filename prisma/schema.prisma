@@ -439,5 +439,37 @@ model TransactionLink {
   @@unique([transactionId, entityType, entityId])
   @@index([entityType, entityId])
   @@index([transactionId])
+}
+
+// Bulk disconnect job tracking
+model BulkDisconnectJob {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  inputTokens   String   // Comma-separated tokens
+  totalTokens   Int
+  successCount  Int      @default(0)
+  failureCount  Int      @default(0)
+  status        String   @default("processing") // processing, completed, failed
+  reportPath    String?  // Path to generated report file
+  results       BulkDisconnectResult[]
+
   @@index([createdAt])
+}
+
+// Individual token results
+model BulkDisconnectResult {
+  id              String   @id @default(cuid())
+  jobId           String
+  accessToken     String
+  institutionId   String?
+  institutionName String?
+  success         Boolean
+  errorMessage    String?
+  retryCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  job             BulkDisconnectJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([accessToken])
 }
