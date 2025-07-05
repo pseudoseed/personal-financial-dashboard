@@ -40,7 +40,8 @@ async function handleRegularTransactions(
   account: Account & {
     plaidItem: PlaidItem;
   },
-  force?: boolean
+  force?: boolean,
+  _hasRetried?: boolean // internal flag to prevent infinite retry
 ) {
   let allTransactions: PlaidTransaction[] = [];
   let hasMore = true;
@@ -71,9 +72,25 @@ async function handleRegularTransactions(
         durationMs: Date.now() - plaidApiCallStart,
         userId: account.userId,
       });
-    } catch (error) {
+    } catch (error: any) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       plaidApiCallError = errorMessage;
+      // Plaid error handling for invalid cursor
+      const plaidErrorCode = error?.response?.data?.error_code;
+      const plaidErrorMessage = error?.response?.data?.error_message;
+      if (
+        plaidErrorCode === 'INVALID_FIELD' &&
+        plaidErrorMessage && plaidErrorMessage.includes('cursor not associated with access_token') &&
+        !force && !_hasRetried
+      ) {
+        // Clear the cursor in the DB and retry once
+        await prisma.account.update({
+          where: { id: account.id },
+          data: { plaidSyncCursor: null },
+        });
+        // Retry from scratch (force = true)
+        return handleRegularTransactions(prisma, account, true, true);
+      }
       await logPlaidApiCall({
         prisma,
         endpoint: '/transactions/sync',
