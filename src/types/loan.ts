@@ -12,11 +12,11 @@ export interface LoanDetails {
   accountId: string;
   userId: string;
   
-  // New fields
-  originalAmount?: number | null;
-  currentBalance?: number | null;
+  // New fields (all amounts in cents)
+  originalAmount?: number | null; // cents
+  currentBalance?: number | null; // cents
   startDate?: Date | string | null;
-  paymentsMade?: number | null;
+  paymentsMade?: number | null; // cents
   balanceOverride?: boolean | null;
   overrideDate?: Date | string | null;
   
@@ -98,10 +98,10 @@ export interface CreateLoanRequest {
   loanType?: LoanType;
   loanTerm?: number;
   gracePeriod?: number;
-  originalAmount?: number;
-  currentBalance?: number;
+  originalAmount?: number; // cents
+  currentBalance?: number; // cents
   startDate?: Date;
-  paymentsMade?: number;
+  paymentsMade?: number; // cents
 }
 
 export interface UpdateLoanRequest {
@@ -121,10 +121,10 @@ export interface UpdateLoanRequest {
   loanTerm?: number;
   gracePeriod?: number;
   preserveManualEntries?: boolean;
-  originalAmount?: number;
-  currentBalance?: number;
+  originalAmount?: number; // cents
+  currentBalance?: number; // cents
   startDate?: Date;
-  paymentsMade?: number;
+  paymentsMade?: number; // cents
 }
 
 export interface LoanPaymentRequest {

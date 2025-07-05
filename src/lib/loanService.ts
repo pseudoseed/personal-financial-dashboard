@@ -460,7 +460,8 @@ export class LoanService {
       const hasLoanData = loan.currentInterestRate || loan.introductoryRate || loan.paymentsRemaining || loan.loanType;
       
       if (balance > 0 || hasLoanData) {
-        totalDebt += balance;
+        // Convert cents to dollars for total debt calculation
+        totalDebt += balance / 100;
         totalInterestRate += loan.currentInterestRate || 0;
         totalMonthlyPayments += loan.account.nextMonthlyPayment || 0;
         activeLoans++;

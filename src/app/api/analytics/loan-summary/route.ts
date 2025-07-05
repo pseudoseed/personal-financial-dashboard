@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
           accountId: loan.accountId,
           accountName: loan.account.name,
           loanType: loan.loanType,
-          currentBalance: balance,
+          currentBalance: balance / 100,
           currentInterestRate: loan.currentInterestRate,
           introductoryRate: loan.introductoryRate,
           introductoryRateExpiry: loan.introductoryRateExpiry,
