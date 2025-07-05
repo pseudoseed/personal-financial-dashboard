@@ -10,7 +10,8 @@ import {
   ChartBarIcon,
   BanknotesIcon,
   CalendarIcon,
-  CreditCardIcon as LoansIcon
+  CreditCardIcon as LoansIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -143,6 +144,34 @@ export function NavigationMenu() {
                 </Menu.Item>
               );
             })}
+          </div>
+          
+          {/* Admin Section */}
+          <div className="mt-3 pt-3 border-t border-surface-200 dark:border-surface-700">
+            <Menu.Item>
+              {({ active }) => (
+                <Link
+                  href="/admin"
+                  className={`
+                    group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
+                    ${active ? 'bg-surface-100 dark:bg-surface-700 scale-[1.02]' : ''}
+                    text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-700/50
+                  `}
+                >
+                  <div className="p-2 rounded-lg transition-all duration-200 bg-surface-100 dark:bg-surface-700 group-hover:bg-surface-200 dark:group-hover:bg-surface-600">
+                    <Cog6ToothIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  </div>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="font-semibold text-sm text-surface-900 dark:text-surface-100">
+                      Admin
+                    </span>
+                    <span className="text-xs text-surface-600 dark:text-surface-400">
+                      System administration
+                    </span>
+                  </div>
+                </Link>
+              )}
+            </Menu.Item>
           </div>
           
           {/* Footer */}

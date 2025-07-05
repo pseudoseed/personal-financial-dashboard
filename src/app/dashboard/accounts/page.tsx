@@ -27,6 +27,8 @@ import { AuthenticationAlerts, AuthenticationAlertsRef } from "@/components/Auth
 import { CostOptimizationCard } from "@/components/CostOptimizationCard";
 import { useNotifications } from "@/components/ui/Notification";
 
+const LOCAL_STORAGE_KEY = 'accountsPage_institutionCollapsed';
+
 export default function AccountsPage() {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -105,6 +107,9 @@ export default function AccountsPage() {
       return acc;
     }, {} as Record<string, Account[]>);
 
+  const [selectedInstitution, setSelectedInstitution] = useState<string>('');
+  const institutionOptions = Object.keys(accountsByInstitution);
+
   const hiddenAccounts = (accountsData || []).filter((account) => account.hidden);
   const archivedAccounts = archivedAccountsData || [];
   const disconnectedAccounts = disconnectedAccountsData || [];
@@ -128,6 +133,25 @@ export default function AccountsPage() {
       refetch();
     }
   }, [refetch]);
+
+  // On mount, load collapsed state from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (saved) {
+        try {
+          setInstitutionCollapsed(JSON.parse(saved));
+        } catch {}
+      }
+    }
+  }, []);
+
+  // Whenever institutionCollapsed changes, save to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(institutionCollapsed));
+    }
+  }, [institutionCollapsed]);
 
   const archiveAccount = async (accountId: string) => {
     try {
@@ -416,10 +440,13 @@ export default function AccountsPage() {
   };
 
   const toggleInstitutionCollapsed = (institution: string) => {
-    setInstitutionCollapsed((prev) => ({
-      ...prev,
-      [institution]: !prev[institution],
-    }));
+    setInstitutionCollapsed((prev) => {
+      const updated = { ...prev, [institution]: !prev[institution] };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+      }
+      return updated;
+    });
   };
 
   const collapseAllInstitutions = () => {
@@ -429,10 +456,16 @@ export default function AccountsPage() {
       return acc;
     }, {} as Record<string, boolean>);
     setInstitutionCollapsed(collapsedState);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(collapsedState));
+    }
   };
 
   const expandAllInstitutions = () => {
     setInstitutionCollapsed({});
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({}));
+    }
   };
 
   return (
@@ -452,6 +485,21 @@ export default function AccountsPage() {
       )}
 
       <div className="space-y-6">
+        <div className="flex items-center mb-4 gap-4">
+          <label htmlFor="institution-filter" className="text-sm font-medium text-gray-700 dark:text-gray-200">Filter by Institution:</label>
+          <select
+            id="institution-filter"
+            value={selectedInstitution}
+            onChange={e => setSelectedInstitution(e.target.value)}
+            className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+          >
+            <option value="">All Institutions</option>
+            {institutionOptions.map((inst) => (
+              <option key={inst} value={inst}>{inst}</option>
+            ))}
+          </select>
+        </div>
+
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Account Management</h2>
           <div className="flex items-center space-x-2">
@@ -563,98 +611,100 @@ export default function AccountsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {Object.entries(accountsByInstitution).map(([institution, accounts]) => {
-            const activeAccountsForInstitution = accounts.filter(
-              (account) => !account.hidden
-            );
-            const hiddenAccountsForInstitution = accounts.filter(
-              (account) => account.hidden
-            );
-            const showHiddenForInstitution = institutionShowHidden[institution];
+            {Object.entries(accountsByInstitution)
+              .filter(([institution]) => !selectedInstitution || institution === selectedInstitution)
+              .map(([institution, accounts]) => {
+                const activeAccountsForInstitution = accounts.filter(
+                  (account) => !account.hidden
+                );
+                const hiddenAccountsForInstitution = accounts.filter(
+                  (account) => account.hidden
+                );
+                const showHiddenForInstitution = institutionShowHidden[institution];
 
-            return (
-              <div key={institution} className={`space-y-4 ${institutionCollapsed[institution] ? 'bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4' : ''}`}>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => toggleInstitutionCollapsed(institution)}
-                      className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      title={institutionCollapsed[institution] ? "Expand institution" : "Collapse institution"}
-                    >
-                      {institutionCollapsed[institution] ? (
-                        <ChevronDownIcon className="h-4 w-4" />
-                      ) : (
-                        <ChevronUpIcon className="h-4 w-4" />
-                      )}
-                    </button>
-                    <h3 className="text-xl font-medium text-gray-900 dark:text-white">{institution}</h3>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => refreshInstitution(institution)}
-                      className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      disabled={refreshingInstitutions[institution]}
-                    >
-                      <ArrowPathIcon
-                        className={`h-4 w-4 ${
-                          refreshingInstitutions[institution] ? "animate-spin" : ""
-                        }`}
-                      />
-                    </button>
-                    <button
-                      onClick={() => disconnectInstitution(institution)}
-                      className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      disabled={disconnectingInstitutions[institution]}
-                      title="Disconnect institution and remove all associated accounts"
-                    >
-                      <XCircleIcon className="h-4 w-4" />
-                    </button>
-                    {hiddenAccountsForInstitution.length > 0 && (
-                      <button
-                        onClick={() => toggleInstitutionHidden(institution)}
-                        className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        {showHiddenForInstitution ? (
-                          <LockOpenIcon className="h-4 w-4" />
-                        ) : (
-                          <LockClosedIcon className="h-4 w-4" />
+                return (
+                  <div key={institution} className={`space-y-4 ${institutionCollapsed[institution] ? 'bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4' : ''}`}>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => toggleInstitutionCollapsed(institution)}
+                          className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          title={institutionCollapsed[institution] ? "Expand institution" : "Collapse institution"}
+                        >
+                          {institutionCollapsed[institution] ? (
+                            <ChevronDownIcon className="h-4 w-4" />
+                          ) : (
+                            <ChevronUpIcon className="h-4 w-4" />
+                          )}
+                        </button>
+                        <h3 className="text-xl font-medium text-gray-900 dark:text-white">{institution}</h3>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => refreshInstitution(institution)}
+                          className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          disabled={refreshingInstitutions[institution]}
+                        >
+                          <ArrowPathIcon
+                            className={`h-4 w-4 ${
+                              refreshingInstitutions[institution] ? "animate-spin" : ""
+                            }`}
+                          />
+                        </button>
+                        <button
+                          onClick={() => disconnectInstitution(institution)}
+                          className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          disabled={disconnectingInstitutions[institution]}
+                          title="Disconnect institution and remove all associated accounts"
+                        >
+                          <XCircleIcon className="h-4 w-4" />
+                        </button>
+                        {hiddenAccountsForInstitution.length > 0 && (
+                          <button
+                            onClick={() => toggleInstitutionHidden(institution)}
+                            className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          >
+                            {showHiddenForInstitution ? (
+                              <LockOpenIcon className="h-4 w-4" />
+                            ) : (
+                              <LockClosedIcon className="h-4 w-4" />
+                            )}
+                          </button>
                         )}
-                      </button>
+                      </div>
+                    </div>
+                    {institutionCollapsed[institution] ? (
+                      <div className="text-sm text-gray-500 dark:text-gray-400 pl-10">
+                        {activeAccountsForInstitution.length} active account{activeAccountsForInstitution.length !== 1 ? 's' : ''}
+                        {hiddenAccountsForInstitution.length > 0 && (
+                          <span>, {hiddenAccountsForInstitution.length} hidden</span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {activeAccountsForInstitution.map((account) => (
+                          <AccountCard
+                            key={account.id}
+                            account={account}
+                            onRefresh={refetch}
+                            onArchive={() => archiveAccount(account.id)}
+                          />
+                        ))}
+                        {showHiddenForInstitution &&
+                          hiddenAccountsForInstitution.map((account) => (
+                            <AccountCard
+                              key={account.id}
+                              account={account}
+                              onRefresh={refetch}
+                              onArchive={() => archiveAccount(account.id)}
+                            />
+                          ))}
+                      </div>
                     )}
                   </div>
-                </div>
-                {institutionCollapsed[institution] ? (
-                  <div className="text-sm text-gray-500 dark:text-gray-400 pl-10">
-                    {activeAccountsForInstitution.length} active account{activeAccountsForInstitution.length !== 1 ? 's' : ''}
-                    {hiddenAccountsForInstitution.length > 0 && (
-                      <span>, {hiddenAccountsForInstitution.length} hidden</span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {activeAccountsForInstitution.map((account) => (
-                      <AccountCard
-                        key={account.id}
-                        account={account}
-                        onRefresh={refetch}
-                        onArchive={() => archiveAccount(account.id)}
-                      />
-                    ))}
-                    {showHiddenForInstitution &&
-                      hiddenAccountsForInstitution.map((account) => (
-                        <AccountCard
-                          key={account.id}
-                          account={account}
-                          onRefresh={refetch}
-                          onArchive={() => archiveAccount(account.id)}
-                        />
-                      ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+          </div>
         )}
       </div>
 
@@ -724,8 +774,6 @@ export default function AccountsPage() {
           )}
         </div>
       )}
-
-
 
       {/* Recurring Payments Section */}
       <div className="mt-8">
