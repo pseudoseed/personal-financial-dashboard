@@ -376,6 +376,7 @@ model LoanDetails {
   lastCalculationDate          DateTime?
   loanType                     String?
   loanTerm                     Int?
+  loanTermSource               String?
   gracePeriod                  Int?
   lastPlaidSync                DateTime?
   plaidDataFields              String?
