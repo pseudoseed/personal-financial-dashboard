@@ -64,6 +64,12 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // Update lastSyncTime on the account
+        await prisma.account.update({
+          where: { id: update.accountId },
+          data: { lastSyncTime: new Date() },
+        });
+
         results.push({
           accountId: update.accountId,
           success: true,

@@ -51,13 +51,16 @@ export const TransactionLinker: React.FC<TransactionLinkerProps> = ({
   // Block transactions before overrideDate if override is active
   const overrideDate = (entityType === 'loan' && (window as any).loanOverrideDate) ? new Date((window as any).loanOverrideDate) : null;
   const blockOldTransactions = (entityType === 'loan' && (window as any).loanBalanceOverride);
-  const filtered = initialTransactions.filter(transaction => {
-    if (blockOldTransactions && overrideDate) {
-      return new Date(transaction.date) >= overrideDate;
-    }
-    return true;
-  });
-  setFilteredTransactions(filtered);
+
+  useEffect(() => {
+    const filtered = initialTransactions.filter(transaction => {
+      if (blockOldTransactions && overrideDate) {
+        return new Date(transaction.date) >= overrideDate;
+      }
+      return true;
+    });
+    setFilteredTransactions(filtered);
+  }, [initialTransactions, blockOldTransactions, overrideDate]);
 
   const handleTransactionSelect = (transaction: Transaction) => {
     setSelectedTransaction(transaction);

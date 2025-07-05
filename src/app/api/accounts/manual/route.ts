@@ -125,6 +125,12 @@ export async function PUT(request: Request) {
       },
     });
 
+    // Update lastSyncTime on the account
+    await prisma.account.update({
+      where: { id: accountId },
+      data: { lastSyncTime: new Date() },
+    });
+
     console.log("Created new balance record:", newBalance);
 
     return NextResponse.json({

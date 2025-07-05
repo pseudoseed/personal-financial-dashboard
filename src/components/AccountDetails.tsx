@@ -355,6 +355,113 @@ export function AccountDetails({ account }: AccountDetailsProps) {
     }
   };
 
+  // Filter history to only the latest entry per day
+  const filteredHistory = history ? Object.values(
+    [...history].reduce((acc, item) => {
+      const dateKey = new Date(item.date).toISOString().split('T')[0];
+      if (!acc[dateKey] || new Date(item.date) > new Date(acc[dateKey].date)) {
+        acc[dateKey] = item;
+      }
+      return acc;
+    }, {} as Record<string, typeof history[0]>)) : [];
+
+  // Reverse the data for the chart to show progression over time
+  const chartData = {
+    labels: [...filteredHistory]
+      .reverse()
+      .map((item) => format(new Date(item.date), "MMM d, yyyy")),
+    datasets: !showSensitiveData
+      ? [
+          {
+            label: "Balance History",
+            data: new Array(filteredHistory.length).fill(0),
+            borderColor: "rgb(156, 163, 175)",
+            backgroundColor: "rgba(156, 163, 175, 0.5)",
+            tension: 0.1,
+          },
+        ]
+      : [
+          {
+            label: "Current Balance",
+            data: [...filteredHistory].reverse().map((item) => item.current),
+            borderColor: "rgb(59, 130, 246)",
+            backgroundColor: "rgba(59, 130, 246, 0.5)",
+            tension: 0.1,
+          },
+          ...(filteredHistory.some((item) => item.available !== null)
+            ? [
+                {
+                  label: "Available Balance",
+                  data: [...filteredHistory].reverse().map((item) => item.available),
+                  borderColor: "rgb(34, 197, 94)",
+                  backgroundColor: "rgba(34, 197, 94, 0.5)",
+                  tension: 0.1,
+                },
+              ]
+            : []),
+        ],
+  };
+
+  const chartOptions: ChartOptions<"line"> = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top" as const,
+        labels: {
+          color: !showSensitiveData ? "#6b7280" : "#374151",
+          usePointStyle: true,
+        },
+      },
+      title: {
+        display: true,
+        text: "Balance History",
+      },
+      tooltip: {
+        callbacks: {
+          label: function (tooltipItem: TooltipItem<"line">) {
+            if (!showSensitiveData) return "••••••";
+            const label = tooltipItem.dataset.label || "";
+            const value = tooltipItem.raw as number;
+            return `${label}: $${value.toLocaleString()}`;
+          },
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: false,
+        ticks: {
+          callback: function (value) {
+            if (!showSensitiveData) return "••••••";
+            return `$${value.toLocaleString()}`;
+          },
+          color: !showSensitiveData ? "#6b7280" : "#374151",
+        },
+        grid: {
+          color: !showSensitiveData ? "#374151" : "#e5e7eb",
+        },
+      },
+      x: {
+        ticks: {
+          color: !showSensitiveData ? "#6b7280" : "#374151",
+        },
+        grid: {
+          color: !showSensitiveData ? "#374151" : "#e5e7eb",
+        },
+      },
+    },
+  };
+
+  // Determine if dark mode is active for chart colors
+  const isDarkMode = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
+  
+  // Update chart colors for dark mode
+  if (isDarkMode) {
+    chartOptions.plugins!.legend!.labels!.color = "rgb(156, 163, 175)"; // dark:text-gray-400
+    chartOptions.scales!.y!.ticks!.color = "rgb(156, 163, 175)"; // dark:text-gray-400
+    chartOptions.scales!.x!.ticks!.color = "rgb(156, 163, 175)"; // dark:text-gray-400
+  }
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto">
@@ -522,103 +629,6 @@ export function AccountDetails({ account }: AccountDetailsProps) {
         </div>
       </div>
     );
-  }
-
-  // Reverse the data for the chart to show progression over time
-  const chartData = {
-    labels: [...history]
-      .reverse()
-      .map((item) => format(new Date(item.date), "MMM d, yyyy")),
-    datasets: !showSensitiveData
-      ? [
-          {
-            label: "Balance History",
-            data: new Array(history.length).fill(0),
-            borderColor: "rgb(156, 163, 175)",
-            backgroundColor: "rgba(156, 163, 175, 0.5)",
-            tension: 0.1,
-          },
-        ]
-      : [
-          {
-            label: "Current Balance",
-            data: [...history].reverse().map((item) => item.current),
-            borderColor: "rgb(59, 130, 246)",
-            backgroundColor: "rgba(59, 130, 246, 0.5)",
-            tension: 0.1,
-          },
-          ...(history.some((item) => item.available !== null)
-            ? [
-                {
-                  label: "Available Balance",
-                  data: [...history].reverse().map((item) => item.available),
-                  borderColor: "rgb(34, 197, 94)",
-                  backgroundColor: "rgba(34, 197, 94, 0.5)",
-                  tension: 0.1,
-                },
-              ]
-            : []),
-        ],
-  };
-
-  const chartOptions: ChartOptions<"line"> = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "top" as const,
-        labels: {
-          color: !showSensitiveData ? "#6b7280" : "#374151",
-          usePointStyle: true,
-        },
-      },
-      title: {
-        display: true,
-        text: "Balance History",
-      },
-      tooltip: {
-        callbacks: {
-          label: function (tooltipItem: TooltipItem<"line">) {
-            if (!showSensitiveData) return "••••••";
-            const label = tooltipItem.dataset.label || "";
-            const value = tooltipItem.raw as number;
-            return `${label}: $${value.toLocaleString()}`;
-          },
-        },
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: false,
-        ticks: {
-          callback: function (value) {
-            if (!showSensitiveData) return "••••••";
-            return `$${value.toLocaleString()}`;
-          },
-          color: !showSensitiveData ? "#6b7280" : "#374151",
-        },
-        grid: {
-          color: !showSensitiveData ? "#374151" : "#e5e7eb",
-        },
-      },
-      x: {
-        ticks: {
-          color: !showSensitiveData ? "#6b7280" : "#374151",
-        },
-        grid: {
-          color: !showSensitiveData ? "#374151" : "#e5e7eb",
-        },
-      },
-    },
-  };
-
-  // Determine if dark mode is active for chart colors
-  const isDarkMode = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
-  
-  // Update chart colors for dark mode
-  if (isDarkMode) {
-    chartOptions.plugins!.legend!.labels!.color = "rgb(156, 163, 175)"; // dark:text-gray-400
-    chartOptions.scales!.y!.ticks!.color = "rgb(156, 163, 175)"; // dark:text-gray-400
-    chartOptions.scales!.x!.ticks!.color = "rgb(156, 163, 175)"; // dark:text-gray-400
   }
 
   return (
@@ -883,7 +893,7 @@ export function AccountDetails({ account }: AccountDetailsProps) {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700">
-                  {history.map((item) => (
+                  {filteredHistory.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800">
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-surface-600 dark:text-gray-400">
                         {new Date(item.date).toLocaleDateString()}
