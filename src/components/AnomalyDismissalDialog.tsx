@@ -70,7 +70,7 @@ export function AnomalyDismissalDialog({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div 
         ref={dialogRef}
-        className="bg-white dark:bg-zinc-800 rounded-lg max-w-md w-full"
+        className="bg-white dark:bg-zinc-800 rounded-lg max-w-md w-full max-h-[90vh] flex flex-col"
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -84,7 +84,7 @@ export function AnomalyDismissalDialog({
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 flex-1 overflow-y-auto">
           {/* Transaction Info */}
           <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -158,7 +158,7 @@ export function AnomalyDismissalDialog({
           </div>
         </div>
 
-        <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-zinc-800 sticky bottom-0 z-10" style={{ boxShadow: '0 -2px 8px rgba(0,0,0,0.03)' }}>
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"

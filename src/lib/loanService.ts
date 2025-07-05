@@ -441,11 +441,14 @@ export class LoanService {
       where: { userId },
       include: { 
         account: { 
-          include: { balances: { orderBy: { date: 'desc' }, take: 1 } } 
+          include: { balances: { orderBy: { date: 'desc' }, take: 1 } },
         },
         alerts: { where: { isActive: true, isDismissed: false } }
       }
     });
+
+    // Filter out loans whose accounts are archived or hidden
+    const visibleLoans = loans.filter(loan => loan.account && !loan.account.archived && !loan.account.hidden);
 
     let totalDebt = 0;
     let totalInterestRate = 0;
@@ -455,13 +458,13 @@ export class LoanService {
     let nextPaymentDue: Date | undefined;
     let introRateExpiringSoon = false;
 
-    for (const loan of loans) {
+    for (const loan of visibleLoans) {
       const balance = loan.account.balances?.[0]?.current || 0;
       const hasLoanData = loan.currentInterestRate || loan.introductoryRate || loan.paymentsRemaining || loan.loanType;
       
       if (balance > 0 || hasLoanData) {
-        // Convert cents to dollars for total debt calculation
-        totalDebt += balance / 100;
+        // Balance is already in dollars, no conversion needed
+        totalDebt += balance;
         totalInterestRate += loan.currentInterestRate || 0;
         totalMonthlyPayments += loan.account.nextMonthlyPayment || 0;
         activeLoans++;
@@ -488,7 +491,7 @@ export class LoanService {
       }
     }
 
-    const activeAlerts = loans.reduce((sum: number, loan: any) => sum + loan.alerts.length, 0);
+    const activeAlerts = visibleLoans.reduce((sum: number, loan: any) => sum + loan.alerts.length, 0);
 
     return {
       totalDebt,
