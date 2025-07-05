@@ -110,7 +110,7 @@ export const TransactionLinker: React.FC<TransactionLinkerProps> = ({
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 flex flex-col h-full">
       {/* Header */}
       {isLoading ? (
         <div className="mb-4 p-4 text-center">
@@ -118,7 +118,7 @@ export const TransactionLinker: React.FC<TransactionLinkerProps> = ({
           <p className="text-gray-600 dark:text-gray-400">Loading transactions...</p>
         </div>
       ) : (
-        <div className="mb-6">
+        <div className="flex-1 overflow-y-auto">
           <div className="mb-4">
             <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               Select a Transaction to Link
@@ -146,23 +146,26 @@ export const TransactionLinker: React.FC<TransactionLinkerProps> = ({
               hideTransactionRecordsHeader={true}
             />
           </div>
+
+          {selectedTransaction && (
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">
+                Selected Transaction
+              </h4>
+              <div className="text-sm text-blue-600 dark:text-blue-400">
+                <div><strong>Name:</strong> {selectedTransaction.name}</div>
+                <div><strong>Amount:</strong> ${Math.abs(selectedTransaction.amount).toFixed(2)}</div>
+                <div><strong>Date:</strong> {new Date(selectedTransaction.date).toLocaleDateString()}</div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {selectedTransaction && (
-        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-          <h4 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">
-            Selected Transaction
-          </h4>
-          <div className="text-sm text-blue-600 dark:text-blue-400">
-            <div><strong>Name:</strong> {selectedTransaction.name}</div>
-            <div><strong>Amount:</strong> ${Math.abs(selectedTransaction.amount).toFixed(2)}</div>
-            <div><strong>Date:</strong> {new Date(selectedTransaction.date).toLocaleDateString()}</div>
-          </div>
-        </div>
-      )}
 
-      <div className="flex gap-3 justify-end">
+
+      {/* Footer */}
+      <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-zinc-700">
         <Button onClick={onCancel} variant="secondary">
           Cancel
         </Button>

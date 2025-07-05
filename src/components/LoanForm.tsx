@@ -254,7 +254,32 @@ export const LoanForm: React.FC<LoanFormProps> = ({
   const selectedAccount = accounts.find(acc => acc.id === formData.accountId);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} maxWidth="max-w-lg">
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      maxWidth="max-w-lg"
+      footer={
+        <div className="flex gap-3 justify-end w-full">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            onClick={handleSubmit}
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {isSubmitting ? 'Saving...' : mode === 'create' ? 'Add Loan' : 'Save Changes'}
+          </Button>
+        </div>
+      }
+    >
       <Card className="w-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -606,24 +631,7 @@ export const LoanForm: React.FC<LoanFormProps> = ({
             )}
           </CardContent>
 
-          <CardFooter className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              <X className="w-4 h-4 mr-2" />
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {isSubmitting ? 'Saving...' : mode === 'create' ? 'Add Loan' : 'Save Changes'}
-            </Button>
-          </CardFooter>
+
         </form>
       </Card>
     </Modal>

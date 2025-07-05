@@ -550,6 +550,20 @@ export function LoanDetailsDialog({
           onClose={handleCloseEditForm}
           title="Edit Loan Details"
           maxWidth="max-w-4xl"
+          footer={
+            <div className="flex gap-3 justify-end w-full">
+              <Button onClick={handleCloseEditForm} variant="secondary">
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                form="loan-edit-form"
+                disabled={false}
+              >
+                Save Changes
+              </Button>
+            </div>
+          }
         >
           <LoanEditForm
             loan={loan}
@@ -620,11 +634,11 @@ function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFor
     paymentsRemainingSource: loan.paymentsRemainingSource || 'manual',
     loanTerm: loan.loanTerm || 0,
     loanTermSource: loan.loanTermSource || 'manual',
-    // Convert cents to dollars for display
-    originalAmount: loan.originalAmount != null ? loan.originalAmount / 100 : loan.account?.originationPrincipalAmount != null ? loan.account.originationPrincipalAmount / 100 : 0,
-    currentBalance: loan.currentBalance != null ? loan.currentBalance / 100 : loan.account?.balance?.current != null ? loan.account.balance.current / 100 : 0,
+    // Values are already in dollars, no conversion needed
+    originalAmount: loan.originalAmount != null ? loan.originalAmount : loan.account?.originationPrincipalAmount != null ? loan.account.originationPrincipalAmount : 0,
+    currentBalance: loan.currentBalance != null ? loan.currentBalance : loan.account?.balance?.current != null ? loan.account.balance.current : 0,
     startDate: loan.startDate ? new Date(loan.startDate).toISOString().split('T')[0] : (loan.account?.originationDate ? new Date(loan.account.originationDate).toISOString().split('T')[0] : ''),
-    paymentsMade: loan.paymentsMade != null ? loan.paymentsMade / 100 : 0,
+    paymentsMade: loan.paymentsMade != null ? loan.paymentsMade : 0,
     balanceOverride: loan.balanceOverride || false,
     overrideDate: loan.overrideDate ? new Date(loan.overrideDate).toISOString().split('T')[0] : '',
   });
@@ -634,12 +648,12 @@ function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFor
     e.preventDefault();
     setIsSaving(true);
     try {
-      // Convert dollars to cents before saving
+      // Values are already in dollars, no conversion needed
       await onSave({
         ...formData,
-        originalAmount: Math.round((formData.originalAmount || 0) * 100),
-        currentBalance: Math.round((formData.currentBalance || 0) * 100),
-        paymentsMade: Math.round((formData.paymentsMade || 0) * 100),
+        originalAmount: formData.originalAmount || 0,
+        currentBalance: formData.currentBalance || 0,
+        paymentsMade: formData.paymentsMade || 0,
       });
     } finally {
       setIsSaving(false);
@@ -660,7 +674,7 @@ function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFor
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="loan-edit-form" onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Current Interest Rate (%)
@@ -772,14 +786,7 @@ function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFor
           </div>
         )}
 
-        <div className="flex gap-3 justify-end pt-4">
-          <Button onClick={onCancel} variant="secondary">
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSaving} loading={isSaving}>
-            Save Changes
-          </Button>
-        </div>
+
       </form>
     </div>
   );
