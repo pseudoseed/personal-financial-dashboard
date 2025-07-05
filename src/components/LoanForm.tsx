@@ -182,19 +182,19 @@ export const LoanForm: React.FC<LoanFormProps> = ({
     }
 
     if (formData.originalAmount === undefined || formData.originalAmount === null || isNaN(Number(formData.originalAmount)) || Number(formData.originalAmount) <= 0) {
-      newErrors.originalAmount = 'Original amount is required and must be a positive number';
+      newErrors.originalAmount = 'Original amount is required and must be a positive number (decimals allowed)';
     }
 
     if (formData.startDate === undefined || formData.startDate === null || formData.startDate === '') {
       newErrors.startDate = 'Start date is required';
     }
 
-    if (formData.currentBalance !== undefined && formData.currentBalance !== null && Number(formData.currentBalance) < 0) {
-      newErrors.currentBalance = 'Current balance cannot be negative';
+    if (formData.currentBalance !== undefined && formData.currentBalance !== null && (isNaN(Number(formData.currentBalance)) || Number(formData.currentBalance) < 0)) {
+      newErrors.currentBalance = 'Current balance must be a positive number (decimals allowed)';
     }
 
-    if (formData.paymentsMade !== undefined && formData.paymentsMade !== null && Number(formData.paymentsMade) < 0) {
-      newErrors.paymentsMade = 'Payments made cannot be negative';
+    if (formData.paymentsMade !== undefined && formData.paymentsMade !== null && (isNaN(Number(formData.paymentsMade)) || Number(formData.paymentsMade) < 0)) {
+      newErrors.paymentsMade = 'Payments made must be a positive number (decimals allowed)';
     }
 
     setErrors(newErrors);
@@ -543,6 +543,7 @@ export const LoanForm: React.FC<LoanFormProps> = ({
               <div className="relative">
                 <input
                   type="number"
+                  step="0.01"
                   value={formData.originalAmount || ''}
                   onChange={(e) => handleInputChange('originalAmount', e.target.value ? parseFloat(e.target.value) : null)}
                   className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -564,6 +565,7 @@ export const LoanForm: React.FC<LoanFormProps> = ({
               <div className="relative">
                 <input
                   type="number"
+                  step="0.01"
                   value={formData.currentBalance || ''}
                   onChange={(e) => handleInputChange('currentBalance', e.target.value ? parseFloat(e.target.value) : null)}
                   className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -605,6 +607,7 @@ export const LoanForm: React.FC<LoanFormProps> = ({
               <div className="relative">
                 <input
                   type="number"
+                  step="0.01"
                   value={formData.paymentsMade || ''}
                   onChange={(e) => handleInputChange('paymentsMade', e.target.value ? parseInt(e.target.value) : null)}
                   className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"

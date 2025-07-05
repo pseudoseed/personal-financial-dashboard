@@ -94,7 +94,7 @@ export function Modal({ isOpen, onClose, title, subtitle, icon, children, footer
     >
       <div
         ref={contentRef}
-        className={`bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full min-w-[600px] max-w-[900px] !w-full !max-w-[900px] !min-w-[600px] max-h-[90vh] overflow-y-auto p-0 relative animate-modalIn flex flex-col outline-none`}
+        className={`bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full min-w-[600px] max-w-[900px] !w-full !max-w-[900px] !min-w-[600px] max-h-[90vh] h-full p-0 relative animate-modalIn flex flex-col outline-none`}
         role="document"
       >
         {/* Header */}
@@ -129,12 +129,12 @@ export function Modal({ isOpen, onClose, title, subtitle, icon, children, footer
           </div>
         )}
         {/* Content */}
-        <div className="pt-0 px-5 pb-5 space-y-4 text-gray-900 dark:text-white">
+        <div className="flex-1 overflow-y-auto pt-0 px-5 pb-5 space-y-4 text-gray-900 dark:text-white">
           {children}
         </div>
         {/* Footer */}
         {footer && (
-          <div className="px-8 pb-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+          <div className="px-8 pb-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-end sticky bottom-0 bg-white dark:bg-gray-900 z-10 rounded-b-2xl">
             {footer}
           </div>
         )}
