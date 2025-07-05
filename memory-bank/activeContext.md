@@ -2261,4 +2261,80 @@ activeAccounts.forEach(account => {
 
 **Status: COMPLETE** - Plaid API pricing now accurately reflects actual billing structure
 
+### 🔧 **Last Update Field Fix - COMPLETED**
+
+**Problem Solved:**
+- **Frustrating UI Issue**: "Last Update" field on accounts page was not updating properly
+- **Inconsistent Data**: Users could see correct sync times in settings but not on the main accounts page
+- **Field Mismatch**: Frontend was looking for `lastUpdated` but API was returning `lastSyncTime`
+
+**Root Cause:**
+- Database has `lastSyncTime` field (DateTime) that tracks when account was last synced
+- API correctly returns `lastSyncTime` in the response
+- AccountCard component was incorrectly looking for `lastUpdated` instead of `lastSyncTime`
+- Account interface had both fields, causing confusion
+
+**Solution Implemented:**
+
+#### **1. Updated AccountCard Component** ✅
+- **File**: `src/components/AccountCard.tsx`
+- **Changes**:
+  - Changed from `account.lastUpdated` to `account.lastSyncTime`
+  - Updated all references in the Last Updated Info section
+  - Fixed stale data warning logic to use correct field
+  - Maintained all existing functionality (date/time display, warnings)
+
+#### **2. Cleaned Up Type Definition** ✅
+- **File**: `src/types/account.ts`
+- **Changes**:
+  - Removed unused `lastUpdated?: string | null` field
+  - Kept `lastSyncTime?: Date | null` as the single source of truth
+  - Simplified interface to prevent future confusion
+
+#### **3. Testing and Validation** ✅
+- **File**: `scripts/test-last-update-fix.js`
+- **Features**:
+  - Database field verification
+  - API response validation
+  - Refresh update testing
+  - Comprehensive logging and reporting
+
+**Technical Implementation:**
+
+#### Updated AccountCard Logic:
+```typescript
+// Before (incorrect)
+Last updated: {account.lastUpdated 
+  ? new Date(account.lastUpdated).toLocaleDateString() 
+  : "Never"}
+
+// After (correct)
+Last updated: {account.lastSyncTime 
+  ? new Date(account.lastSyncTime).toLocaleDateString() 
+  : "Never"}
+```
+
+#### Simplified Account Interface:
+```typescript
+export interface Account {
+  // ... other fields ...
+  lastSyncTime?: Date | null;  // Single source of truth
+  // Removed: lastUpdated?: string | null;  // No longer needed
+}
+```
+
+**Results:**
+- **Accurate Display**: "Last Update" field now shows correct sync times
+- **Consistent Data**: Frontend matches what users see in settings
+- **Proper Updates**: Field updates correctly when accounts are refreshed
+- **Clean Code**: Removed unused field to prevent future confusion
+
+**Test Results:**
+- Build completed successfully with no TypeScript errors
+- AccountCard now uses the correct `lastSyncTime` field
+- API continues to return `lastSyncTime` as expected
+- Database field is properly updated during refresh operations
+
+**Status: COMPLETE** - Last Update field now displays correctly and updates properly
+
 ### 🎨 **Industry-Standard Design System Implementation - COMPLETED**

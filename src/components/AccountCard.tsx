@@ -406,20 +406,20 @@ export function AccountCard({
           {/* Last Updated Info */}
           <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
             <span>
-              Last updated: {account.lastUpdated 
-                ? new Date(account.lastUpdated).toLocaleDateString() 
+              Last updated: {account.lastSyncTime 
+                ? new Date(account.lastSyncTime).toLocaleDateString() 
                 : "Never"}
             </span>
-            {account.lastUpdated && (
+            {account.lastSyncTime && (
               <span>
-                {new Date(account.lastUpdated).toLocaleTimeString()}
+                {new Date(account.lastSyncTime).toLocaleTimeString()}
               </span>
             )}
           </div>
           
           {/* Show warning if data is stale (more than 24 hours old) */}
-          {account.lastUpdated && (() => {
-            const lastUpdate = new Date(account.lastUpdated);
+          {account.lastSyncTime && (() => {
+            const lastUpdate = new Date(account.lastSyncTime);
             const now = new Date();
             const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
             const daysSinceUpdate = hoursSinceUpdate / 24;

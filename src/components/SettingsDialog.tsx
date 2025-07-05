@@ -222,14 +222,17 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     requireInput: false,
   });
 
-  // Filter out Coinbase and manual accounts from sync operations
-  const syncableAccounts = accounts.filter(account => 
-    account.institution !== 'Coinbase' && 
-    account.plaidItem?.accessToken !== 'manual'
-  );
-  
-  const allAccounts = accounts.filter(account => account.institution !== 'Coinbase');
+  // Helper: Only include active, Plaid-connected accounts
+  const eligibleAccounts = accounts.filter(account => {
+    const isManual = account.plaidItem?.accessToken === 'manual' || (account.plaidItem && 'provider' in account.plaidItem && account.plaidItem.provider === 'manual');
+    const isDisconnected = account.plaidItem && 'status' in account.plaidItem && account.plaidItem.status === 'disconnected';
+    return !isManual && !isDisconnected;
+  });
+
+  // For sync buttons
+  const syncableAccounts = eligibleAccounts;
   const newAccounts = syncableAccounts.filter(account => !account.lastSyncTime);
+  const allAccounts = eligibleAccounts;
   const creditCardAccounts = allAccounts.filter(account => account.type === 'credit');
   const loanAccounts = allAccounts.filter(account => account.type === 'loan');
   const billAccounts = allAccounts.filter(account => ['credit', 'loan'].includes(account.type));
@@ -249,16 +252,13 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     if (!showSensitiveData) {
       return "••••••••••";
     }
-    
-    const institution = account.institution || 'Manual';
+    const institution = account.institution || account.plaidItem?.institutionId || 'Plaid';
     const name = (account.nickname || account.name || '').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     const last4 = account.mask || account.name?.match(/\d{4}$/)?.[0] || '----';
-    
-    const accountNameLower = account.name.toLowerCase();
+    const accountNameLower = account.name?.toLowerCase() || '';
     const isCreditCard = account.type.toLowerCase() === 'credit' || 
                         accountNameLower.includes('credit') || 
                         accountNameLower.includes('card');
-    
     if (isCreditCard) {
       const cardNamePatterns = [
         /freedom/i, /sapphire/i, /preferred/i, /reserve/i, /unlimited/i,
@@ -266,7 +266,6 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
         /elite/i, /premium/i, /standard/i, /classic/i, /business/i,
         /corporate/i, /student/i, /secured/i
       ];
-      
       let cardName = '';
       for (const pattern of cardNamePatterns) {
         if (pattern.test(accountNameLower)) {
@@ -277,14 +276,11 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           }
         }
       }
-      
       if (!cardName) {
         cardName = 'Credit Card';
       }
-      
       return `${institution} - ${cardName} (${last4})`;
     }
-    
     return `${institution} - ${name} (${last4})`;
   };
 
@@ -598,31 +594,26 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                     </tr>
                   </thead>
                   <tbody className="text-gray-700 dark:text-gray-300">
-                    {accounts.map((account) => {
-                      const institution = maskInstitutionName(account.institution || 'Unknown');
+                    {eligibleAccounts.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} className="px-2 py-4 text-center text-gray-400 dark:text-gray-500 italic">
+                          No eligible Plaid-connected accounts to sync.
+                        </td>
+                      </tr>
+                    ) : eligibleAccounts.map((account) => {
+                      const institution = maskInstitutionName(account.institution || account.plaidItem?.institutionId || 'Plaid');
                       const type = account.type ? (account.type.charAt(0).toUpperCase() + account.type.slice(1)) : "Unknown";
                       const last4 = maskAccountNumber(account.mask || null);
-                      const isManual = account.plaidItem?.accessToken === 'manual';
-                      const formattedName = showSensitiveData ? `${institution} - ${type} (${last4})` : "••••••••••";
-                      
+                      const formattedName = showSensitiveData ? formatAccountDisplayName(account) : "••••••••••";
                       return (
                         <tr key={account.id}>
                           <td className="px-2 py-1 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <span>{formattedName}</span>
-                              {isManual && (
-                                <span className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
-                                  Manual
-                                </span>
-                              )}
                             </div>
                           </td>
                           <td className="px-2 py-1 whitespace-nowrap">
-                            {isManual ? (
-                              <span className="text-gray-400 dark:text-gray-500 italic">N/A</span>
-                            ) : (
-                              maskLastSyncTime(account.lastSyncTime || null)
-                            )}
+                            {maskLastSyncTime(account.lastSyncTime || null)}
                           </td>
                         </tr>
                       );
