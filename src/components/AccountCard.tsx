@@ -28,6 +28,7 @@ import { formatBalance } from "@/lib/formatters";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNotifications } from "@/components/ui/Notification";
 import { InstitutionLogo } from './InstitutionLogo';
+import { Modal } from "@/components/ui/Modal";
 
 interface AccountCardProps {
   account: Account;
@@ -54,6 +55,7 @@ export function AccountCard({
   const [nickname, setNickname] = useState(account.nickname || "");
   const [isUpdating, setIsUpdating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
 
   const displayBalance = (amount: number | null) => {
     if (amount === null) return "N/A";
@@ -206,9 +208,18 @@ export function AccountCard({
   const handleArchive = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setShowArchiveModal(true);
+  };
+
+  const confirmArchive = () => {
+    setShowArchiveModal(false);
     if (onArchive) {
       onArchive();
     }
+  };
+
+  const cancelArchive = () => {
+    setShowArchiveModal(false);
   };
 
   const toggleVisibility = async () => {
@@ -458,6 +469,24 @@ export function AccountCard({
           })()}
         </div>
       </div>
+
+      {/* Archive Confirmation Modal */}
+      <Modal
+        isOpen={showArchiveModal}
+        onClose={cancelArchive}
+        title="Archive Account"
+        subtitle={`Are you sure you want to archive the account "${account.nickname || account.name}"? This will hide it from your dashboard but preserve its data.`}
+        footer={
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={cancelArchive}>Cancel</Button>
+            <Button variant="error" onClick={confirmArchive}>Archive</Button>
+          </div>
+        }
+      >
+        <div className="text-gray-700 dark:text-gray-300">
+          Archiving will hide this account from your dashboard and reports, but you can restore it later from settings. Are you sure you want to continue?
+        </div>
+      </Modal>
     </Link>
   );
 }

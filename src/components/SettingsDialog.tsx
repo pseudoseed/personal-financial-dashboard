@@ -252,7 +252,9 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     if (!showSensitiveData) {
       return "••••••••••";
     }
-    const institution = account.institution || account.plaidItem?.institutionId || 'Plaid';
+    const institution = (account.plaidItem && 'institutionName' in account.plaidItem && (account.plaidItem as any).institutionName)
+      ? (account.plaidItem as any).institutionName
+      : (account.institution || account.plaidItem?.institutionId || 'Plaid');
     const name = (account.nickname || account.name || '').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     const last4 = account.mask || account.name?.match(/\d{4}$/)?.[0] || '----';
     const accountNameLower = account.name?.toLowerCase() || '';
@@ -601,10 +603,15 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                         </td>
                       </tr>
                     ) : eligibleAccounts.map((account) => {
-                      const institution = maskInstitutionName(account.institution || account.plaidItem?.institutionId || 'Plaid');
+                      // Use institution name if available, else fallback
+                      const institutionName = (account.plaidItem && 'institutionName' in account.plaidItem && (account.plaidItem as any).institutionName)
+                        ? (account.plaidItem as any).institutionName
+                        : (account.institution || account.plaidItem?.institutionId || 'Plaid');
                       const type = account.type ? (account.type.charAt(0).toUpperCase() + account.type.slice(1)) : "Unknown";
                       const last4 = maskAccountNumber(account.mask || null);
-                      const formattedName = showSensitiveData ? formatAccountDisplayName(account) : "••••••••••";
+                      const formattedName = showSensitiveData 
+                        ? `${institutionName} - ${(account.nickname || account.name || '').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase())} (${last4})`
+                        : "••••••••••";
                       return (
                         <tr key={account.id}>
                           <td className="px-2 py-1 whitespace-nowrap">

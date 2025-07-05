@@ -64,7 +64,7 @@ async function fetchLoans(): Promise<{ data: LoanWithDetails[] }> {
   return response.json();
 }
 
-async function fetchLoanSummary(): Promise<{ data: LoanSummary }> {
+async function fetchLoanSummary(): Promise<{ data: { summary: LoanSummary } }> {
   const response = await fetch('/api/analytics/loan-summary');
   if (!response.ok) {
     throw new Error('Failed to fetch loan summary');
@@ -165,7 +165,7 @@ export default function LoansPage() {
   });
 
   const loans = loansData?.data || [];
-  const summary = summaryData?.data;
+  const summary = summaryData?.data?.summary;
 
   // Filter loans based on search and type
   const filteredLoans = loans.filter(loan => {
