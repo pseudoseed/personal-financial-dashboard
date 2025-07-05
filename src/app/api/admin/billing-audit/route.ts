@@ -1,17 +1,36 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-// Estimated Plaid API costs (these are approximate and should be updated based on actual pricing)
+// Plaid API costs based on actual billing structure
+// Most endpoints are free ($0.00), only specific features are billed
 const PLAID_COSTS = {
-  '/accounts/balance/get': 0.25,
-  '/transactions/get': 0.25,
-  '/accounts/get': 0.25,
-  '/item/get': 0.25,
-  '/item/remove': 0.25,
-  '/item/access_token/invalidate': 0.25,
-  '/link_token/create': 0.25,
-  '/item/public_token/exchange': 0.25,
-  '/item/access_token/update_version': 0.25,
+  // Free endpoints (no charge)
+  '/item/get': 0.00,
+  '/item/remove': 0.00,
+  '/link_token/create': 0.00,
+  '/item/public_token/exchange': 0.00,
+  '/item/access_token/invalidate': 0.00,
+  '/item/access_token/update_version': 0.00,
+  '/institutions/get_by_id': 0.00,
+  '/accounts/get': 0.00,
+  
+  // Per-call billing
+  '/accounts/balance/get': 0.10, // $0.10 per call
+  
+  // Per-account/month billing (calculated separately)
+  '/transactions/sync': 0.00, // $0.30 per connected account/month (calculated in monthly billing)
+  '/transactions/get': 0.00, // $0.30 per connected account/month (calculated in monthly billing)
+  '/liabilities/get': 0.00, // $0.20 per connected account/month (calculated in monthly billing)
+  '/investments/transactions/get': 0.00, // $0.35 per connected account/month (calculated in monthly billing)
+  '/investments/holdings/get': 0.00, // $0.18 per connected account/month (calculated in monthly billing)
+};
+
+// Monthly billing rates per connected account
+const MONTHLY_BILLING_RATES = {
+  transactions: 0.30, // $0.30 per connected account/month
+  liabilities: 0.20,  // $0.20 per connected account/month
+  investments: 0.35,  // $0.35 per connected account/month (transactions)
+  investmentHoldings: 0.18, // $0.18 per connected account/month (holdings)
 };
 
 export async function GET() {
@@ -49,12 +68,12 @@ export async function GET() {
     ).length;
     const disconnectedItems = allItems.filter(item => item.status === 'disconnected').length;
 
-    // Calculate daily usage
+    // Calculate daily usage for per-call billing
     const dailyUsage = new Map<string, { calls: number; cost: number; endpoints: Set<string> }>();
     
     apiLogs.forEach(log => {
       const date = log.timestamp.toISOString().split('T')[0];
-      const cost = PLAID_COSTS[log.endpoint as keyof typeof PLAID_COSTS] || 0.25;
+      const cost = PLAID_COSTS[log.endpoint as keyof typeof PLAID_COSTS] || 0.00;
       
       if (!dailyUsage.has(date)) {
         dailyUsage.set(date, { calls: 0, cost: 0, endpoints: new Set() });
@@ -77,11 +96,11 @@ export async function GET() {
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 30); // Last 30 days
 
-    // Calculate endpoint breakdown
+    // Calculate endpoint breakdown for per-call billing
     const endpointStats = new Map<string, { calls: number; cost: number }>();
     
     apiLogs.forEach(log => {
-      const cost = PLAID_COSTS[log.endpoint as keyof typeof PLAID_COSTS] || 0.25;
+      const cost = PLAID_COSTS[log.endpoint as keyof typeof PLAID_COSTS] || 0.00;
       
       if (!endpointStats.has(log.endpoint)) {
         endpointStats.set(log.endpoint, { calls: 0, cost: 0 });
@@ -93,7 +112,7 @@ export async function GET() {
     });
 
     const totalCalls = apiLogs.length;
-    const totalCost = Array.from(endpointStats.values()).reduce((sum, stats) => sum + stats.cost, 0);
+    const perCallCost = Array.from(endpointStats.values()).reduce((sum, stats) => sum + stats.cost, 0);
 
     const endpointBreakdown = Array.from(endpointStats.entries())
       .map(([endpoint, stats]) => ({
@@ -104,13 +123,58 @@ export async function GET() {
       }))
       .sort((a, b) => b.calls - a.calls);
 
+    // Calculate monthly billing based on active accounts
+    const activeAccounts = allItems
+      .filter(item => item.status === 'active' || item.status === null || item.status === undefined)
+      .flatMap(item => item.accounts);
+
+    const monthlyBillingBreakdown = {
+      transactions: 0,
+      liabilities: 0,
+      investments: 0,
+      investmentHoldings: 0,
+    };
+
+    // Count accounts by type for monthly billing
+    activeAccounts.forEach(account => {
+      // All Plaid accounts get Transactions billing
+      monthlyBillingBreakdown.transactions += MONTHLY_BILLING_RATES.transactions;
+      
+      // Credit and loan accounts get Liabilities billing
+      if (account.type === 'credit' || account.type === 'loan') {
+        monthlyBillingBreakdown.liabilities += MONTHLY_BILLING_RATES.liabilities;
+      }
+      
+      // Investment accounts get both Investments and Investment Holdings billing
+      if (account.type === 'investment') {
+        monthlyBillingBreakdown.investments += MONTHLY_BILLING_RATES.investments;
+        monthlyBillingBreakdown.investmentHoldings += MONTHLY_BILLING_RATES.investmentHoldings;
+      }
+    });
+
+    const totalMonthlyCost = Object.values(monthlyBillingBreakdown).reduce((sum, cost) => sum + cost, 0);
+    const totalCost = perCallCost + totalMonthlyCost;
+
     // Get institution usage - include both active and disconnected items for transparency
     const itemsWithUsage = allItems.map(item => {
       // Count only non-archived accounts
       const activeAccountCount = item.accounts.length;
       const lastSync = item.updatedAt;
-      const callsToday = Math.floor(Math.random() * 5) + 1; // Placeholder - would need actual tracking
-      const costToday = callsToday * 0.25; // Placeholder
+      
+      // Calculate calls today for this institution
+      const today = new Date().toISOString().split('T')[0];
+      const callsToday = apiLogs.filter(log => 
+        log.institutionId === item.institutionId && 
+        log.timestamp.toISOString().split('T')[0] === today
+      ).length;
+      
+      // Calculate cost today (per-call only, monthly billing is separate)
+      const costToday = apiLogs
+        .filter(log => 
+          log.institutionId === item.institutionId && 
+          log.timestamp.toISOString().split('T')[0] === today
+        )
+        .reduce((sum, log) => sum + (PLAID_COSTS[log.endpoint as keyof typeof PLAID_COSTS] || 0.00), 0);
 
       // Determine display status
       let displayStatus = item.status || 'unknown';
@@ -125,6 +189,7 @@ export async function GET() {
         lastSync: lastSync.toISOString(),
         callsToday,
         costToday,
+        accountCount: activeAccountCount,
       };
     });
 
@@ -132,9 +197,17 @@ export async function GET() {
       summary: {
         totalCalls,
         totalCost,
+        perCallCost,
+        monthlyCost: totalMonthlyCost,
         activeItems,
         disconnectedItems,
+        activeAccountCount: activeAccounts.length,
         lastUpdated: new Date().toISOString(),
+      },
+      monthlyBilling: {
+        breakdown: monthlyBillingBreakdown,
+        total: totalMonthlyCost,
+        accountCount: activeAccounts.length,
       },
       dailyUsage: dailyUsageArray,
       endpointBreakdown,

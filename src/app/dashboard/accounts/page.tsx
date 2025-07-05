@@ -37,6 +37,7 @@ export default function AccountsPage() {
   const [refreshingInstitutions, setRefreshingInstitutions] = useState<Record<string, boolean>>({});
   const [disconnectingInstitutions, setDisconnectingInstitutions] = useState<Record<string, boolean>>({});
   const [institutionShowHidden, setInstitutionShowHidden] = useState<Record<string, boolean>>({});
+  const [institutionCollapsed, setInstitutionCollapsed] = useState<Record<string, boolean>>({});
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [refreshResults, setRefreshResults] = useState<any>(null);
   const { darkMode, setDarkMode } = useTheme();
@@ -285,6 +286,8 @@ export default function AccountsPage() {
         message: successMessage,
       });
 
+      // Invalidate and refetch to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       await refetch();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to refresh balances";
@@ -330,6 +333,8 @@ export default function AccountsPage() {
         message: successMessage,
       });
 
+      // Invalidate and refetch to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       await refetch();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to refresh institution";
@@ -410,6 +415,26 @@ export default function AccountsPage() {
     }));
   };
 
+  const toggleInstitutionCollapsed = (institution: string) => {
+    setInstitutionCollapsed((prev) => ({
+      ...prev,
+      [institution]: !prev[institution],
+    }));
+  };
+
+  const collapseAllInstitutions = () => {
+    const allInstitutions = Object.keys(accountsByInstitution);
+    const collapsedState = allInstitutions.reduce((acc, institution) => {
+      acc[institution] = true;
+      return acc;
+    }, {} as Record<string, boolean>);
+    setInstitutionCollapsed(collapsedState);
+  };
+
+  const expandAllInstitutions = () => {
+    setInstitutionCollapsed({});
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -430,6 +455,20 @@ export default function AccountsPage() {
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Account Management</h2>
           <div className="flex items-center space-x-2">
+            <button
+              onClick={collapseAllInstitutions}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <ChevronUpIcon className="h-4 w-4 mr-2" />
+              Collapse All
+            </button>
+            <button
+              onClick={expandAllInstitutions}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <ChevronDownIcon className="h-4 w-4 mr-2" />
+              Expand All
+            </button>
             <button
               onClick={refreshBalances}
               disabled={isRefreshing}
@@ -534,9 +573,22 @@ export default function AccountsPage() {
             const showHiddenForInstitution = institutionShowHidden[institution];
 
             return (
-              <div key={institution} className="space-y-4">
+              <div key={institution} className={`space-y-4 ${institutionCollapsed[institution] ? 'bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4' : ''}`}>
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-medium text-gray-900 dark:text-white">{institution}</h3>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => toggleInstitutionCollapsed(institution)}
+                      className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      title={institutionCollapsed[institution] ? "Expand institution" : "Collapse institution"}
+                    >
+                      {institutionCollapsed[institution] ? (
+                        <ChevronDownIcon className="h-4 w-4" />
+                      ) : (
+                        <ChevronUpIcon className="h-4 w-4" />
+                      )}
+                    </button>
+                    <h3 className="text-xl font-medium text-gray-900 dark:text-white">{institution}</h3>
+                  </div>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => refreshInstitution(institution)}
@@ -571,17 +623,16 @@ export default function AccountsPage() {
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {activeAccountsForInstitution.map((account) => (
-                    <AccountCard
-                      key={account.id}
-                      account={account}
-                      onRefresh={refetch}
-                      onArchive={() => archiveAccount(account.id)}
-                    />
-                  ))}
-                  {showHiddenForInstitution &&
-                    hiddenAccountsForInstitution.map((account) => (
+                {institutionCollapsed[institution] ? (
+                  <div className="text-sm text-gray-500 dark:text-gray-400 pl-10">
+                    {activeAccountsForInstitution.length} active account{activeAccountsForInstitution.length !== 1 ? 's' : ''}
+                    {hiddenAccountsForInstitution.length > 0 && (
+                      <span>, {hiddenAccountsForInstitution.length} hidden</span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {activeAccountsForInstitution.map((account) => (
                       <AccountCard
                         key={account.id}
                         account={account}
@@ -589,7 +640,17 @@ export default function AccountsPage() {
                         onArchive={() => archiveAccount(account.id)}
                       />
                     ))}
-                </div>
+                    {showHiddenForInstitution &&
+                      hiddenAccountsForInstitution.map((account) => (
+                        <AccountCard
+                          key={account.id}
+                          account={account}
+                          onRefresh={refetch}
+                          onArchive={() => archiveAccount(account.id)}
+                        />
+                      ))}
+                  </div>
+                )}
               </div>
             );
           })}
