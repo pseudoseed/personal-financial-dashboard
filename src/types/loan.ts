@@ -43,6 +43,7 @@ export interface LoanDetails {
   // Additional Loan Info
   loanType?: LoanType | null;
   loanTerm?: number | null;
+  loanTermSource?: DataSource;
   gracePeriod?: number | null;
   
   // Data Source Tracking
@@ -222,5 +223,7 @@ export interface Account {
     available?: number | null;
     limit?: number | null;
   };
+  originationPrincipalAmount?: number | null;
+  originationDate?: string | Date | null;
   // ... other account fields
 } 

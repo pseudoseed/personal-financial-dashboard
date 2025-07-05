@@ -612,12 +612,16 @@ interface LoanEditFormProps {
 function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFormProps) {
   const [formData, setFormData] = useState({
     currentInterestRate: loan.currentInterestRate || 0,
+    currentInterestRateSource: loan.currentInterestRateSource || 'manual',
     paymentsPerMonth: loan.paymentsPerMonth || 1,
+    paymentsPerMonthSource: loan.paymentsPerMonthSource || 'manual',
     paymentsRemaining: loan.paymentsRemaining || 0,
+    paymentsRemainingSource: loan.paymentsRemainingSource || 'manual',
     loanTerm: loan.loanTerm || 0,
-    originalAmount: loan.originalAmount || 0,
-    currentBalance: loan.currentBalance || 0,
-    startDate: loan.startDate ? new Date(loan.startDate).toISOString().split('T')[0] : '',
+    loanTermSource: loan.loanTermSource || 'manual',
+    originalAmount: loan.originalAmount || loan.account?.originationPrincipalAmount || 0,
+    currentBalance: loan.currentBalance || loan.account?.balance?.current || 0,
+    startDate: loan.startDate ? new Date(loan.startDate).toISOString().split('T')[0] : (loan.account?.originationDate ? new Date(loan.account.originationDate).toISOString().split('T')[0] : ''),
     paymentsMade: loan.paymentsMade || 0,
     balanceOverride: loan.balanceOverride || false,
     overrideDate: loan.overrideDate ? new Date(loan.overrideDate).toISOString().split('T')[0] : '',
@@ -652,6 +656,7 @@ function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFor
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Current Interest Rate (%)
+            <span className="ml-2 text-xs text-gray-500">[{formData.currentInterestRateSource}]</span>
           </label>
           <input
             type="number"
@@ -666,6 +671,7 @@ function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFor
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Payments per Month
+            <span className="ml-2 text-xs text-gray-500">[{formData.paymentsPerMonthSource}]</span>
           </label>
           <input
             type="number"
@@ -679,6 +685,7 @@ function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFor
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Remaining Payments
+            <span className="ml-2 text-xs text-gray-500">[{formData.paymentsRemainingSource}]</span>
           </label>
           <input
             type="number"
@@ -692,6 +699,7 @@ function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFor
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Loan Term (months)
+            <span className="ml-2 text-xs text-gray-500">[{formData.loanTermSource}]</span>
           </label>
           <input
             type="number"
