@@ -69,7 +69,7 @@ export const LoanForm: React.FC<LoanFormProps> = ({
   accounts = [],
   mode
 }) => {
-  const [formData, setFormData] = useState<CreateLoanRequest>({
+  const [formData, setFormData] = useState<Omit<CreateLoanRequest, 'startDate'> & { startDate?: string }>({
     accountId: '',
     currentInterestRate: undefined,
     introductoryRate: undefined,
@@ -111,10 +111,10 @@ export const LoanForm: React.FC<LoanFormProps> = ({
         loanType: initialData.loanType ?? undefined,
         loanTerm: initialData.loanTerm ?? undefined,
         gracePeriod: initialData.gracePeriod ?? undefined,
-        originalAmount: initialData.originalAmount ?? undefined,
-        currentBalance: initialData.currentBalance ?? undefined,
+        originalAmount: initialData.originalAmount != null ? initialData.originalAmount / 100 : undefined,
+        currentBalance: initialData.currentBalance != null ? initialData.currentBalance / 100 : undefined,
         startDate: initialData.startDate ?? undefined,
-        paymentsMade: initialData.paymentsMade ?? undefined,
+        paymentsMade: initialData.paymentsMade != null ? initialData.paymentsMade / 100 : undefined,
       });
     } else {
       setFormData({
@@ -203,22 +203,27 @@ export const LoanForm: React.FC<LoanFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!validateForm()) {
       return;
     }
+
     setIsSubmitting(true);
+    setErrors({});
+
     try {
-      const submitData = mode === 'edit' && initialData?.id 
-        ? { ...formData, startDate: formData.startDate ? new Date(formData.startDate) : undefined, preserveManualEntries: true } as UpdateLoanRequest
-        : {
-            ...formData,
-            currentBalance: formData.currentBalance ?? formData.originalAmount,
-            startDate: formData.startDate ? new Date(formData.startDate) : undefined,
-          } as CreateLoanRequest;
+      const submitData = {
+        ...formData,
+        originalAmount: formData.originalAmount != null ? Math.round(formData.originalAmount * 100) : undefined,
+        currentBalance: formData.currentBalance != null ? Math.round(formData.currentBalance * 100) : undefined,
+        paymentsMade: formData.paymentsMade != null ? Math.round(formData.paymentsMade * 100) : undefined,
+        startDate: formData.startDate ? new Date(formData.startDate) : undefined,
+      };
+      
       await onSubmit(submitData);
       onClose();
     } catch (error) {
-      console.error('Error submitting loan:', error);
+      console.error('Error submitting loan form:', error);
       setErrors({ submit: 'Failed to save loan. Please try again.' });
     } finally {
       setIsSubmitting(false);

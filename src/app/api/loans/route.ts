@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { loanService } from '@/lib/loanService';
 import { ensureDefaultUser } from '@/lib/startupValidation';
 import { maskSensitiveValue } from '@/lib/ui';
-import { CreateLoanRequest, UpdateLoanRequest } from '@/types/loan';
+import { CreateLoanRequest, UpdateLoanRequest, DataSource } from '@/types/loan';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,7 +95,17 @@ export async function GET(request: NextRequest) {
               limit: null,
               date: new Date()
             }
-          }
+          },
+          // Ensure *Source fields are DataSource type and convert cents to dollars
+          currentInterestRateSource: loan.currentInterestRateSource as DataSource,
+          introductoryRateSource: loan.introductoryRateSource as DataSource,
+          introductoryRateExpirySource: loan.introductoryRateExpirySource as DataSource,
+          paymentsPerMonthSource: loan.paymentsPerMonthSource as DataSource,
+          paymentsRemainingSource: loan.paymentsRemainingSource as DataSource,
+          // Convert cents to dollars for display
+          originalAmount: loan.originalAmount != null ? loan.originalAmount / 100 : null,
+          currentBalance: loan.currentBalance != null ? loan.currentBalance / 100 : null,
+          paymentsMade: loan.paymentsMade != null ? loan.paymentsMade / 100 : null,
         };
 
         // Mask sensitive data if requested
@@ -180,10 +190,11 @@ export async function POST(request: NextRequest) {
         loanType: body.loanType,
         loanTerm: body.loanTerm,
         gracePeriod: body.gracePeriod,
-        originalAmount: body.originalAmount,
-        currentBalance: body.currentBalance ?? body.originalAmount,
+        // Convert dollars to cents for storage
+        originalAmount: body.originalAmount != null ? Math.round(body.originalAmount * 100) : null,
+        currentBalance: body.currentBalance != null ? Math.round(body.currentBalance * 100) : (body.originalAmount != null ? Math.round(body.originalAmount * 100) : null),
         startDate: body.startDate,
-        paymentsMade: body.paymentsMade,
+        paymentsMade: body.paymentsMade != null ? Math.round(body.paymentsMade * 100) : null,
       },
       include: {
         account: {
@@ -197,7 +208,15 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ data: loan }, { status: 201 });
+    // Convert cents to dollars for response
+    const responseLoan = {
+      ...loan,
+      originalAmount: loan.originalAmount != null ? loan.originalAmount / 100 : null,
+      currentBalance: loan.currentBalance != null ? loan.currentBalance / 100 : null,
+      paymentsMade: loan.paymentsMade != null ? loan.paymentsMade / 100 : null,
+    };
+
+    return NextResponse.json({ data: responseLoan }, { status: 201 });
   } catch (error) {
     console.error('Error creating loan:', error);
     return NextResponse.json(

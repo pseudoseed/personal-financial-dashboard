@@ -356,10 +356,10 @@ model LoanDetails {
   id                           String               @id @default(cuid())
   accountId                    String               @unique
   userId                       String               @default("default")
-  originalAmount               Float?
-  currentBalance               Float?
+  originalAmount               Int?
+  currentBalance               Int?
   startDate                    DateTime?
-  paymentsMade                 Float?
+  paymentsMade                 Int?
   currentInterestRate          Float?
   currentInterestRateSource    String               @default("plaid")
   introductoryRate             Float?

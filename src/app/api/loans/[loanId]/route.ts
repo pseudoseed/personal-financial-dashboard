@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { loanService } from '@/lib/loanService';
 import { ensureDefaultUser } from '@/lib/startupValidation';
+import type { DataSource, RateType, LoanType } from '@/types/loan';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +75,20 @@ export async function GET(
           limit: null,
           date: new Date()
         }
-      }
+      },
+      // Ensure *Source fields are DataSource type and convert cents to dollars
+      currentInterestRateSource: loan.currentInterestRateSource as DataSource,
+      introductoryRateSource: loan.introductoryRateSource as DataSource,
+      introductoryRateExpirySource: loan.introductoryRateExpirySource as DataSource,
+      paymentsPerMonthSource: loan.paymentsPerMonthSource as DataSource,
+      paymentsRemainingSource: loan.paymentsRemainingSource as DataSource,
+      loanTermSource: (loan as any).loanTermSource as DataSource,
+      rateType: loan.rateType as RateType,
+      loanType: loan.loanType as LoanType,
+      // Convert cents to dollars for display
+      originalAmount: loan.originalAmount != null ? loan.originalAmount / 100 : null,
+      currentBalance: loan.currentBalance != null ? loan.currentBalance / 100 : null,
+      paymentsMade: loan.paymentsMade != null ? loan.paymentsMade / 100 : null,
     };
 
     // Mask sensitive data if requested
@@ -133,6 +147,7 @@ export async function PUT(
 
     const { loanId } = await params;
     
+    // Convert dollar values to cents for storage
     const loan = await loanService.updateLoan(
       loanId,
       {
@@ -151,16 +166,30 @@ export async function PUT(
         loanType,
         loanTerm,
         gracePeriod,
-        originalAmount,
-        currentBalance,
+        originalAmount: originalAmount != null ? Math.round(originalAmount * 100) : undefined,
+        currentBalance: currentBalance != null ? Math.round(currentBalance * 100) : undefined,
         startDate,
-        paymentsMade
+        paymentsMade: paymentsMade != null ? Math.round(paymentsMade * 100) : undefined,
       },
       preserveManualEntries
     );
 
+    // Convert cents to dollars for response, and ensure *Source fields are DataSource
+    const responseLoan = {
+      ...loan,
+      originalAmount: loan.originalAmount != null ? loan.originalAmount / 100 : null,
+      currentBalance: loan.currentBalance != null ? loan.currentBalance / 100 : null,
+      paymentsMade: loan.paymentsMade != null ? loan.paymentsMade / 100 : null,
+      currentInterestRateSource: loan.currentInterestRateSource as DataSource,
+      introductoryRateSource: loan.introductoryRateSource as DataSource,
+      introductoryRateExpirySource: loan.introductoryRateExpirySource as DataSource,
+      paymentsPerMonthSource: loan.paymentsPerMonthSource as DataSource,
+      paymentsRemainingSource: loan.paymentsRemainingSource as DataSource,
+      loanTermSource: loan.loanTermSource as DataSource,
+    };
+
     return NextResponse.json({
-      data: loan,
+      data: responseLoan,
       message: 'Loan updated successfully'
     });
 
@@ -205,7 +234,6 @@ export async function PATCH(
       include: {
         account: {
           include: {
-            balance: true,
             balances: {
               orderBy: { date: 'desc' },
               take: 1,

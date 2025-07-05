@@ -357,10 +357,10 @@ export function LoanDetailsDialog({
     }
   };
 
-  // Calculate sum of linked payments
+  // Calculate sum of linked payments (convert from cents to dollars for calculation)
   const sumLinkedPayments = useMemo(() => linkedTransactions.reduce((sum, t) => sum + (t.amount || 0), 0), [linkedTransactions]);
-  const expectedBalance = loan.originalAmount != null ? loan.originalAmount - sumLinkedPayments : null;
-  const hasDiscrepancy = loan.currentBalance != null && expectedBalance != null && Math.abs(loan.currentBalance - expectedBalance) > 1 && !loan.balanceOverride;
+  const expectedBalance = loan.originalAmount != null ? (loan.originalAmount / 100) - sumLinkedPayments : null;
+  const hasDiscrepancy = loan.currentBalance != null && expectedBalance != null && Math.abs((loan.currentBalance / 100) - expectedBalance) > 0.01 && !loan.balanceOverride;
 
   const handleAcceptOverride = async () => {
     await handleSaveLoan({ balanceOverride: true, overrideDate: new Date().toISOString() });
@@ -431,13 +431,13 @@ export function LoanDetailsDialog({
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 dark:text-gray-400 font-normal">Original Amount:</span>
                 <span className="text-gray-900 dark:text-white font-medium">
-                  {loan.originalAmount ?? 'N/A'}
+                  {loan.originalAmount != null ? formatBalance(loan.originalAmount / 100) : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 dark:text-gray-400 font-normal">Current Balance:</span>
                 <span className="text-gray-900 dark:text-white font-medium">
-                  {loan.currentBalance ?? 'N/A'}
+                  {loan.currentBalance != null ? formatBalance(loan.currentBalance / 100) : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -449,7 +449,7 @@ export function LoanDetailsDialog({
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 dark:text-gray-400 font-normal">Payments Made:</span>
                 <span className="text-gray-900 dark:text-white font-medium">
-                  {loan.paymentsMade ?? 'N/A'}
+                  {loan.paymentsMade != null ? formatBalance(loan.paymentsMade / 100) : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -610,6 +610,7 @@ interface LoanEditFormProps {
 }
 
 function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFormProps) {
+  // Convert cents to dollars for display
   const [formData, setFormData] = useState({
     currentInterestRate: loan.currentInterestRate || 0,
     currentInterestRateSource: loan.currentInterestRateSource || 'manual',
@@ -619,10 +620,11 @@ function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFor
     paymentsRemainingSource: loan.paymentsRemainingSource || 'manual',
     loanTerm: loan.loanTerm || 0,
     loanTermSource: loan.loanTermSource || 'manual',
-    originalAmount: loan.originalAmount || loan.account?.originationPrincipalAmount || 0,
-    currentBalance: loan.currentBalance || loan.account?.balance?.current || 0,
+    // Convert cents to dollars for display
+    originalAmount: loan.originalAmount != null ? loan.originalAmount / 100 : loan.account?.originationPrincipalAmount != null ? loan.account.originationPrincipalAmount / 100 : 0,
+    currentBalance: loan.currentBalance != null ? loan.currentBalance / 100 : loan.account?.balance?.current != null ? loan.account.balance.current / 100 : 0,
     startDate: loan.startDate ? new Date(loan.startDate).toISOString().split('T')[0] : (loan.account?.originationDate ? new Date(loan.account.originationDate).toISOString().split('T')[0] : ''),
-    paymentsMade: loan.paymentsMade || 0,
+    paymentsMade: loan.paymentsMade != null ? loan.paymentsMade / 100 : 0,
     balanceOverride: loan.balanceOverride || false,
     overrideDate: loan.overrideDate ? new Date(loan.overrideDate).toISOString().split('T')[0] : '',
   });
@@ -632,7 +634,13 @@ function LoanEditForm({ loan, onSave, onCancel, showSensitiveData }: LoanEditFor
     e.preventDefault();
     setIsSaving(true);
     try {
-      await onSave(formData);
+      // Convert dollars to cents before saving
+      await onSave({
+        ...formData,
+        originalAmount: Math.round((formData.originalAmount || 0) * 100),
+        currentBalance: Math.round((formData.currentBalance || 0) * 100),
+        paymentsMade: Math.round((formData.paymentsMade || 0) * 100),
+      });
     } finally {
       setIsSaving(false);
     }
