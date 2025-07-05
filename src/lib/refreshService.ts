@@ -564,6 +564,14 @@ async function refreshInstitutionAccounts(accounts: any[], results: any) {
             limit: plaidAccount.balances.limit || null,
           },
         });
+        
+        // Update lastSyncTime to reflect when the account was last refreshed
+        await prisma.account.update({
+          where: { id: account.id },
+          data: {
+            lastSyncTime: new Date(),
+          },
+        });
         // Update liability data if available
         if (liabilityData && (account.type === "credit" || account.type === "loan")) {
           try {

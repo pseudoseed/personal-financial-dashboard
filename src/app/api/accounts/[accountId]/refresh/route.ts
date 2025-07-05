@@ -261,6 +261,14 @@ export async function POST(
           limit: balance.limit,
         },
       });
+      
+      // Update lastSyncTime to reflect when the account was last refreshed
+      await prisma.account.update({
+        where: { id: account.id },
+        data: {
+          lastSyncTime: new Date(),
+        },
+      });
 
       const change = newBalance.current - previousBalance;
 
@@ -314,6 +322,14 @@ export async function POST(
             current: plaidAccount.balances.current || 0,
             available: plaidAccount.balances.available || null,
             limit: plaidAccount.balances.limit || null,
+          },
+        });
+        
+        // Update lastSyncTime to reflect when the account was last refreshed
+        await prisma.account.update({
+          where: { id: account.id },
+          data: {
+            lastSyncTime: new Date(),
           },
         });
 

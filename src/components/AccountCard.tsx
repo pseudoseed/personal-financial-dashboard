@@ -127,6 +127,9 @@ export function AccountCard({
       if (onRefresh) {
         await onRefresh();
       }
+      
+      // Also invalidate the accounts query to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to refresh account";
       addNotification({
